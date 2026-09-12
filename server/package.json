@@ -1,0 +1,26 @@
+{
+  "name": "book-qa-bot",
+  "version": "1.0.0",
+  "description": "Smart Q&A chatbot for book/publisher support - admin adds Q&A, students ask and get matched answers",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "seed": "node utils/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "fuse.js": "^7.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.5.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
