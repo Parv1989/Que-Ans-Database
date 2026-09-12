@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Publisher Bot — Admin</title>
+<link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+
+  <!-- LOGIN SCREEN -->
+  <section id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <div class="login-mark">&#128214;</div>
+      <h1>Publisher Bot</h1>
+      <p class="login-sub">Sign in to manage what students see.</p>
+      <form id="loginForm">
+        <label>Username
+          <input type="text" id="loginUsername" autocomplete="username" required />
+        </label>
+        <label>Password
+          <input type="password" id="loginPassword" autocomplete="current-password" required />
+        </label>
+        <button type="submit">Sign in</button>
+        <p id="loginError" class="error-text"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="dashboard hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">&#128214;</span>
+        <span class="brand-name">Publisher Bot</span>
+      </div>
+      <nav>
+        <button class="nav-btn active" data-tab="qa">Questions &amp; Answers</button>
+        <button class="nav-btn" data-tab="synonyms">Synonyms</button>
+        <button class="nav-btn" data-tab="embed">Get Widget Code</button>
+      </nav>
+      <button id="logoutBtn" class="logout-btn">Log out</button>
+    </aside>
+
+    <main class="main">
+
+      <!-- QA TAB -->
+      <section id="tab-qa" class="tab-panel">
+        <header class="panel-header">
+          <div>
+            <h2>Questions &amp; Answers</h2>
+            <p class="muted">Every entry here is something the bot can answer.</p>
+          </div>
+          <button id="newQABtn" class="primary-btn">+ Add question</button>
+        </header>
+
+        <input id="qaSearch" class="search-input" placeholder="Search saved questions…" />
+
+        <div id="qaList" class="card-list"></div>
+      </section>
+
+      <!-- SYNONYMS TAB -->
+      <section id="tab-synonyms" class="tab-panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2>Synonyms</h2>
+            <p class="muted">Teach the bot that different words mean the same thing — e.g. "price", "cost", "kitna paisa".</p>
+          </div>
+          <button id="newSynBtn" class="primary-btn">+ Add group</button>
+        </header>
+        <div id="synList" class="card-list"></div>
+      </section>
+
+      <!-- EMBED TAB -->
+      <section id="tab-embed" class="tab-panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2>Add the bot to your website</h2>
+            <p class="muted">Paste this one line before the closing &lt;/body&gt; tag of any page.</p>
+          </div>
+        </header>
+        <pre id="embedSnippet" class="code-block"></pre>
+        <button id="copyEmbedBtn" class="primary-btn">Copy code</button>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- QA EDIT MODAL -->
+  <div id="qaModal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3 id="qaModalTitle">Add a question</h3>
+      <form id="qaForm">
+        <input type="hidden" id="qaId" />
+        <label>Question (what a student would type)
+          <textarea id="qaQuestion" rows="2" required></textarea>
+        </label>
+        <label>Answer
+          <textarea id="qaAnswer" rows="4" required></textarea>
+        </label>
+        <label>Alternate phrasings (comma separated, optional)
+          <input type="text" id="qaKeywords" placeholder="e.g. refund, money back, return payment" />
+        </label>
+        <label>Category (optional)
+          <input type="text" id="qaCategory" placeholder="e.g. purchase, support, content" />
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" id="qaCancelBtn">Cancel</button>
+          <button type="submit" class="primary-btn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SYNONYM EDIT MODAL -->
+  <div id="synModal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3 id="synModalTitle">Add synonym group</h3>
+      <form id="synForm">
+        <input type="hidden" id="synId" />
+        <label>Words that all mean the same thing (comma separated)
+          <input type="text" id="synWords" placeholder="e.g. price, cost, rate, kitna paisa" required />
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" id="synCancelBtn">Cancel</button>
+          <button type="submit" class="primary-btn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
