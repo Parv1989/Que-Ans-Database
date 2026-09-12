@@ -42,10 +42,14 @@ router.put('/:id', async (req, res) => {
 
 // DELETE /api/admin/synonyms/:id
 router.delete('/:id', async (req, res) => {
-  const doc = await Synonym.findByIdAndDelete(req.params.id);
-  if (!doc) return res.status(404).json({ error: 'Group not found' });
-  invalidateSynonymCache();
-  res.json({ deleted: true });
+  try {
+    const doc = await Synonym.findByIdAndDelete(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Group not found' });
+    invalidateSynonymCache();
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not delete this group: ' + err.message });
+  }
 });
 
 module.exports = router;

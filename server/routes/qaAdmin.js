@@ -120,9 +120,13 @@ router.put('/:id', async (req, res) => {
 
 // DELETE /api/admin/qa/:id
 router.delete('/:id', async (req, res) => {
-  const doc = await QA.findByIdAndDelete(req.params.id);
-  if (!doc) return res.status(404).json({ error: 'Entry not found' });
-  res.json({ deleted: true });
+  try {
+    const doc = await QA.findByIdAndDelete(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'Entry not found' });
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not delete this entry: ' + err.message });
+  }
 });
 
 module.exports = router;

@@ -122,8 +122,17 @@ function renderQAList(items) {
     btn.addEventListener('click', async (e) => {
       const id = e.target.closest('.item-card').dataset.id;
       if (!confirm('Delete this question?')) return;
-      await authedFetch(`${API_BASE}/admin/qa/${id}`, { method: 'DELETE' });
-      loadQAList(document.getElementById('qaSearch').value);
+      try {
+        const res = await authedFetch(`${API_BASE}/admin/qa/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'Could not delete this question');
+          return;
+        }
+        loadQAList(document.getElementById('qaSearch').value);
+      } catch (err) {
+        alert('Delete failed: ' + err.message);
+      }
     })
   );
 }
@@ -275,8 +284,17 @@ function renderSynList(items) {
     btn.addEventListener('click', async (e) => {
       const id = e.target.closest('.item-card').dataset.id;
       if (!confirm('Delete this synonym group?')) return;
-      await authedFetch(`${API_BASE}/admin/synonyms/${id}`, { method: 'DELETE' });
-      loadSynList();
+      try {
+        const res = await authedFetch(`${API_BASE}/admin/synonyms/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'Could not delete this group');
+          return;
+        }
+        loadSynList();
+      } catch (err) {
+        alert('Delete failed: ' + err.message);
+      }
     })
   );
 }
