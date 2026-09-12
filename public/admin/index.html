@@ -51,7 +51,10 @@
             <h2>Questions &amp; Answers</h2>
             <p class="muted">Every entry here is something the bot can answer.</p>
           </div>
-          <button id="newQABtn" class="primary-btn">+ Add question</button>
+          <div class="header-actions">
+            <button id="bulkUploadBtn" class="ghost-btn">Bulk upload CSV</button>
+            <button id="newQABtn" class="primary-btn">+ Add question</button>
+          </div>
         </header>
 
         <input id="qaSearch" class="search-input" placeholder="Search saved questions…" />
@@ -107,6 +110,28 @@
         <div class="modal-actions">
           <button type="button" class="ghost-btn" id="qaCancelBtn">Cancel</button>
           <button type="submit" class="primary-btn">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- BULK CSV UPLOAD MODAL -->
+  <div id="bulkModal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3>Bulk upload questions</h3>
+      <p class="muted">
+        CSV columns needed: <strong>question, answer, keywords, category</strong>.
+        Multiple keywords go in one cell separated by a semicolon ( ; ), e.g. <code>refund;money back</code>.
+      </p>
+      <button id="downloadTemplateBtn" class="ghost-btn" style="margin-bottom: 1rem;">Download CSV template</button>
+      <form id="bulkForm">
+        <label>Choose CSV file
+          <input type="file" id="bulkFileInput" accept=".csv" required />
+        </label>
+        <div id="bulkResult" class="bulk-result"></div>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" id="bulkCancelBtn">Close</button>
+          <button type="submit" class="primary-btn" id="bulkSubmitBtn">Upload</button>
         </div>
       </form>
     </div>

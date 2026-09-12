@@ -174,6 +174,67 @@ document.getElementById('qaSearch').addEventListener('input', (e) => {
   searchDebounce = setTimeout(() => loadQAList(e.target.value), 250);
 });
 
+// ---------- Bulk CSV upload ----------
+const bulkModal = document.getElementById('bulkModal');
+const bulkForm = document.getElementById('bulkForm');
+const bulkResult = document.getElementById('bulkResult');
+
+document.getElementById('bulkUploadBtn').addEventListener('click', () => {
+  bulkResult.innerHTML = '';
+  bulkForm.reset();
+  bulkModal.classList.remove('hidden');
+});
+document.getElementById('bulkCancelBtn').addEventListener('click', () => bulkModal.classList.add('hidden'));
+
+document.getElementById('downloadTemplateBtn').addEventListener('click', async () => {
+  const res = await authedFetch(`${API_BASE}/admin/qa/sample-csv`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'qa-template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+bulkForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fileInput = document.getElementById('bulkFileInput');
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  const submitBtn = document.getElementById('bulkSubmitBtn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Uploading…';
+  bulkResult.innerHTML = '';
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const res = await authedFetch(`${API_BASE}/admin/qa/bulk-upload`, {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+    let html = `<p class="success-line">${data.insertedCount} question(s) added successfully.</p>`;
+    if (data.skippedCount > 0) {
+      html += `<p class="skip-line">${data.skippedCount} row(s) skipped:</p><ul>`;
+      html += data.skipped.map((s) => `<li>Row ${s.row}: ${escapeHtml(s.reason)}</li>`).join('');
+      html += '</ul>';
+    }
+    bulkResult.innerHTML = html;
+    loadQAList(document.getElementById('qaSearch').value);
+  } catch (err) {
+    bulkResult.innerHTML = `<p class="skip-line">${escapeHtml(err.message)}</p>`;
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Upload';
+  }
+});
+
 // ---------- Synonyms ----------
 const synList = document.getElementById('synList');
 const synModal = document.getElementById('synModal');

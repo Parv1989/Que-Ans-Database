@@ -159,6 +159,20 @@ nav { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; }
 
 .search-input { width: 100%; max-width: 420px; margin-bottom: 1.25rem; }
 
+.header-actions { display: flex; gap: 0.6rem; flex-shrink: 0; }
+
+.bulk-result { font-size: 0.85rem; }
+.bulk-result .success-line { color: #2f6b3a; margin-bottom: 0.4rem; }
+.bulk-result .skip-line { color: var(--danger); }
+.bulk-result ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+
+code {
+  background: var(--paper-dim);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
 /* ---------- Cards ---------- */
 .card-list { display: flex; flex-direction: column; gap: 0.75rem; }
 
