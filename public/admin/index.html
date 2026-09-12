@@ -97,9 +97,11 @@
         <input type="hidden" id="qaId" />
         <label>Question (what a student would type)
           <textarea id="qaQuestion" rows="2" required></textarea>
+          <span class="field-hint">Superscript/subscript ke liye: <code>7^2^</code> → 7², <code>H~2~O</code> → H₂O</span>
         </label>
         <label>Answer
           <textarea id="qaAnswer" rows="4" required></textarea>
+          <span class="field-hint">Yahan bhi <code>^..^</code> (superscript) aur <code>~..~</code> (subscript) kaam karta hai</span>
         </label>
         <label>Alternate phrasings (comma separated, optional)
           <input type="text" id="qaKeywords" placeholder="e.g. refund, money back, return payment" />

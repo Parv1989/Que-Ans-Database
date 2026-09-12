@@ -99,8 +99,8 @@ function renderQAList(items) {
       (item) => `
     <div class="item-card" data-id="${item._id}">
       <div>
-        <div class="q">${escapeHtml(item.question)}</div>
-        <div class="a">${escapeHtml(item.answer)}</div>
+        <div class="q">${formatText(item.question)}</div>
+        <div class="a">${formatText(item.answer)}</div>
         ${item.keywords.length ? `<div class="tags">${item.keywords.map((k) => `<span class="tag">${escapeHtml(k)}</span>`).join('')}</div>` : ''}
       </div>
       <div class="item-actions">
@@ -333,4 +333,15 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+// Converts safe ^..^ and ~..~ markers into real <sup>/<sub> tags, after
+// escaping everything else — so admin/student text can never inject real
+// HTML, only these two whitelisted formatting patterns.
+// e.g. "7^2^" -> "7<sup>2</sup>" and "H~2~O" -> "H<sub>2</sub>O"
+function formatText(raw) {
+  const escaped = escapeHtml(raw || '');
+  return escaped
+    .replace(/\^([^\^]+)\^/g, '<sup>$1</sup>')
+    .replace(/~([^~]+)~/g, '<sub>$1</sub>');
 }

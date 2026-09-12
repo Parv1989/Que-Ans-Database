@@ -3,11 +3,23 @@ const messagesEl = document.getElementById('messages');
 const form = document.getElementById('chatForm');
 const input = document.getElementById('chatInput');
 
+// Escapes raw HTML characters so user/admin text can never inject real tags,
+// then converts the safe ^..^ and ~..~ markers into real <sup>/<sub> tags.
+// e.g. "7^2^" -> "7<sup>2</sup>" and "H~2~O" -> "H<sub>2</sub>O"
+function formatText(raw) {
+  const div = document.createElement('div');
+  div.textContent = raw || '';
+  const escaped = div.innerHTML;
+  return escaped
+    .replace(/\^([^\^]+)\^/g, '<sup>$1</sup>')
+    .replace(/~([^~]+)~/g, '<sub>$1</sub>');
+}
+
 function addMessage(text, sender) {
   const div = document.createElement('div');
   div.className = `msg ${sender}`;
   const p = document.createElement('p');
-  p.textContent = text;
+  p.innerHTML = formatText(text);
   div.appendChild(p);
   messagesEl.appendChild(div);
   scrollToBottom();
@@ -20,7 +32,7 @@ function addSuggestions(suggestions) {
   suggestions.forEach((s) => {
     const btn = document.createElement('button');
     btn.className = 'suggestion-btn';
-    btn.textContent = s.question;
+    btn.innerHTML = formatText(s.question);
     btn.addEventListener('click', () => sendQuestion(s.question));
     wrap.appendChild(btn);
   });
