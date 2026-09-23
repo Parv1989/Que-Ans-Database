@@ -42,6 +42,37 @@ html, body {
 .chat-header-title { font-family: 'Baloo 2', sans-serif; font-weight: 700; font-size: 1.02rem; }
 .chat-header-sub { font-size: 0.73rem; color: #d3d0e8; margin-top: 0.1rem; }
 
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.voice-select {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 12px;
+  padding: 0.22rem 0.45rem;
+  font-size: 0.73rem;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  max-width: 125px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.voice-select:hover, .voice-select:focus {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+.voice-select option {
+  background: #3a3552;
+  color: #ffffff;
+}
+
 .mute-btn {
   background: rgba(255,255,255,0.14);
   border: none;

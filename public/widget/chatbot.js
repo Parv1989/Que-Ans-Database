@@ -5,6 +5,7 @@ const input = document.getElementById('chatInput');
 const robotEl = document.getElementById('robot');
 const muteBtn = document.getElementById('muteBtn');
 const muteIcon = document.getElementById('muteIcon');
+const voiceSelect = document.getElementById('voiceSelect');
 
 let voiceEnabled = true;
 
@@ -19,7 +20,7 @@ function formatText(raw) {
     .replace(/~([^~]+)~/g, '<sub>$1</sub>');
 }
 
-// Turns raw text into plain, speakable words for the Indian voice-over engine
+// Turns raw text into plain, speakable words for the Google voice engine
 function toSpeechText(raw) {
   return (raw || '')
     .replace(/<[^>]*>/g, '') // strip any html tags
@@ -33,46 +34,99 @@ function toSpeechText(raw) {
     .trim();
 }
 
-// ---------- Indian Accent Voice Engine ----------
+// ---------- Google Natural Voice Selection Engine ----------
 let cachedVoice = null;
+let selectedVoiceIndex = -1;
 
-function pickVoice() {
-  if (cachedVoice) return cachedVoice;
-  const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
-  if (voices.length === 0) return null;
+function populateVoiceList() {
+  if (!window.speechSynthesis) return;
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return;
 
-  // Score available voices to prioritize natural Indian accent voices (hi-IN & en-IN)
-  const scored = voices.map((v) => {
+  // Score available voices to strictly prioritize Google natural human voices
+  const scored = voices.map((v, index) => {
     let score = 0;
     const lang = (v.lang || '').toLowerCase().replace('_', '-');
     const name = (v.name || '').toLowerCase();
 
-    // Priority to Indian languages
-    if (lang === 'hi-in') score += 100;
-    else if (lang.startsWith('hi')) score += 80;
-    else if (lang === 'en-in') score += 90;
-    else if (lang.startsWith('en')) score += 30;
+    const isGoogle = name.includes('google');
+    const isNatural = name.includes('natural') || name.includes('online') || name.includes('neural') || name.includes('premium');
+    const isRoboticLocal = name.includes('desktop') || name.includes('espeak') || name.includes('david') || name.includes('mark') || name.includes('zira') || name.includes('hemant');
 
-    // Preference for high quality Indian system voices
-    if (name.includes('hindi') || name.includes('हिन्दी')) score += 50;
-    if (name.includes('india') || name.includes('indian')) score += 40;
-    if (name.includes('hemant') || name.includes('swara') || name.includes('neerja') || name.includes('ravi') || name.includes('kalpana') || name.includes('zira')) score += 30;
-    if (name.includes('google')) score += 15;
-    if (name.includes('natural') || name.includes('online')) score += 10;
+    // Huge boost for Google Neural / Natural web voices
+    if (isGoogle) score += 600;
+    if (isNatural) score += 300;
+    if (isRoboticLocal) score -= 400; // Heavily penalize mechanical local desktop voices
 
-    return { voice: v, score };
+    // Language scores (Hindi & Indian English first, then English)
+    if (lang === 'hi-in' || lang.startsWith('hi')) {
+      score += 250;
+    } else if (lang === 'en-in') {
+      score += 200;
+    } else if (lang.startsWith('en')) {
+      score += 100;
+    }
+
+    // Google specific language combos
+    if (isGoogle && (name.includes('hindi') || name.includes('हिन्दी') || lang.startsWith('hi'))) {
+      score += 500; // Highest priority: Google Hindi
+    }
+    if (isGoogle && (name.includes('india') || name.includes('indian') || lang === 'en-in')) {
+      score += 450; // Second highest priority: Google Indian English
+    }
+    if (isGoogle && name.includes('uk english female')) {
+      score += 350; // High priority: Google UK Female
+    }
+
+    return { voice: v, index, score };
   });
 
   scored.sort((a, b) => b.score - a.score);
-  cachedVoice = scored[0] ? scored[0].voice : voices[0];
+
+  if (voiceSelect) {
+    voiceSelect.innerHTML = '';
+    scored.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.index;
+      let label = item.voice.name;
+      if (item.voice.name.toLowerCase().includes('google')) {
+        label = `✨ ${label}`;
+      }
+      option.textContent = label;
+      voiceSelect.appendChild(option);
+    });
+
+    if (scored.length > 0) {
+      if (selectedVoiceIndex === -1) {
+        selectedVoiceIndex = scored[0].index;
+      }
+      voiceSelect.value = selectedVoiceIndex;
+    }
+  }
+
+  cachedVoice = voices[selectedVoiceIndex] || (scored[0] ? scored[0].voice : voices[0]);
+}
+
+if (voiceSelect) {
+  voiceSelect.addEventListener('change', (e) => {
+    selectedVoiceIndex = parseInt(e.target.value, 10);
+    const voices = window.speechSynthesis.getVoices();
+    cachedVoice = voices[selectedVoiceIndex] || null;
+  });
+}
+
+function pickVoice() {
+  if (cachedVoice) return cachedVoice;
+  populateVoiceList();
   return cachedVoice;
 }
 
 if (window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = () => {
-    cachedVoice = null;
-    pickVoice();
+    populateVoiceList();
   };
+  // Initial attempt in case voices are pre-loaded
+  populateVoiceList();
 }
 
 // ---------- Real-Time Lip-Sync & Robot Visual States ----------
@@ -154,13 +208,10 @@ function speak(rawText) {
     utterance.lang = 'hi-IN';
   }
 
-  // Simple, natural, human conversational pitch & speed
-  utterance.rate = 0.98;
+  // Pure natural human conversational voice settings
+  utterance.rate = 0.94;
   utterance.pitch = 1.0;
   utterance.volume = 1.0;
-
-  let words = speechText.split(/\s+/);
-  let wordIndex = 0;
 
   // Real-time Event Driven Lip-Sync via SpeechSynthesisUtterance boundary events
   utterance.onboundary = (event) => {
@@ -180,14 +231,12 @@ function speak(rawText) {
 
   utterance.onstart = () => {
     setTalking(true);
-    // Fallback sync loop for browsers with coarse boundary events
     let startTime = performance.now();
     function syncLoop(now) {
       if (!window.speechSynthesis.speaking) {
         setTalking(false);
         return;
       }
-      // Alternate natural lip movements every ~140ms if onboundary is quiet
       let elapsed = now - startTime;
       let cycle = Math.floor(elapsed / 140) % 4;
       let cycleVisemes = ['A_O', 'E_I', 'CONSONANT', 'U'];
