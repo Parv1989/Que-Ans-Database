@@ -18,30 +18,95 @@
       </button>
     </header>
 
-    <!-- Animated robot mascot -->
+    <!-- Modern Cute AI Robot Mascot -->
     <div class="robot-stage">
-      <svg id="robot" class="robot" viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <!-- antennae -->
-        <line x1="70" y1="34" x2="70" y2="18" stroke="#8a83c9" stroke-width="4" stroke-linecap="round"/>
-        <line x1="130" y1="34" x2="130" y2="18" stroke="#8a83c9" stroke-width="4" stroke-linecap="round"/>
-        <circle class="antenna-light" cx="70" cy="14" r="5.5"/>
-        <circle class="antenna-light" cx="130" cy="14" r="5.5"/>
-        <!-- head: rounded square, classic robot emoji style -->
-        <rect x="34" y="34" width="132" height="106" rx="26" fill="#8a83c9"/>
-        <rect x="46" y="46" width="108" height="82" rx="18" fill="#c9c4ea"/>
-        <!-- eyes: flat glowing circles -->
-        <circle class="eye" cx="80" cy="82" r="11"/>
-        <circle class="eye" cx="120" cy="82" r="11"/>
-        <!-- mouth: 5-bar equalizer, looks like talking/sound when animated -->
-        <g id="mouth" class="mouth-group">
-          <rect class="mouth-bar" x="76" y="106" width="6" height="6" rx="3"/>
-          <rect class="mouth-bar" x="87" y="103" width="6" height="9" rx="3"/>
-          <rect class="mouth-bar" x="98" y="100" width="6" height="12" rx="3"/>
-          <rect class="mouth-bar" x="109" y="103" width="6" height="9" rx="3"/>
-          <rect class="mouth-bar" x="120" y="106" width="6" height="6" rx="3"/>
+      <svg id="robot" class="robot" viewBox="0 0 240 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <!-- Gradient definitions for sleek 3D look -->
+          <linearGradient id="headGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#9d95e8"/>
+            <stop offset="100%" stop-color="#6e65bf"/>
+          </linearGradient>
+          <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#8c83dc"/>
+            <stop offset="100%" stop-color="#5f56b3"/>
+          </linearGradient>
+          <linearGradient id="visorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#19162c"/>
+            <stop offset="100%" stop-color="#2a2447"/>
+          </linearGradient>
+          <linearGradient id="coreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00F5D4"/>
+            <stop offset="100%" stop-color="#00BBF9"/>
+          </linearGradient>
+          <radialGradient id="glowGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#00F5D4" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#00F5D4" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <!-- Floating ambient shadow -->
+        <ellipse class="robot-shadow" cx="120" cy="188" rx="42" ry="7"/>
+
+        <!-- Robot floating hands -->
+        <g class="robot-hands">
+          <circle class="hand left-hand" cx="42" cy="138" r="10" fill="url(#headGrad)"/>
+          <circle class="hand right-hand" cx="198" cy="138" r="10" fill="url(#headGrad)"/>
         </g>
-        <!-- body -->
-        <rect x="62" y="140" width="76" height="34" rx="14" fill="#8a83c9"/>
+
+        <!-- Robot Torso / Body -->
+        <g class="robot-body-group">
+          <rect class="body-shell" x="72" y="118" width="96" height="54" rx="22" fill="url(#bodyGrad)"/>
+          <rect class="body-accent" x="84" y="126" width="72" height="38" rx="14" fill="#4a4293" opacity="0.4"/>
+          <!-- AI Core Indicator -->
+          <circle class="core-aura" cx="120" cy="145" r="14" fill="url(#glowGlow)"/>
+          <circle id="robotCore" class="robot-core" cx="120" cy="145" r="8" fill="url(#coreGrad)"/>
+        </g>
+
+        <!-- Robot Head Assembly -->
+        <g class="robot-head-group">
+          <!-- Ear caps / Antennas -->
+          <rect class="ear-joint" x="32" y="66" width="16" height="24" rx="6" fill="#5f56b3"/>
+          <rect class="ear-joint" x="192" y="66" width="16" height="24" rx="6" fill="#5f56b3"/>
+          <circle class="ear-cap left-ear" cx="30" cy="78" r="10" fill="#00F5D4"/>
+          <circle class="ear-cap right-ear" cx="210" cy="78" r="10" fill="#00F5D4"/>
+
+          <!-- Top antenna ring -->
+          <line x1="120" y1="36" x2="120" y2="20" stroke="#7e75cf" stroke-width="4" stroke-linecap="round"/>
+          <circle class="antenna-bulb" cx="120" cy="16" r="7" fill="#00F5D4"/>
+
+          <!-- Main Head -->
+          <rect class="head-shell" x="42" y="34" width="156" height="92" rx="30" fill="url(#headGrad)"/>
+
+          <!-- Glossy Visor Display -->
+          <rect class="visor-screen" x="54" y="44" width="132" height="72" rx="20" fill="url(#visorGrad)"/>
+          <!-- Glass reflection curve -->
+          <path class="visor-shine" d="M 58 54 Q 120 46 182 54 C 170 48 130 46 58 54 Z" fill="#ffffff" opacity="0.18"/>
+
+          <!-- Eyes -->
+          <g class="eyes-container">
+            <g class="eye left-eye">
+              <ellipse class="eye-bg" cx="88" cy="72" rx="12" ry="14" fill="#00F5D4"/>
+              <ellipse id="leftPupil" class="pupil" cx="88" cy="72" rx="8" ry="10" fill="#0d1f2d"/>
+              <circle cx="84" cy="67" r="3.5" fill="#ffffff"/>
+            </g>
+            <g class="eye right-eye">
+              <ellipse class="eye-bg" cx="152" cy="72" rx="12" ry="14" fill="#00F5D4"/>
+              <ellipse id="rightPupil" class="pupil" cx="152" cy="72" rx="8" ry="10" fill="#0d1f2d"/>
+              <circle cx="148" cy="67" r="3.5" fill="#ffffff"/>
+            </g>
+          </g>
+
+          <!-- Lip-Sync Mouth Engine SVG Path -->
+          <g id="mouthContainer" class="mouth-container" transform="translate(120, 96)">
+            <!-- Mouth background cavity -->
+            <path id="robotMouthBg" class="mouth-bg" d="M -16 0 Q 0 4 16 0 Q 0 8 -16 0 Z" fill="#0a121d" opacity="0.8"/>
+            <!-- Active mouth shape -->
+            <path id="robotMouth" class="robot-mouth" d="M -16 0 Q 0 5 16 0 Q 0 2 -16 0 Z" fill="#00F5D4"/>
+            <!-- Soft inner glow / tongue hint -->
+            <path id="robotMouthTongue" class="mouth-tongue" d="M -6 2 Q 0 -1 6 2 Q 0 5 -6 2 Z" fill="#ff70a6" opacity="0"/>
+          </g>
+        </g>
       </svg>
     </div>
 
