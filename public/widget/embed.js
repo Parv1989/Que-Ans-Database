@@ -13,12 +13,13 @@
   launcher.innerHTML = '&#129302;';
   launcher.style.cssText =
     'position:fixed;bottom:22px;right:22px;width:58px;height:58px;border-radius:50%;' +
-    'background:#6f68ab;color:#fff;border:none;font-size:25px;cursor:pointer;' +
-    'box-shadow:0 8px 22px rgba(58,53,82,0.35);z-index:999998;';
+    'background:#126b78;color:#fff;border:none;font-size:25px;cursor:pointer;' +
+    'box-shadow:0 8px 22px rgba(18,107,120,0.35);z-index:999998;';
 
   // Chat iframe, hidden by default
   var iframe = document.createElement('iframe');
-  iframe.src = botUrl + '/widget/chat.html';
+  // Version query prevents a publisher browser from keeping an old widget UI.
+  iframe.src = botUrl + '/widget/chat.html?v=2';
   iframe.title = 'Book help chat';
   iframe.style.cssText =
     'position:fixed;bottom:92px;right:22px;width:370px;height:540px;max-width:92vw;' +

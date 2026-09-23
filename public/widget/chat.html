@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Book Help Chat</title>
-<link rel="stylesheet" href="chatbot.css" />
+<link rel="stylesheet" href="chatbot.css?v=2" />
 </head>
 <body>
   <div class="chat-shell">
@@ -18,30 +18,23 @@
       </button>
     </header>
 
-    <!-- Animated robot mascot -->
+    <!-- Friendly animated robot mascot -->
     <div class="robot-stage">
       <svg id="robot" class="robot" viewBox="0 0 200 180" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <!-- antennae -->
-        <line x1="70" y1="34" x2="70" y2="18" stroke="#8a83c9" stroke-width="4" stroke-linecap="round"/>
-        <line x1="130" y1="34" x2="130" y2="18" stroke="#8a83c9" stroke-width="4" stroke-linecap="round"/>
-        <circle class="antenna-light" cx="70" cy="14" r="5.5"/>
-        <circle class="antenna-light" cx="130" cy="14" r="5.5"/>
-        <!-- head: rounded square, classic robot emoji style -->
-        <rect x="34" y="34" width="132" height="106" rx="26" fill="#8a83c9"/>
-        <rect x="46" y="46" width="108" height="82" rx="18" fill="#c9c4ea"/>
-        <!-- eyes: flat glowing circles -->
-        <circle class="eye" cx="80" cy="82" r="11"/>
-        <circle class="eye" cx="120" cy="82" r="11"/>
-        <!-- mouth: 5-bar equalizer, looks like talking/sound when animated -->
-        <g id="mouth" class="mouth-group">
-          <rect class="mouth-bar" x="76" y="106" width="6" height="6" rx="3"/>
-          <rect class="mouth-bar" x="87" y="103" width="6" height="9" rx="3"/>
-          <rect class="mouth-bar" x="98" y="100" width="6" height="12" rx="3"/>
-          <rect class="mouth-bar" x="109" y="103" width="6" height="9" rx="3"/>
-          <rect class="mouth-bar" x="120" y="106" width="6" height="6" rx="3"/>
-        </g>
-        <!-- body -->
-        <rect x="62" y="140" width="76" height="34" rx="14" fill="#8a83c9"/>
+        <path class="robot-antenna" d="M100 27V14" />
+        <circle class="antenna-light" cx="100" cy="10" r="6" />
+        <rect class="robot-ear" x="25" y="69" width="14" height="35" rx="7" />
+        <rect class="robot-ear" x="161" y="69" width="14" height="35" rx="7" />
+        <rect class="robot-head" x="34" y="30" width="132" height="106" rx="34" />
+        <rect class="robot-face" x="45" y="42" width="110" height="83" rx="25" />
+        <circle class="eye" cx="78" cy="76" r="10" />
+        <circle class="eye" cx="122" cy="76" r="10" />
+        <circle class="eye-shine" cx="75" cy="72" r="3" />
+        <circle class="eye-shine" cx="119" cy="72" r="3" />
+        <ellipse id="mouth" class="mouth" cx="100" cy="104" rx="16" ry="5" />
+        <rect class="robot-body" x="60" y="136" width="80" height="38" rx="17" />
+        <rect class="chest-panel" x="83" y="146" width="34" height="17" rx="8" />
+        <circle class="chest-light" cx="100" cy="154.5" r="4" />
       </svg>
     </div>
 
@@ -57,6 +50,6 @@
     </form>
   </div>
 
-  <script src="chatbot.js"></script>
+  <script src="chatbot.js?v=2"></script>
 </body>
 </html>

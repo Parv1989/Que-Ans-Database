@@ -7,6 +7,7 @@ const muteBtn = document.getElementById('muteBtn');
 const muteIcon = document.getElementById('muteIcon');
 
 let voiceEnabled = true;
+let mouthPulseTimer = null;
 
 // Escapes raw HTML characters so user/admin text can never inject real tags,
 // then converts the safe ^..^ and ~..~ markers into real <sup>/<sub> tags.
@@ -31,19 +32,18 @@ function toSpeechText(raw) {
 // ---------- Voice-over (browser's built-in text-to-speech, no API/cost) ----------
 let cachedVoice = null;
 
-// Prefers a Hindi voice (best for Hinglish/Devanagari content from an Indian
-// publisher), then Indian English, then any English voice, then whatever the
-// browser has as default. Which voices actually exist depends on the
-// student's device/browser — this just picks the closest available match.
+// Prefer Indian voices so Hinglish sounds natural when the browser provides
+// them. The fallback keeps the widget usable on browsers with fewer voices.
 function pickVoice() {
   if (cachedVoice) return cachedVoice;
   const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
   if (voices.length === 0) return null;
 
   const voice =
-    voices.find((v) => v.lang === 'hi-IN') ||
-    voices.find((v) => v.lang && v.lang.startsWith('hi')) ||
     voices.find((v) => v.lang === 'en-IN') ||
+    voices.find((v) => v.lang === 'hi-IN') ||
+    voices.find((v) => v.lang && v.lang.startsWith('en-IN')) ||
+    voices.find((v) => v.lang && v.lang.startsWith('hi')) ||
     voices.find((v) => v.lang && v.lang.startsWith('en')) ||
     voices[0] ||
     null;
@@ -59,6 +59,19 @@ if (window.speechSynthesis) {
 
 function setTalking(isTalking) {
   robotEl.classList.toggle('talking', isTalking);
+  if (!isTalking) {
+    robotEl.classList.remove('mouth-pulse');
+    if (mouthPulseTimer) window.clearTimeout(mouthPulseTimer);
+    mouthPulseTimer = null;
+  }
+}
+
+function pulseMouth() {
+  robotEl.classList.remove('mouth-pulse');
+  void robotEl.offsetWidth;
+  robotEl.classList.add('mouth-pulse');
+  if (mouthPulseTimer) window.clearTimeout(mouthPulseTimer);
+  mouthPulseTimer = window.setTimeout(() => robotEl.classList.remove('mouth-pulse'), 130);
 }
 
 function speak(rawText) {
@@ -69,14 +82,19 @@ function speak(rawText) {
   const voice = pickVoice();
   if (voice) {
     utterance.voice = voice;
-    utterance.lang = voice.lang;
+    utterance.lang = voice.lang || 'en-IN';
   } else {
-    utterance.lang = 'hi-IN'; // hint the engine even with no matching voice object
+    utterance.lang = 'en-IN'; // hint an Indian accent where the engine supports it
   }
-  utterance.rate = 0.95;
-  utterance.pitch = 1.0;
+  utterance.rate = 0.9;
+  utterance.pitch = 1.04;
   utterance.onstart = () => setTalking(true);
   utterance.onend = () => setTalking(false);
+  utterance.onpause = () => setTalking(false);
+  utterance.onresume = () => setTalking(true);
+  utterance.onboundary = (event) => {
+    if (event.name === 'word') pulseMouth();
+  };
   utterance.onerror = () => setTalking(false);
   window.speechSynthesis.speak(utterance);
 }

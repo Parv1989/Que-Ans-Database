@@ -1,15 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700&family=Nunito:wght@400;600;700&display=swap');
 
 :root {
-  --ink: #3a3552;
-  --ink-soft: #7d7699;
-  --primary: #8a83c9;
-  --primary-dark: #6f68ab;
-  --lavender: #eae7f2;
-  --coral: #dba384;
-  --mint: #7fb69e;
-  --paper: #f4f2f6;
-  --line: #e1ddec;
+  --ink: #26364a;
+  --ink-soft: #6e7d8d;
+  --primary: #168a91;
+  --primary-dark: #126b78;
+  --sky: #dff4f3;
+  --coral: #ff9b71;
+  --mint: #72d4bd;
+  --paper: #f4f8f8;
+  --line: #d7e6e7;
 }
 
 * { box-sizing: border-box; }
@@ -27,11 +27,11 @@ html, body {
   height: 100%;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 4px 22px rgba(58, 53, 82, 0.12);
+  box-shadow: 0 4px 22px rgba(38, 82, 91, 0.14);
 }
 
 .chat-header {
-  background: var(--primary-dark);
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
   color: #f2f1f9;
   padding: 0.9rem 1.05rem;
   display: flex;
@@ -40,7 +40,7 @@ html, body {
   flex-shrink: 0;
 }
 .chat-header-title { font-family: 'Baloo 2', sans-serif; font-weight: 700; font-size: 1.02rem; }
-.chat-header-sub { font-size: 0.73rem; color: #d3d0e8; margin-top: 0.1rem; }
+.chat-header-sub { font-size: 0.73rem; color: #d8f4f1; margin-top: 0.1rem; }
 
 .mute-btn {
   background: rgba(255,255,255,0.14);
@@ -57,18 +57,18 @@ html, body {
 
 /* ---------- Robot mascot ---------- */
 .robot-stage {
-  background: var(--lavender);
-  padding: 0.55rem 0 0.3rem;
+  background: radial-gradient(circle at 50% 35%, #fff 0, var(--sky) 72%);
+  padding: 0.35rem 0 0.15rem;
   display: flex;
   justify-content: center;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid #c9e4e3;
 }
 
 .robot {
-  width: 84px;
+  width: 98px;
   height: auto;
-  animation: robotBob 3.6s ease-in-out infinite;
+  animation: robotBob 3.8s ease-in-out infinite;
   transform-origin: center bottom;
 }
 
@@ -77,6 +77,10 @@ html, body {
   50% { transform: translateY(-3px); }
 }
 
+.robot-antenna { stroke: var(--primary-dark); stroke-width: 4; stroke-linecap: round; }
+.robot-ear { fill: var(--primary-dark); }
+.robot-head { fill: #43b7b2; }
+.robot-face { fill: #e9fbf8; stroke: #a3ded7; stroke-width: 2; }
 .antenna-light { fill: var(--coral); animation: antennaPulse 2s ease-in-out infinite; }
 @keyframes antennaPulse {
   0%, 100% { opacity: 1; }
@@ -84,34 +88,41 @@ html, body {
 }
 
 .eye {
-  fill: #f5f3fb;
+  fill: var(--primary-dark);
   animation: blink 5s ease-in-out infinite;
   transform-box: fill-box;
   transform-origin: center;
 }
+.eye-shine { fill: #fff; pointer-events: none; }
 @keyframes blink {
   0%, 93%, 100% { transform: scaleY(1); }
   96% { transform: scaleY(0.15); }
 }
 
-/* mouth: 5-bar equalizer look. Idle = flat/resting bars. Talking = each bar
-   bounces at its own pace, like a sound visualizer — reads clearly as speech. */
-.mouth-bar {
+.mouth {
   fill: var(--primary-dark);
   transform-box: fill-box;
-  transform-origin: center bottom;
+  transform-origin: center;
+  transition: transform 90ms ease-out, ry 90ms ease-out;
 }
 
-.robot.talking .mouth-bar { animation: barTalk 0.55s ease-in-out infinite; }
-.robot.talking .mouth-bar:nth-child(1) { animation-delay: 0s; }
-.robot.talking .mouth-bar:nth-child(2) { animation-delay: 0.12s; }
-.robot.talking .mouth-bar:nth-child(3) { animation-delay: 0.05s; }
-.robot.talking .mouth-bar:nth-child(4) { animation-delay: 0.18s; }
-.robot.talking .mouth-bar:nth-child(5) { animation-delay: 0.08s; }
+.robot-body { fill: var(--primary-dark); }
+.chest-panel { fill: #e9fbf8; }
+.chest-light { fill: var(--mint); animation: chestPulse 1.8s ease-in-out infinite; }
+@keyframes chestPulse {
+  0%, 100% { opacity: .65; }
+  50% { opacity: 1; }
+}
 
-@keyframes barTalk {
-  0%, 100% { transform: scaleY(0.45); }
-  50% { transform: scaleY(1.35); }
+.robot.talking .mouth {
+  animation: mouthTalk 180ms ease-in-out infinite alternate;
+}
+.robot.mouth-pulse .mouth {
+  transform: scaleY(1.45);
+}
+@keyframes mouthTalk {
+  from { transform: scaleY(.7); }
+  to { transform: scaleY(1.25); }
 }
 
 /* ---------- Messages ---------- */
