@@ -57,6 +57,19 @@ ye line kisi bhi page ke `</body>` se pehle paste karni hai:
 
 Ye ek floating chat button add kar dega jo har page par dikhega.
 
+## Bulk upload (CSV se ek saath kaafi saare Q&A add karna)
+
+Admin panel ke "Questions & Answers" tab me **"Bulk upload CSV"** button hai:
+
+1. Pehle **"Download CSV template"** dabao — ek sample file milegi
+2. Usme apna data bhar do. Columns:
+   - `question` — student jo type karega
+   - `answer` — bot ka jawab
+   - `keywords` — alag-alag phrasing, semicolon (`;`) se separate karke, e.g. `refund;money back;paisa wapas`
+   - `category` — optional, jaise `purchase`, `support`
+3. File ko Excel/Google Sheets me edit karke CSV format me hi save karna (File → Save As → CSV)
+4. Admin panel me wapas jaake wahi file upload karo — kitne add hue aur kitne skip hue (agar question/answer khali tha), turant dikh jayega
+
 ## Deploy kahan karein (koi bhi Node host chalega)
 
 - **Render / Railway** — GitHub repo connect karo, environment variables (.env

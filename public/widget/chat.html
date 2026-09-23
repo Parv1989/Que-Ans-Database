@@ -9,12 +9,37 @@
 <body>
   <div class="chat-shell">
     <header class="chat-header">
-      <span class="chat-header-mark">&#128214;</span>
-      <div>
-        <div class="chat-header-title">Book Help</div>
-        <div class="chat-header-sub">Ask anything about the book</div>
+      <div class="chat-header-info">
+        <div class="chat-header-title">Study Buddy</div>
+        <div class="chat-header-sub">Poocho, jo bhi book ke baare me jaanna hai</div>
       </div>
+      <button id="muteBtn" class="mute-btn" type="button" aria-label="Toggle voice">
+        <span id="muteIcon">&#128266;</span>
+      </button>
     </header>
+
+    <!-- Animated robot mascot -->
+    <div class="robot-stage">
+      <svg id="robot" class="robot" viewBox="0 0 200 190" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <line x1="100" y1="14" x2="100" y2="34" stroke="#847ff2" stroke-width="4" stroke-linecap="round"/>
+        <circle id="antennaLight" class="antenna-light" cx="100" cy="10" r="7"/>
+        <rect x="38" y="34" width="124" height="96" rx="34" fill="#8b7ff5"/>
+        <rect x="38" y="34" width="124" height="96" rx="34" fill="url(#headShine)" opacity="0.5"/>
+        <circle class="eye" cx="78" cy="78" r="13" fill="#2d2a45"/>
+        <circle class="eye" cx="122" cy="78" r="13" fill="#2d2a45"/>
+        <circle class="eye-glint" cx="82" cy="74" r="3.5" fill="#fff"/>
+        <circle class="eye-glint" cx="126" cy="74" r="3.5" fill="#fff"/>
+        <rect id="mouth" class="mouth" x="82" y="102" width="36" height="7" rx="3.5" fill="#2d2a45"/>
+        <rect x="55" y="132" width="90" height="48" rx="18" fill="#a89bf7"/>
+        <circle cx="100" cy="156" r="10" fill="#ffc857"/>
+        <defs>
+          <linearGradient id="headShine" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+            <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
 
     <div id="messages" class="chat-messages">
       <div class="msg bot">

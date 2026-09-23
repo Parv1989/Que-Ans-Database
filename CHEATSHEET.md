@@ -98,6 +98,23 @@ Question ya Answer me kahin bhi ye likho:
 
 `^` ke beech me jo bhi ho wo superscript ban jayega, `~` ke beech me jo bhi ho wo subscript. Normal `<sup>` jaisi HTML tags kaam nahi karengi (security ke liye), sirf ye `^..^` / `~..~` syntax use karna.
 
+## Robot mascot + voice-over
+
+Student widget me ab ek animated robot dikhta hai jo:
+- Idle rehta hai to halka sa bob karta hai aur aankhein jhapkata hai
+- Jab bhi bot koi answer bolta hai, uska mooh "talk" animation me chalta hai (lip-sync jaisa effect)
+- Answer aane par voice-over bhi automatically bolta hai (browser ki built-in Text-to-Speech — koi extra cost/API key nahi chahiye)
+- Chat header me top-right ek 🔊/🔇 button hai jisse voice on/off kar sakte hain
+
+**Limitations jo jaan lena:**
+- Voice quality browser/device par depend karti hai (Chrome/Edge me achhi milegi)
+- Hinglish words ko English voice thoda ajeeb pronounce kar sakti hai
+- iPhone (Safari) par pehli baar voice chalane ke liye ek extra tap chahiye ho sakta hai
+
+## Look and feel
+
+Poora product (admin panel + widget) ab ek naya elegant, student-friendly "indigo/coral" theme use karta hai — rounded corners, "Baloo 2" (heading font) + "Nunito" (body font). Robot mascot bhi isi color scheme me hai.
+
 ## CSV bulk upload format
 
 Admin panel → Questions & Answers tab → "Bulk upload CSV" button se ek saath kai questions add kar sakte ho.
