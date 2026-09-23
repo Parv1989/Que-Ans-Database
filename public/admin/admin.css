@@ -3,14 +3,14 @@
 :root {
   --ink: #2d2a45;
   --ink-soft: #6b6690;
-  --indigo: #6c63ff;
-  --indigo-dark: #564fd1;
-  --lavender: #f3f1fd;
-  --coral: #ff8a65;
+  --indigo: #8a83c9;
+  --indigo-dark: #6f68ab;
+  --lavender: #eae7f2;
+  --coral: #dba384;
   --mint: #4cae91;
-  --paper: #faf9fe;
+  --paper: #f4f2f6;
   --panel: #ffffff;
-  --line: #e7e3f8;
+  --line: #e1ddec;
   --danger: #e35d5d;
   --radius: 14px;
   --radius-sm: 10px;
@@ -35,7 +35,7 @@ h1, h2, h3 { font-family: 'Baloo 2', sans-serif; margin: 0; font-weight: 700; }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--indigo), #8b7ff5);
+  background: var(--indigo-dark);
 }
 
 .login-card {
@@ -89,7 +89,7 @@ input:focus, textarea:focus {
 button { font-family: inherit; cursor: pointer; }
 
 .primary-btn {
-  background: linear-gradient(135deg, var(--indigo), var(--indigo-dark));
+  background: var(--indigo-dark);
   color: #fff;
   border: none;
   padding: 0.7rem 1.2rem;
@@ -119,7 +119,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .sidebar {
   width: 240px;
-  background: linear-gradient(180deg, var(--indigo), #55499e);
+  background: var(--indigo-dark);
   color: #eee;
   display: flex;
   flex-direction: column;

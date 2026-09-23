@@ -12,17 +12,9 @@
   launcher.setAttribute('aria-label', 'Open help chat');
   launcher.innerHTML = '&#129302;';
   launcher.style.cssText =
-    'position:fixed;bottom:22px;right:22px;width:60px;height:60px;border-radius:50%;' +
-    'background:linear-gradient(135deg,#6c63ff,#8b7ff5);color:#fff;border:none;font-size:26px;cursor:pointer;' +
-    'box-shadow:0 10px 28px rgba(108,99,255,0.45);z-index:999998;' +
-    'animation:pbGlow 2.4s ease-in-out infinite;';
-
-  // small stylesheet for the launcher's pulsing glow (can't be inline)
-  var style = document.createElement('style');
-  style.textContent =
-    '@keyframes pbGlow{0%,100%{box-shadow:0 10px 28px rgba(108,99,255,0.45);}' +
-    '50%{box-shadow:0 10px 34px rgba(108,99,255,0.75);}}';
-  document.head.appendChild(style);
+    'position:fixed;bottom:22px;right:22px;width:58px;height:58px;border-radius:50%;' +
+    'background:#6f68ab;color:#fff;border:none;font-size:25px;cursor:pointer;' +
+    'box-shadow:0 8px 22px rgba(58,53,82,0.35);z-index:999998;';
 
   // Chat iframe, hidden by default
   var iframe = document.createElement('iframe');

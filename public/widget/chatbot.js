@@ -30,16 +30,26 @@ function toSpeechText(raw) {
 
 // ---------- Voice-over (browser's built-in text-to-speech, no API/cost) ----------
 let cachedVoice = null;
+
+// Prefers a Hindi voice (best for Hinglish/Devanagari content from an Indian
+// publisher), then Indian English, then any English voice, then whatever the
+// browser has as default. Which voices actually exist depends on the
+// student's device/browser — this just picks the closest available match.
 function pickVoice() {
   if (cachedVoice) return cachedVoice;
   const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
-  cachedVoice =
-    voices.find((v) => v.lang === 'en-IN') ||
+  if (voices.length === 0) return null;
+
+  const voice =
+    voices.find((v) => v.lang === 'hi-IN') ||
     voices.find((v) => v.lang && v.lang.startsWith('hi')) ||
+    voices.find((v) => v.lang === 'en-IN') ||
     voices.find((v) => v.lang && v.lang.startsWith('en')) ||
     voices[0] ||
     null;
-  return cachedVoice;
+
+  cachedVoice = voice;
+  return voice;
 }
 if (window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = () => {
@@ -54,11 +64,17 @@ function setTalking(isTalking) {
 function speak(rawText) {
   if (!voiceEnabled || !window.speechSynthesis) return;
   window.speechSynthesis.cancel(); // stop anything currently playing
-  const utterance = new SpeechSynthesisUtterance(toSpeechText(rawText));
+  const speechText = toSpeechText(rawText);
+  const utterance = new SpeechSynthesisUtterance(speechText);
   const voice = pickVoice();
-  if (voice) utterance.voice = voice;
-  utterance.rate = 0.98;
-  utterance.pitch = 1.05;
+  if (voice) {
+    utterance.voice = voice;
+    utterance.lang = voice.lang;
+  } else {
+    utterance.lang = 'hi-IN'; // hint the engine even with no matching voice object
+  }
+  utterance.rate = 0.95;
+  utterance.pitch = 1.0;
   utterance.onstart = () => setTalking(true);
   utterance.onend = () => setTalking(false);
   utterance.onerror = () => setTalking(false);
