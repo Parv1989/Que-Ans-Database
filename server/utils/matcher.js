@@ -12,6 +12,35 @@ const STOPWORDS = new Set([
   'h', 'pls', 'plz', 'sir', 'mam', 'madam'
 ]);
 
+const CACHE_TTL_MS = 60 * 1000; // refresh every minute
+
+// In-memory cache of synonym groups so every request doesn't hit the DB.
+let synonymCache = null;
+let synonymCacheAt = 0;
+
+async function getSynonymMap() {
+  const now = Date.now();
+  if (synonymCache && now - synonymCacheAt < CACHE_TTL_MS) {
+    return synonymCache;
+  }
+  const groups = await Synonym.find().lean();
+  const map = new Map(); // word -> Set of all words in its group (including itself)
+  for (const group of groups) {
+    const words = group.words || [];
+    const wordSet = new Set(words);
+    for (const w of words) {
+      map.set(w, wordSet);
+    }
+  }
+  synonymCache = map;
+  synonymCacheAt = now;
+  return map;
+}
+
+function invalidateSynonymCache() {
+  synonymCache = null;
+}
+
 // In-memory cache of QA documents & Fuse vocabulary index to avoid querying DB per request
 let qaCache = null;
 let qaCacheAt = 0;
