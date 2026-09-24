@@ -47,6 +47,7 @@ let currentAudio = null;
 const TTS_API_URL = window.location.origin + '/api/tts';
 
 async function speakServerTTS(speechText) {
+  if (!voiceEnabled) return;
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
@@ -57,20 +58,20 @@ async function speakServerTTS(speechText) {
     const res = await fetch(`${TTS_API_URL}?text=${encodeURIComponent(speechText)}`);
     const data = await res.json();
 
-    if (!data.urls || data.urls.length === 0) {
+    if (!data.audios || data.audios.length === 0) {
       setTalking(false);
       return;
     }
 
-    let urlIndex = 0;
+    let audioIndex = 0;
 
-    function playNextUrl() {
-      if (urlIndex >= data.urls.length || !voiceEnabled) {
+    function playNextAudio() {
+      if (audioIndex >= data.audios.length || !voiceEnabled) {
         setTalking(false);
         return;
       }
 
-      const audio = new Audio(data.urls[urlIndex++]);
+      const audio = new Audio(data.audios[audioIndex++]);
       currentAudio = audio;
 
       audio.onplay = () => {
@@ -91,17 +92,21 @@ async function speakServerTTS(speechText) {
       };
 
       audio.onended = () => {
-        playNextUrl();
+        playNextAudio();
       };
 
-      audio.onerror = () => {
+      audio.onerror = (err) => {
+        console.warn('Base64 Audio play error:', err);
+        playNextAudio();
+      };
+
+      audio.play().catch((err) => {
+        console.warn('Audio play blocked by browser:', err);
         setTalking(false);
-      };
-
-      audio.play().catch(() => setTalking(false));
+      });
     }
 
-    playNextUrl();
+    playNextAudio();
   } catch (err) {
     console.warn('Server TTS error:', err);
     setTalking(false);
