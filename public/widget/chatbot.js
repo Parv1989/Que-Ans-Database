@@ -8,16 +8,21 @@ const muteIcon = document.getElementById('muteIcon');
 const voiceSelect = document.getElementById('voiceSelect');
 
 let voiceEnabled = true;
+let selectedVoiceName = '';
 
-// Escapes raw HTML characters so user/admin text can never inject real tags,
-// then converts the safe ^..^ and ~..~ markers into real <sup>/<sub> tags.
+// Escapes raw HTML characters to prevent XSS, then converts Markdown & formatting tags
 function formatText(raw) {
+  if (!raw) return '';
   const div = document.createElement('div');
-  div.textContent = raw || '';
-  const escaped = div.innerHTML;
+  div.textContent = raw;
+  let escaped = div.innerHTML;
+
   return escaped
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
     .replace(/\^([^\^]+)\^/g, '<sup>$1</sup>')
-    .replace(/~([^~]+)~/g, '<sub>$1</sub>');
+    .replace(/~([^~]+)~/g, '<sub>$1</sub>')
+    .replace(/\n/g, '<br>');
 }
 
 // Turns raw text into plain, speakable words for the Google voice engine
@@ -36,7 +41,6 @@ function toSpeechText(raw) {
 
 // ---------- Google Natural Voice Selection Engine ----------
 let cachedVoice = null;
-let selectedVoiceIndex = -1;
 
 function populateVoiceList() {
   if (!window.speechSynthesis) return;
@@ -44,7 +48,7 @@ function populateVoiceList() {
   if (!voices || voices.length === 0) return;
 
   // Score available voices to strictly prioritize Google natural human voices
-  const scored = voices.map((v, index) => {
+  const scored = voices.map((v) => {
     let score = 0;
     const lang = (v.lang || '').toLowerCase().replace('_', '-');
     const name = (v.name || '').toLowerCase();
@@ -78,7 +82,7 @@ function populateVoiceList() {
       score += 350; // High priority: Google UK Female
     }
 
-    return { voice: v, index, score };
+    return { voice: v, score };
   });
 
   scored.sort((a, b) => b.score - a.score);
@@ -87,7 +91,7 @@ function populateVoiceList() {
     voiceSelect.innerHTML = '';
     scored.forEach((item) => {
       const option = document.createElement('option');
-      option.value = item.index;
+      option.value = item.voice.name;
       let label = item.voice.name;
       if (item.voice.name.toLowerCase().includes('google')) {
         label = `✨ ${label}`;
@@ -96,22 +100,22 @@ function populateVoiceList() {
       voiceSelect.appendChild(option);
     });
 
-    if (scored.length > 0) {
-      if (selectedVoiceIndex === -1) {
-        selectedVoiceIndex = scored[0].index;
-      }
-      voiceSelect.value = selectedVoiceIndex;
+    if (!selectedVoiceName && scored.length > 0) {
+      selectedVoiceName = scored[0].voice.name;
+    }
+    if (selectedVoiceName) {
+      voiceSelect.value = selectedVoiceName;
     }
   }
 
-  cachedVoice = voices[selectedVoiceIndex] || (scored[0] ? scored[0].voice : voices[0]);
+  cachedVoice = voices.find((v) => v.name === selectedVoiceName) || (scored[0] ? scored[0].voice : voices[0]);
 }
 
 if (voiceSelect) {
   voiceSelect.addEventListener('change', (e) => {
-    selectedVoiceIndex = parseInt(e.target.value, 10);
+    selectedVoiceName = e.target.value;
     const voices = window.speechSynthesis.getVoices();
-    cachedVoice = voices[selectedVoiceIndex] || null;
+    cachedVoice = voices.find((v) => v.name === selectedVoiceName) || null;
   });
 }
 
@@ -125,7 +129,6 @@ if (window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = () => {
     populateVoiceList();
   };
-  // Initial attempt in case voices are pre-loaded
   populateVoiceList();
 }
 
@@ -208,7 +211,7 @@ function speak(rawText) {
     utterance.lang = 'hi-IN';
   }
 
-  // Pure natural human conversational voice settings
+  // Natural human conversational voice settings
   utterance.rate = 0.94;
   utterance.pitch = 1.0;
   utterance.volume = 1.0;
@@ -233,7 +236,7 @@ function speak(rawText) {
     setTalking(true);
     let startTime = performance.now();
     function syncLoop(now) {
-      if (!window.speechSynthesis.speaking) {
+      if (!window.speechSynthesis || !window.speechSynthesis.speaking) {
         setTalking(false);
         return;
       }
@@ -254,12 +257,23 @@ function speak(rawText) {
   window.speechSynthesis.speak(utterance);
 }
 
+// Warmup speech synthesis on user interaction to pass mobile browser autoplay restrictions
+function unlockAudioContext() {
+  if (voiceEnabled && window.speechSynthesis && !window.speechSynthesis.speaking) {
+    const silent = new SpeechSynthesisUtterance('');
+    silent.volume = 0;
+    window.speechSynthesis.speak(silent);
+  }
+}
+
 muteBtn.addEventListener('click', () => {
   voiceEnabled = !voiceEnabled;
   muteIcon.textContent = voiceEnabled ? '\u{1F50A}' : '\u{1F507}';
   if (!voiceEnabled && window.speechSynthesis) {
     window.speechSynthesis.cancel();
     setTalking(false);
+  } else if (voiceEnabled) {
+    unlockAudioContext();
   }
 });
 
@@ -284,7 +298,10 @@ function addSuggestions(suggestions) {
     const btn = document.createElement('button');
     btn.className = 'suggestion-btn';
     btn.innerHTML = formatText(s.question);
-    btn.addEventListener('click', () => sendQuestion(s.question));
+    btn.addEventListener('click', () => {
+      unlockAudioContext();
+      sendQuestion(s.question);
+    });
     wrap.appendChild(btn);
   });
   messagesEl.appendChild(wrap);
@@ -308,7 +325,7 @@ function hideTyping() {
 }
 
 function scrollToBottom() {
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
 }
 
 async function sendQuestion(question) {
@@ -340,6 +357,7 @@ form.addEventListener('submit', (e) => {
   e.preventDefault();
   const question = input.value.trim();
   if (!question) return;
+  unlockAudioContext();
   input.value = '';
   sendQuestion(question);
 });

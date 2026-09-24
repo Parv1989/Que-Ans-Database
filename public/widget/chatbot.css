@@ -17,6 +17,7 @@
 html, body {
   margin: 0;
   height: 100%;
+  height: 100dvh;
   font-family: 'Nunito', system-ui, sans-serif;
   background: var(--paper);
 }
@@ -25,6 +26,7 @@ html, body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  height: 100dvh;
   border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 4px 22px rgba(58, 53, 82, 0.12);
@@ -210,6 +212,7 @@ html, body {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
+  scroll-behavior: smooth;
   padding: 1rem;
   display: flex;
   flex-direction: column;

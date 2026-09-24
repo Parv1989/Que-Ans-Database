@@ -4,6 +4,7 @@ const { parse } = require('csv-parse/sync');
 const router = express.Router();
 const QA = require('../models/QA');
 const { requireAdmin } = require('../middleware/auth');
+const { invalidateQACache } = require('../utils/matcher');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -59,6 +60,7 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
   let inserted = [];
   if (toInsert.length > 0) {
     inserted = await QA.insertMany(toInsert);
+    invalidateQACache();
   }
 
   res.json({
@@ -71,12 +73,16 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
 // GET /api/admin/qa  - list all, newest first, optional ?search=
 router.get('/', async (req, res) => {
   const { search } = req.query;
-  const filter = search
-    ? { $or: [
-        { question: { $regex: search, $options: 'i' } },
-        { keywords: { $regex: search, $options: 'i' } }
-      ] }
-    : {};
+  let filter = {};
+  if (search && search.trim()) {
+    const safeSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    filter = {
+      $or: [
+        { question: { $regex: safeSearch, $options: 'i' } },
+        { keywords: { $regex: safeSearch, $options: 'i' } }
+      ]
+    };
+  }
   const items = await QA.find(filter).sort({ createdAt: -1 });
   res.json(items);
 });
@@ -94,6 +100,7 @@ router.post('/', async (req, res) => {
       keywords: keywords.map((k) => k.trim()).filter(Boolean),
       category: category ? category.trim() : 'general'
     });
+    invalidateQACache();
     res.status(201).json(doc);
   } catch (err) {
     res.status(500).json({ error: 'Could not save this entry' });
@@ -112,6 +119,7 @@ router.put('/:id', async (req, res) => {
 
     const doc = await QA.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!doc) return res.status(404).json({ error: 'Entry not found' });
+    invalidateQACache();
     res.json(doc);
   } catch (err) {
     res.status(500).json({ error: 'Could not update this entry' });
@@ -123,6 +131,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const doc = await QA.findByIdAndDelete(req.params.id);
     if (!doc) return res.status(404).json({ error: 'Entry not found' });
+    invalidateQACache();
     res.json({ deleted: true });
   } catch (err) {
     res.status(500).json({ error: 'Could not delete this entry: ' + err.message });

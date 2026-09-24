@@ -12,32 +12,43 @@ const STOPWORDS = new Set([
   'h', 'pls', 'plz', 'sir', 'mam', 'madam'
 ]);
 
-// In-memory cache of synonym groups so every request doesn't hit the DB.
-let synonymCache = null;
-let synonymCacheAt = 0;
-const CACHE_TTL_MS = 60 * 1000; // refresh every minute
+// In-memory cache of QA documents & Fuse vocabulary index to avoid querying DB per request
+let qaCache = null;
+let qaCacheAt = 0;
+let cachedDocTokens = null;
+let cachedVocabFuse = null;
+let cachedVocabSet = null;
 
-async function getSynonymMap() {
+async function getQADataset() {
   const now = Date.now();
-  if (synonymCache && now - synonymCacheAt < CACHE_TTL_MS) {
-    return synonymCache;
+  if (qaCache && (now - qaCacheAt < CACHE_TTL_MS)) {
+    return { allQA: qaCache, docTokens: cachedDocTokens, vocabFuse: cachedVocabFuse, vocabSet: cachedVocabSet };
   }
-  const groups = await Synonym.find().lean();
-  const map = new Map(); // word -> Set of all words in its group (including itself)
-  for (const group of groups) {
-    const words = group.words || [];
-    const wordSet = new Set(words);
-    for (const w of words) {
-      map.set(w, wordSet);
-    }
+
+  const allQA = await QA.find().lean();
+  const docTokens = allQA.map((doc) => ({
+    doc,
+    tokens: new Set(tokenize([doc.question, ...(doc.keywords || []), doc.category].join(' ')))
+  }));
+
+  const vocabSet = new Set();
+  for (const { tokens } of docTokens) {
+    for (const t of tokens) vocabSet.add(t);
   }
-  synonymCache = map;
-  synonymCacheAt = now;
-  return map;
+  const vocabList = Array.from(vocabSet);
+  const vocabFuse = new Fuse(vocabList, { includeScore: true, threshold: 0.3 });
+
+  qaCache = allQA;
+  cachedDocTokens = docTokens;
+  cachedVocabFuse = vocabFuse;
+  cachedVocabSet = vocabSet;
+  qaCacheAt = now;
+
+  return { allQA, docTokens, vocabFuse, vocabSet };
 }
 
-function invalidateSynonymCache() {
-  synonymCache = null;
+function invalidateQACache() {
+  qaCache = null;
 }
 
 function tokenize(text) {
@@ -85,50 +96,39 @@ async function expandQuery(rawQuery, vocabFuse, vocabSet) {
  * distance, which holds up much better on short, keyword-style questions.
  */
 async function findAnswer(rawQuery) {
-  const allQA = await QA.find().lean();
-  if (allQA.length === 0) {
+  const { allQA, docTokens, vocabFuse, vocabSet } = await getQADataset();
+  if (!allQA || allQA.length === 0) {
     return { match: null, confidence: 0, suggestions: [] };
   }
 
-  // Per-doc token set, built from its question + keywords + category.
-  const docTokens = allQA.map((doc) => ({
-    doc,
-    tokens: new Set(tokenize([doc.question, ...(doc.keywords || []), doc.category].join(' ')))
-  }));
-
-  // Vocabulary of every word used anywhere, used for typo correction.
-  const vocabSet = new Set();
-  for (const { tokens } of docTokens) {
-    for (const t of tokens) vocabSet.add(t);
-  }
-  const vocabList = Array.from(vocabSet);
-  const vocabFuse = new Fuse(vocabList, { includeScore: true, threshold: 0.3 });
-
-  const { expandedTokens } = await expandQuery(rawQuery, vocabFuse, vocabSet);
+  const { correctedTokens, expandedTokens } = await expandQuery(rawQuery, vocabFuse, vocabSet);
 
   if (expandedTokens.length === 0) {
     return { match: null, confidence: 0, suggestions: [] };
   }
 
-  // Score each doc by how many (synonym-expanded) query tokens it contains,
-  // normalized against the number of meaningful query tokens.
+  // Base scoring on original query tokens length so synonym expansion doesn't dilute accuracy
+  const queryTokensCount = Math.max(1, correctedTokens.length);
+
+  // Score each doc by how many (synonym-expanded) query tokens it contains
   const scored = docTokens.map(({ doc, tokens }) => {
     let hits = 0;
     for (const qt of expandedTokens) {
       if (tokens.has(qt)) hits += 1;
     }
-    const score = hits / expandedTokens.length;
+    const score = hits / queryTokensCount;
     return { doc, score, hits };
   });
 
   scored.sort((a, b) => b.score - a.score || b.hits - a.hits);
 
   const best = scored[0];
-  const confidence = Math.round(best.score * 100);
-  const CONFIDENCE_THRESHOLD = 40; // at least 40% of the query's meaningful words matched
+  const confidence = Math.min(100, Math.round(best.score * 100));
+  const CONFIDENCE_THRESHOLD = 35; // at least 35% keyword overlap with query tokens
 
   if (best.hits > 0 && confidence >= CONFIDENCE_THRESHOLD) {
-    await QA.findByIdAndUpdate(best.doc._id, { $inc: { hitCount: 1 } });
+    // Fire and forget hit count increment
+    QA.findByIdAndUpdate(best.doc._id, { $inc: { hitCount: 1 } }).catch(() => {});
     return {
       match: { _id: best.doc._id, question: best.doc.question, answer: best.doc.answer },
       confidence,
@@ -149,4 +149,4 @@ async function findAnswer(rawQuery) {
   };
 }
 
-module.exports = { findAnswer, expandQuery, tokenize, invalidateSynonymCache };
+module.exports = { findAnswer, expandQuery, tokenize, invalidateSynonymCache, invalidateQACache };
