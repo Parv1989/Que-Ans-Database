@@ -39,32 +39,97 @@ function toSpeechText(raw) {
     .trim();
 }
 
-// ---------- Google Natural Voice Selection Engine ----------
+// ---------- Google Natural Voice Selection Engine & Cloud TTS ----------
 let cachedVoice = null;
+let userHasChosenVoice = false;
+let currentAudio = null;
+
+function speakGoogleOnline(speechText) {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+  stopLipSync();
+
+  // Split into chunks if longer than 180 chars for Google TTS URL limits
+  const chunks = speechText.match(/[^.!?\n]+[.!?\n]?/g) || [speechText];
+  let chunkIndex = 0;
+
+  function playNextChunk() {
+    if (chunkIndex >= chunks.length || !voiceEnabled) {
+      setTalking(false);
+      return;
+    }
+
+    const chunk = chunks[chunkIndex++].trim();
+    if (!chunk) {
+      playNextChunk();
+      return;
+    }
+
+    // Detect script or default to Hindi ('hi') for authentic Google natural voice
+    const isHindi = /[\u0900-\u097F]/.test(chunk) || /[a-z]/i.test(chunk);
+    const lang = 'hi';
+    const encodedText = encodeURIComponent(chunk.substring(0, 180));
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&q=${encodedText}&tl=${lang}`;
+
+    const audio = new Audio(url);
+    currentAudio = audio;
+
+    audio.onplay = () => {
+      setTalking(true);
+      let startTime = performance.now();
+      function syncLoop(now) {
+        if (!currentAudio || currentAudio.paused || currentAudio.ended) {
+          setTalking(false);
+          return;
+        }
+        let elapsed = now - startTime;
+        let cycle = Math.floor(elapsed / 140) % 4;
+        let cycleVisemes = ['A_O', 'E_I', 'CONSONANT', 'U'];
+        setViseme(cycleVisemes[cycle]);
+        lipSyncAnimationId = requestAnimationFrame(syncLoop);
+      }
+      lipSyncAnimationId = requestAnimationFrame(syncLoop);
+    };
+
+    audio.onended = () => {
+      playNextChunk();
+    };
+
+    audio.onerror = () => {
+      setTalking(false);
+    };
+
+    audio.play().catch(() => setTalking(false));
+  }
+
+  playNextChunk();
+}
 
 function populateVoiceList() {
   if (!window.speechSynthesis) return;
   const voices = window.speechSynthesis.getVoices();
-  if (!voices || voices.length === 0) return;
 
   // Score available voices to strictly prioritize Google natural human voices
-  const scored = voices.map((v) => {
+  const scored = (voices || []).map((v) => {
     let score = 0;
     const lang = (v.lang || '').toLowerCase().replace('_', '-');
     const name = (v.name || '').toLowerCase();
+    const uri = (v.voiceURI || '').toLowerCase();
 
-    const isGoogle = name.includes('google');
-    const isNatural = name.includes('natural') || name.includes('online') || name.includes('neural') || name.includes('premium');
-    const isRoboticLocal = name.includes('desktop') || name.includes('espeak') || name.includes('david') || name.includes('mark') || name.includes('zira') || name.includes('hemant');
+    const isGoogle = name.includes('google') || uri.includes('google');
+    const isNatural = name.includes('natural') || name.includes('online') || name.includes('neural');
+    const isMicrosoftLocal = name.includes('microsoft') || name.includes('heera') || name.includes('ravi') || name.includes('zira') || name.includes('david') || name.includes('mark');
 
     // Huge boost for Google Neural / Natural web voices
-    if (isGoogle) score += 600;
-    if (isNatural) score += 300;
-    if (isRoboticLocal) score -= 400; // Heavily penalize mechanical local desktop voices
+    if (isGoogle) score += 1000;
+    if (isNatural && !isMicrosoftLocal) score += 400;
+    if (isMicrosoftLocal) score -= 800; // Heavily penalize mechanical local Microsoft desktop voices
 
     // Language scores (Hindi & Indian English first, then English)
     if (lang === 'hi-in' || lang.startsWith('hi')) {
-      score += 250;
+      score += 300;
     } else if (lang === 'en-in') {
       score += 200;
     } else if (lang.startsWith('en')) {
@@ -73,13 +138,10 @@ function populateVoiceList() {
 
     // Google specific language combos
     if (isGoogle && (name.includes('hindi') || name.includes('हिन्दी') || lang.startsWith('hi'))) {
-      score += 500; // Highest priority: Google Hindi
+      score += 600; // Highest priority: Google Hindi
     }
     if (isGoogle && (name.includes('india') || name.includes('indian') || lang === 'en-in')) {
-      score += 450; // Second highest priority: Google Indian English
-    }
-    if (isGoogle && name.includes('uk english female')) {
-      score += 350; // High priority: Google UK Female
+      score += 500; // Second highest priority: Google Indian English
     }
 
     return { voice: v, score };
@@ -87,8 +149,17 @@ function populateVoiceList() {
 
   scored.sort((a, b) => b.score - a.score);
 
+  const bestLocalGoogle = scored.find(item => item.voice.name.toLowerCase().includes('google') || item.voice.voiceURI.toLowerCase().includes('google'));
+
   if (voiceSelect) {
     voiceSelect.innerHTML = '';
+
+    // Always offer Google Cloud Online HQ voice at top
+    const cloudOpt = document.createElement('option');
+    cloudOpt.value = 'google_cloud_online';
+    cloudOpt.textContent = '✨ Google Voice (Online HQ)';
+    voiceSelect.appendChild(cloudOpt);
+
     scored.forEach((item) => {
       const option = document.createElement('option');
       option.value = item.voice.name;
@@ -100,26 +171,39 @@ function populateVoiceList() {
       voiceSelect.appendChild(option);
     });
 
-    if (!selectedVoiceName && scored.length > 0) {
-      selectedVoiceName = scored[0].voice.name;
+    if (!userHasChosenVoice) {
+      if (bestLocalGoogle) {
+        selectedVoiceName = bestLocalGoogle.voice.name;
+      } else {
+        selectedVoiceName = 'google_cloud_online';
+      }
     }
-    if (selectedVoiceName) {
-      voiceSelect.value = selectedVoiceName;
-    }
+
+    voiceSelect.value = selectedVoiceName;
   }
 
-  cachedVoice = voices.find((v) => v.name === selectedVoiceName) || (scored[0] ? scored[0].voice : voices[0]);
+  if (selectedVoiceName === 'google_cloud_online') {
+    cachedVoice = null;
+  } else {
+    cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || (bestLocalGoogle ? bestLocalGoogle.voice : null);
+  }
 }
 
 if (voiceSelect) {
   voiceSelect.addEventListener('change', (e) => {
+    userHasChosenVoice = true;
     selectedVoiceName = e.target.value;
-    const voices = window.speechSynthesis.getVoices();
-    cachedVoice = voices.find((v) => v.name === selectedVoiceName) || null;
+    if (selectedVoiceName === 'google_cloud_online') {
+      cachedVoice = null;
+    } else {
+      const voices = window.speechSynthesis.getVoices();
+      cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || null;
+    }
   });
 }
 
 function pickVoice() {
+  if (selectedVoiceName === 'google_cloud_online') return null;
   if (cachedVoice) return cachedVoice;
   populateVoiceList();
   return cachedVoice;
@@ -193,17 +277,39 @@ function stopLipSync() {
 }
 
 function speak(rawText) {
-  if (!voiceEnabled || !window.speechSynthesis) return;
+  if (!voiceEnabled) return;
 
-  window.speechSynthesis.cancel();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
   stopLipSync();
 
   const speechText = toSpeechText(rawText);
   if (!speechText) return;
 
-  const utterance = new SpeechSynthesisUtterance(speechText);
-  const voice = pickVoice();
+  // Force Google Online Voice if explicitly selected or if local Google voice isn't available
+  if (selectedVoiceName === 'google_cloud_online') {
+    speakGoogleOnline(speechText);
+    return;
+  }
 
+  const voice = pickVoice();
+  const isGoogleVoice = voice && (voice.name.toLowerCase().includes('google') || (voice.voiceURI && voice.voiceURI.toLowerCase().includes('google')));
+
+  if (!isGoogleVoice && !userHasChosenVoice) {
+    // Automatically fallback to Google Online Cloud Voice instead of playing robotic Microsoft voices
+    speakGoogleOnline(speechText);
+    return;
+  }
+
+  if (!window.speechSynthesis) {
+    speakGoogleOnline(speechText);
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(speechText);
   if (voice) {
     utterance.voice = voice;
     utterance.lang = voice.lang;
@@ -211,12 +317,10 @@ function speak(rawText) {
     utterance.lang = 'hi-IN';
   }
 
-  // Natural human conversational voice settings
   utterance.rate = 0.94;
   utterance.pitch = 1.0;
   utterance.volume = 1.0;
 
-  // Real-time Event Driven Lip-Sync via SpeechSynthesisUtterance boundary events
   utterance.onboundary = (event) => {
     if (event.name === 'word') {
       const currentWord = speechText.substring(event.charIndex, event.charIndex + (event.charLength || 4));
@@ -269,10 +373,14 @@ function unlockAudioContext() {
 muteBtn.addEventListener('click', () => {
   voiceEnabled = !voiceEnabled;
   muteIcon.textContent = voiceEnabled ? '\u{1F50A}' : '\u{1F507}';
-  if (!voiceEnabled && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
+  if (!voiceEnabled) {
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio = null;
+    }
     setTalking(false);
-  } else if (voiceEnabled) {
+  } else {
     unlockAudioContext();
   }
 });
