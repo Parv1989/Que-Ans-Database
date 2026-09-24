@@ -44,76 +44,76 @@ let cachedVoice = null;
 let userHasChosenVoice = false;
 let currentAudio = null;
 
-function speakGoogleOnline(speechText) {
+const TTS_API_URL = window.location.origin + '/api/tts';
+
+async function speakServerTTS(speechText) {
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
   }
   stopLipSync();
 
-  // Split into chunks if longer than 180 chars for Google TTS URL limits
-  const chunks = speechText.match(/[^.!?\n]+[.!?\n]?/g) || [speechText];
-  let chunkIndex = 0;
+  try {
+    const res = await fetch(`${TTS_API_URL}?text=${encodeURIComponent(speechText)}`);
+    const data = await res.json();
 
-  function playNextChunk() {
-    if (chunkIndex >= chunks.length || !voiceEnabled) {
+    if (!data.urls || data.urls.length === 0) {
       setTalking(false);
       return;
     }
 
-    const chunk = chunks[chunkIndex++].trim();
-    if (!chunk) {
-      playNextChunk();
-      return;
-    }
+    let urlIndex = 0;
 
-    // Detect script or default to Hindi ('hi') for authentic Google natural voice
-    const isHindi = /[\u0900-\u097F]/.test(chunk) || /[a-z]/i.test(chunk);
-    const lang = 'hi';
-    const encodedText = encodeURIComponent(chunk.substring(0, 180));
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&q=${encodedText}&tl=${lang}`;
-
-    const audio = new Audio(url);
-    currentAudio = audio;
-
-    audio.onplay = () => {
-      setTalking(true);
-      let startTime = performance.now();
-      function syncLoop(now) {
-        if (!currentAudio || currentAudio.paused || currentAudio.ended) {
-          setTalking(false);
-          return;
-        }
-        let elapsed = now - startTime;
-        let cycle = Math.floor(elapsed / 140) % 4;
-        let cycleVisemes = ['A_O', 'E_I', 'CONSONANT', 'U'];
-        setViseme(cycleVisemes[cycle]);
-        lipSyncAnimationId = requestAnimationFrame(syncLoop);
+    function playNextUrl() {
+      if (urlIndex >= data.urls.length || !voiceEnabled) {
+        setTalking(false);
+        return;
       }
-      lipSyncAnimationId = requestAnimationFrame(syncLoop);
-    };
 
-    audio.onended = () => {
-      playNextChunk();
-    };
+      const audio = new Audio(data.urls[urlIndex++]);
+      currentAudio = audio;
 
-    audio.onerror = () => {
-      setTalking(false);
-    };
+      audio.onplay = () => {
+        setTalking(true);
+        let startTime = performance.now();
+        function syncLoop(now) {
+          if (!currentAudio || currentAudio.paused || currentAudio.ended) {
+            setTalking(false);
+            return;
+          }
+          let elapsed = now - startTime;
+          let cycle = Math.floor(elapsed / 140) % 4;
+          let cycleVisemes = ['A_O', 'E_I', 'CONSONANT', 'U'];
+          setViseme(cycleVisemes[cycle]);
+          lipSyncAnimationId = requestAnimationFrame(syncLoop);
+        }
+        lipSyncAnimationId = requestAnimationFrame(syncLoop);
+      };
 
-    audio.play().catch(() => setTalking(false));
+      audio.onended = () => {
+        playNextUrl();
+      };
+
+      audio.onerror = () => {
+        setTalking(false);
+      };
+
+      audio.play().catch(() => setTalking(false));
+    }
+
+    playNextUrl();
+  } catch (err) {
+    console.warn('Server TTS error:', err);
+    setTalking(false);
   }
-
-  playNextChunk();
 }
 
 function populateVoiceList() {
   if (!window.speechSynthesis) return;
   const voices = window.speechSynthesis.getVoices();
-  if (!voices || voices.length === 0) return;
 
   // Score available voices to strictly prioritize Google Hindi
-  const scored = voices.map((v) => {
+  const scored = (voices || []).map((v) => {
     let score = 0;
     const lang = (v.lang || '').toLowerCase().replace('_', '-');
     const name = (v.name || '').toLowerCase();
@@ -142,8 +142,21 @@ function populateVoiceList() {
 
   scored.sort((a, b) => b.score - a.score);
 
+  const nativeGoogleHindi = (voices || []).find((v) => {
+    const n = v.name.toLowerCase();
+    const u = (v.voiceURI || '').toLowerCase();
+    const l = (v.lang || '').toLowerCase();
+    return (n.includes('google') || u.includes('google')) && (n.includes('hindi') || n.includes('हिन्दी') || l.startsWith('hi'));
+  });
+
   if (voiceSelect) {
     voiceSelect.innerHTML = '';
+
+    // Always offer Google Hindi (Server AI Voice) at top
+    const serverOpt = document.createElement('option');
+    serverOpt.value = 'google_hindi_server';
+    serverOpt.textContent = '✨ Google Hindi (Server AI Voice)';
+    voiceSelect.appendChild(serverOpt);
 
     scored.forEach((item) => {
       const option = document.createElement('option');
@@ -156,29 +169,39 @@ function populateVoiceList() {
       voiceSelect.appendChild(option);
     });
 
-    // Automatically set default to Google हिन्दी (highest scored voice) if user hasn't manually picked another voice
-    if (!userHasChosenVoice && scored.length > 0) {
-      selectedVoiceName = scored[0].voice.name;
+    if (!userHasChosenVoice) {
+      if (nativeGoogleHindi) {
+        selectedVoiceName = nativeGoogleHindi.name;
+      } else {
+        selectedVoiceName = 'google_hindi_server';
+      }
     }
 
-    if (selectedVoiceName) {
-      voiceSelect.value = selectedVoiceName;
-    }
+    voiceSelect.value = selectedVoiceName;
   }
 
-  cachedVoice = voices.find((v) => v.name === selectedVoiceName) || (scored[0] ? scored[0].voice : voices[0]);
+  if (selectedVoiceName === 'google_hindi_server') {
+    cachedVoice = null;
+  } else {
+    cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || null;
+  }
 }
 
 if (voiceSelect) {
   voiceSelect.addEventListener('change', (e) => {
     userHasChosenVoice = true;
     selectedVoiceName = e.target.value;
-    const voices = window.speechSynthesis.getVoices();
-    cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || null;
+    if (selectedVoiceName === 'google_hindi_server') {
+      cachedVoice = null;
+    } else {
+      const voices = window.speechSynthesis.getVoices();
+      cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || null;
+    }
   });
 }
 
 function pickVoice() {
+  if (selectedVoiceName === 'google_hindi_server') return null;
   if (cachedVoice) return cachedVoice;
   populateVoiceList();
   return cachedVoice;
@@ -252,17 +275,39 @@ function stopLipSync() {
 }
 
 function speak(rawText) {
-  if (!voiceEnabled || !window.speechSynthesis) return;
+  if (!voiceEnabled) return;
 
-  window.speechSynthesis.cancel();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
   stopLipSync();
 
   const speechText = toSpeechText(rawText);
   if (!speechText) return;
 
-  const utterance = new SpeechSynthesisUtterance(speechText);
-  const voice = pickVoice();
+  // If google_hindi_server selected OR if no native Google voice is available in browser (e.g. Firefox)
+  if (selectedVoiceName === 'google_hindi_server') {
+    speakServerTTS(speechText);
+    return;
+  }
 
+  const voice = pickVoice();
+  const isGoogleVoice = voice && (voice.name.toLowerCase().includes('google') || (voice.voiceURI && voice.voiceURI.toLowerCase().includes('google')));
+
+  if (!isGoogleVoice && !userHasChosenVoice) {
+    // Automatically use Server Google Hindi TTS on Firefox/Edge instead of mechanical Microsoft Heera
+    speakServerTTS(speechText);
+    return;
+  }
+
+  if (!window.speechSynthesis) {
+    speakServerTTS(speechText);
+    return;
+  }
+
+  const utterance = new SpeechSynthesisUtterance(speechText);
   if (voice) {
     utterance.voice = voice;
     utterance.lang = voice.lang;
