@@ -110,55 +110,40 @@ function speakGoogleOnline(speechText) {
 function populateVoiceList() {
   if (!window.speechSynthesis) return;
   const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return;
 
-  // Score available voices to strictly prioritize Google natural human voices
-  const scored = (voices || []).map((v) => {
+  // Score available voices to strictly prioritize Google Hindi
+  const scored = voices.map((v) => {
     let score = 0;
     const lang = (v.lang || '').toLowerCase().replace('_', '-');
     const name = (v.name || '').toLowerCase();
     const uri = (v.voiceURI || '').toLowerCase();
 
     const isGoogle = name.includes('google') || uri.includes('google');
-    const isNatural = name.includes('natural') || name.includes('online') || name.includes('neural');
+    const isHindi = name.includes('hindi') || name.includes('हिन्दी') || lang.startsWith('hi');
+    const isIndianEnglish = name.includes('india') || name.includes('indian') || lang === 'en-in';
     const isMicrosoftLocal = name.includes('microsoft') || name.includes('heera') || name.includes('ravi') || name.includes('zira') || name.includes('david') || name.includes('mark');
 
-    // Huge boost for Google Neural / Natural web voices
-    if (isGoogle) score += 1000;
-    if (isNatural && !isMicrosoftLocal) score += 400;
-    if (isMicrosoftLocal) score -= 800; // Heavily penalize mechanical local Microsoft desktop voices
-
-    // Language scores (Hindi & Indian English first, then English)
-    if (lang === 'hi-in' || lang.startsWith('hi')) {
-      score += 300;
-    } else if (lang === 'en-in') {
-      score += 200;
-    } else if (lang.startsWith('en')) {
-      score += 100;
+    // ABSOLUTE TOP PRIORITY FOR GOOGLE HINDI ("Google हिन्दी")
+    if (isGoogle && isHindi) {
+      score += 10000;
+    } else if (isGoogle && isIndianEnglish) {
+      score += 4000;
+    } else if (isGoogle) {
+      score += 2000;
+    } else if (isHindi) {
+      score += 1000;
     }
 
-    // Google specific language combos
-    if (isGoogle && (name.includes('hindi') || name.includes('हिन्दी') || lang.startsWith('hi'))) {
-      score += 600; // Highest priority: Google Hindi
-    }
-    if (isGoogle && (name.includes('india') || name.includes('indian') || lang === 'en-in')) {
-      score += 500; // Second highest priority: Google Indian English
-    }
+    if (isMicrosoftLocal) score -= 800;
 
     return { voice: v, score };
   });
 
   scored.sort((a, b) => b.score - a.score);
 
-  const bestLocalGoogle = scored.find(item => item.voice.name.toLowerCase().includes('google') || item.voice.voiceURI.toLowerCase().includes('google'));
-
   if (voiceSelect) {
     voiceSelect.innerHTML = '';
-
-    // Always offer Google Cloud Online HQ voice at top
-    const cloudOpt = document.createElement('option');
-    cloudOpt.value = 'google_cloud_online';
-    cloudOpt.textContent = '✨ Google Voice (Online HQ)';
-    voiceSelect.appendChild(cloudOpt);
 
     scored.forEach((item) => {
       const option = document.createElement('option');
@@ -171,39 +156,29 @@ function populateVoiceList() {
       voiceSelect.appendChild(option);
     });
 
-    if (!userHasChosenVoice) {
-      if (bestLocalGoogle) {
-        selectedVoiceName = bestLocalGoogle.voice.name;
-      } else {
-        selectedVoiceName = 'google_cloud_online';
-      }
+    // Automatically set default to Google हिन्दी (highest scored voice) if user hasn't manually picked another voice
+    if (!userHasChosenVoice && scored.length > 0) {
+      selectedVoiceName = scored[0].voice.name;
     }
 
-    voiceSelect.value = selectedVoiceName;
+    if (selectedVoiceName) {
+      voiceSelect.value = selectedVoiceName;
+    }
   }
 
-  if (selectedVoiceName === 'google_cloud_online') {
-    cachedVoice = null;
-  } else {
-    cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || (bestLocalGoogle ? bestLocalGoogle.voice : null);
-  }
+  cachedVoice = voices.find((v) => v.name === selectedVoiceName) || (scored[0] ? scored[0].voice : voices[0]);
 }
 
 if (voiceSelect) {
   voiceSelect.addEventListener('change', (e) => {
     userHasChosenVoice = true;
     selectedVoiceName = e.target.value;
-    if (selectedVoiceName === 'google_cloud_online') {
-      cachedVoice = null;
-    } else {
-      const voices = window.speechSynthesis.getVoices();
-      cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || null;
-    }
+    const voices = window.speechSynthesis.getVoices();
+    cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || null;
   });
 }
 
 function pickVoice() {
-  if (selectedVoiceName === 'google_cloud_online') return null;
   if (cachedVoice) return cachedVoice;
   populateVoiceList();
   return cachedVoice;
@@ -277,39 +252,17 @@ function stopLipSync() {
 }
 
 function speak(rawText) {
-  if (!voiceEnabled) return;
+  if (!voiceEnabled || !window.speechSynthesis) return;
 
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio = null;
-  }
+  window.speechSynthesis.cancel();
   stopLipSync();
 
   const speechText = toSpeechText(rawText);
   if (!speechText) return;
 
-  // Force Google Online Voice if explicitly selected or if local Google voice isn't available
-  if (selectedVoiceName === 'google_cloud_online') {
-    speakGoogleOnline(speechText);
-    return;
-  }
-
-  const voice = pickVoice();
-  const isGoogleVoice = voice && (voice.name.toLowerCase().includes('google') || (voice.voiceURI && voice.voiceURI.toLowerCase().includes('google')));
-
-  if (!isGoogleVoice && !userHasChosenVoice) {
-    // Automatically fallback to Google Online Cloud Voice instead of playing robotic Microsoft voices
-    speakGoogleOnline(speechText);
-    return;
-  }
-
-  if (!window.speechSynthesis) {
-    speakGoogleOnline(speechText);
-    return;
-  }
-
   const utterance = new SpeechSynthesisUtterance(speechText);
+  const voice = pickVoice();
+
   if (voice) {
     utterance.voice = voice;
     utterance.lang = voice.lang;
