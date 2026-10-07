@@ -398,12 +398,21 @@ muteBtn.addEventListener('click', () => {
 });
 
 // ---------- Chat Messages ----------
-function addMessage(text, sender) {
+function addMessage(text, sender, imageUrl = '') {
   const div = document.createElement('div');
   div.className = `msg ${sender}`;
   const p = document.createElement('p');
   p.innerHTML = formatText(text);
   div.appendChild(p);
+
+  if (imageUrl && imageUrl.trim()) {
+    const img = document.createElement('img');
+    img.src = imageUrl.trim();
+    img.alt = 'Question diagram';
+    img.loading = 'lazy';
+    div.appendChild(img);
+  }
+
   messagesEl.appendChild(div);
   scrollToBottom();
 
@@ -467,14 +476,14 @@ async function sendQuestion(question) {
     hideTyping();
 
     if (data.answered) {
-      addMessage(data.answer, 'bot');
+      addMessage(data.answer, 'bot', data.imageUrl);
     } else {
-      addMessage(data.message || "Mujhe iska answer nahi mila.", 'bot');
+      addMessage(data.message || "I couldn't find an answer for that.", 'bot');
       addSuggestions(data.suggestions);
     }
   } catch (err) {
     hideTyping();
-    addMessage('Connection me dikkat aa rahi hai, thodi der baad try karein.', 'bot');
+    addMessage('Connection issue, please try again.', 'bot');
   }
 }
 
@@ -498,9 +507,15 @@ const selectChapter = document.getElementById('selectChapter');
 const saveContextBtn = document.getElementById('saveContextBtn');
 
 let hierarchyData = {};
-let currentClass = localStorage.getItem('bot_selected_class') || '';
-let currentBook = localStorage.getItem('bot_selected_book') || '';
-let currentChapter = localStorage.getItem('bot_selected_chapter') || 'All Chapters';
+let savedClass = localStorage.getItem('bot_selected_class') || '';
+let savedBook = localStorage.getItem('bot_selected_book') || '';
+let savedChapter = localStorage.getItem('bot_selected_chapter') || 'All Chapters';
+
+let currentClass = savedClass;
+let currentBook = savedBook;
+let currentChapter = savedChapter;
+
+let hasSavedContext = !!(savedClass && savedBook);
 
 async function initContextEngine() {
   try {
@@ -514,10 +529,11 @@ async function initContextEngine() {
 
   populateClassDropdown();
 
-  if (currentClass && currentBook) {
+  if (hasSavedContext) {
     updateContextBadge();
     if (contextModal) contextModal.classList.add('hidden');
   } else {
+    // Modal stays visible until user makes choice and clicks Start Chatting
     if (contextModal) contextModal.classList.remove('hidden');
   }
 }
@@ -538,11 +554,10 @@ function populateClassDropdown() {
     selectClass.appendChild(opt);
   });
 
-  if (currentClass && classes.includes(currentClass)) {
-    selectClass.value = currentClass;
-  } else {
-    currentClass = selectClass.value;
+  if (savedClass && classes.includes(savedClass)) {
+    selectClass.value = savedClass;
   }
+  currentClass = selectClass.value;
 
   populateBookDropdown();
 }
@@ -566,11 +581,10 @@ function populateBookDropdown() {
     selectBook.appendChild(opt);
   });
 
-  if (currentBook && books.includes(currentBook)) {
-    selectBook.value = currentBook;
-  } else {
-    currentBook = selectBook.value;
+  if (savedBook && books.includes(savedBook)) {
+    selectBook.value = savedBook;
   }
+  currentBook = selectBook.value;
 
   populateChapterDropdown();
 }
@@ -597,8 +611,8 @@ function populateChapterDropdown() {
     }
   });
 
-  if (currentChapter && chaptersList.includes(currentChapter)) {
-    selectChapter.value = currentChapter;
+  if (savedChapter && chaptersList.includes(savedChapter)) {
+    selectChapter.value = savedChapter;
   } else {
     selectChapter.value = 'All Chapters';
   }
@@ -625,6 +639,11 @@ if (saveContextBtn) {
     currentBook = selectBook ? selectBook.value : 'Ripples';
     currentChapter = selectChapter ? selectChapter.value : 'All Chapters';
 
+    savedClass = currentClass;
+    savedBook = currentBook;
+    savedChapter = currentChapter;
+    hasSavedContext = true;
+
     localStorage.setItem('bot_selected_class', currentClass);
     localStorage.setItem('bot_selected_book', currentBook);
     localStorage.setItem('bot_selected_chapter', currentChapter);
@@ -633,7 +652,7 @@ if (saveContextBtn) {
     if (contextModal) contextModal.classList.add('hidden');
 
     const chapText = currentChapter !== 'All Chapters' ? ` (${currentChapter})` : '';
-    addMessage(`📌 Active Context: **${currentClass} • ${currentBook}**${chapText}. Poocho is book ke baare me koi bhi sawaal!`, 'bot');
+    addMessage(`📌 Active Context: **${currentClass} • ${currentBook}**${chapText}. Feel free to ask any question about this book!`, 'bot');
   });
 }
 

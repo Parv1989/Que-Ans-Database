@@ -32,13 +32,14 @@ router.post('/', async (req, res) => {
         className: result.match.className,
         bookName: result.match.bookName,
         chapterName: result.match.chapterName,
+        imageUrl: result.match.imageUrl || '',
         confidence: result.confidence
       });
     }
 
     return res.json({
       answered: false,
-      message: "Mujhe iska exact answer nahi mila. Kya aapka sawaal in me se kisi se milta hai?",
+      message: "I couldn't find an exact answer for that. Did you mean one of these questions?",
       suggestions: result.suggestions,
       confidence: result.confidence
     });

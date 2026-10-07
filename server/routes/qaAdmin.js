@@ -13,9 +13,9 @@ router.use(requireAdmin);
 // GET /api/admin/qa/sample-csv - downloadable template
 router.get('/sample-csv', (req, res) => {
   const sample =
-    'question,answer,keywords,category,className,bookName,chapterName\n' +
-    '"Where does King Vikram live?","King Vikram lived in Ujjain.","vikram;king vikram;ujjain",history,"Class 3","Ripples","Chapter 4"\n' +
-    '"What is photosynthesis?","Photosynthesis is the process by which green plants make food using sunlight.","sunlight;plants food;chlorophyll",science,"Class 4","Science Explorer","Chapter 2"\n';
+    'question,answer,keywords,category,className,bookName,chapterName,imageUrl\n' +
+    '"Where does King Vikram live?","King Vikram lived in Ujjain.","vikram;king vikram;ujjain",history,"Class 3","Ripples","Chapter 4","Que1.png"\n' +
+    '"What is photosynthesis?","Photosynthesis is the process by which green plants make food using sunlight.","sunlight;plants food;chlorophyll",science,"Class 4","Science Explorer","Chapter 2",""\n';
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="qa-template.csv"');
   res.send(sample);
@@ -54,12 +54,13 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
       .filter(Boolean);
     const category = (row.category || 'general').trim();
 
-    // Flexible column headers for class, book, chapter
+    // Flexible column headers for class, book, chapter, and image
     const className = (row.className || row.class || 'Class 3').trim();
     const bookName = (row.bookName || row.book || 'General').trim();
     const chapterName = (row.chapterName || row.chapter || 'Chapter 1').trim();
+    const imageUrl = (row.imageUrl || row.Image || row.image || '').trim();
 
-    toInsert.push({ question, answer, keywords, category, className, bookName, chapterName });
+    toInsert.push({ question, answer, keywords, category, className, bookName, chapterName, imageUrl });
   });
 
   let inserted = [];
@@ -96,10 +97,10 @@ router.get('/', async (req, res) => {
   res.json(items);
 });
 
-// POST /api/admin/qa  { question, answer, keywords[], category, className, bookName, chapterName }
+// POST /api/admin/qa  { question, answer, keywords[], category, className, bookName, chapterName, imageUrl }
 router.post('/', async (req, res) => {
   try {
-    const { question, answer, keywords = [], category, className, bookName, chapterName } = req.body;
+    const { question, answer, keywords = [], category, className, bookName, chapterName, imageUrl } = req.body;
     if (!question || !answer) {
       return res.status(400).json({ error: 'Question and answer are both required' });
     }
@@ -110,7 +111,8 @@ router.post('/', async (req, res) => {
       category: category ? category.trim() : 'general',
       className: className ? className.trim() : 'Class 3',
       bookName: bookName ? bookName.trim() : 'General',
-      chapterName: chapterName ? chapterName.trim() : 'Chapter 1'
+      chapterName: chapterName ? chapterName.trim() : 'Chapter 1',
+      imageUrl: imageUrl ? imageUrl.trim() : ''
     });
     invalidateQACache();
     res.status(201).json(doc);
@@ -122,7 +124,7 @@ router.post('/', async (req, res) => {
 // PUT /api/admin/qa/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { question, answer, keywords, category, className, bookName, chapterName } = req.body;
+    const { question, answer, keywords, category, className, bookName, chapterName, imageUrl } = req.body;
     const update = {};
     if (question !== undefined) update.question = question.trim();
     if (answer !== undefined) update.answer = answer.trim();
@@ -131,6 +133,7 @@ router.put('/:id', async (req, res) => {
     if (className !== undefined) update.className = className.trim();
     if (bookName !== undefined) update.bookName = bookName.trim();
     if (chapterName !== undefined) update.chapterName = chapterName.trim();
+    if (imageUrl !== undefined) update.imageUrl = imageUrl.trim();
 
     const doc = await QA.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!doc) return res.status(404).json({ error: 'Entry not found' });

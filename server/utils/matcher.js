@@ -192,7 +192,8 @@ async function findAnswer(rawQuery, filters = {}) {
         answer: best.doc.answer,
         className: best.doc.className,
         bookName: best.doc.bookName,
-        chapterName: best.doc.chapterName
+        chapterName: best.doc.chapterName,
+        imageUrl: best.doc.imageUrl
       },
       confidence,
       suggestions: scored

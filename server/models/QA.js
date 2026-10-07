@@ -41,6 +41,12 @@ const QASchema = new mongoose.Schema(
       default: 'All Chapters',
       index: true
     },
+    // Optional diagram or illustration image URL for the question/answer
+    imageUrl: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     // how many times this answer has been served - useful for the admin dashboard
     hitCount: {
       type: Number,

@@ -152,6 +152,7 @@ function openQAModal(item = null) {
   document.getElementById('qaChapterName').value = item ? (item.chapterName || 'Chapter 1') : 'Chapter 1';
   document.getElementById('qaKeywords').value = item && item.keywords ? item.keywords.join(', ') : '';
   document.getElementById('qaCategory').value = item ? item.category : '';
+  document.getElementById('qaImageUrl').value = item ? (item.imageUrl || '') : '';
   qaModal.classList.remove('hidden');
 }
 
@@ -172,7 +173,8 @@ qaForm.addEventListener('submit', async (e) => {
       .value.split(',')
       .map((k) => k.trim())
       .filter(Boolean),
-    category: document.getElementById('qaCategory').value
+    category: document.getElementById('qaCategory').value,
+    imageUrl: document.getElementById('qaImageUrl').value
   };
 
   const url = id ? `${API_BASE}/admin/qa/${id}` : `${API_BASE}/admin/qa`;
