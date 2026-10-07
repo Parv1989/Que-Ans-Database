@@ -120,11 +120,9 @@ async function expandQuery(rawQuery, vocabFuse, vocabSet) {
 
 /**
  * Finds the best matching QA entry for a student's question.
- * Uses token-overlap scoring (query tokens vs each answer's vocabulary,
- * after typo-correction and synonym expansion) rather than raw fuzzy string
- * distance, which holds up much better on short, keyword-style questions.
+ * Filters by className, bookName, and chapterName if provided.
  */
-async function findAnswer(rawQuery) {
+async function findAnswer(rawQuery, filters = {}) {
   const { allQA, docTokens, vocabFuse, vocabSet } = await getQADataset();
   if (!allQA || allQA.length === 0) {
     return { match: null, confidence: 0, suggestions: [] };
@@ -136,11 +134,40 @@ async function findAnswer(rawQuery) {
     return { match: null, confidence: 0, suggestions: [] };
   }
 
+  // Filter docTokens by className, bookName, chapterName if provided
+  const targetClassName = (filters.className || '').trim();
+  const targetBookName = (filters.bookName || '').trim();
+  const targetChapterName = (filters.chapterName || '').trim();
+
+  const filteredDocTokens = docTokens.filter(({ doc }) => {
+    if (targetClassName && targetClassName.toLowerCase() !== 'all' && targetClassName.toLowerCase() !== 'all classes') {
+      const docClass = (doc.className || '').trim();
+      if (docClass && docClass.toLowerCase() !== 'all classes' && docClass.toLowerCase() !== targetClassName.toLowerCase()) {
+        return false;
+      }
+    }
+    if (targetBookName && targetBookName.toLowerCase() !== 'all' && targetBookName.toLowerCase() !== 'all books') {
+      const docBook = (doc.bookName || '').trim();
+      if (docBook && docBook.toLowerCase() !== 'all books' && docBook.toLowerCase() !== targetBookName.toLowerCase()) {
+        return false;
+      }
+    }
+    if (targetChapterName && targetChapterName.toLowerCase() !== 'all' && targetChapterName.toLowerCase() !== 'all chapters') {
+      const docChap = (doc.chapterName || '').trim();
+      if (docChap && docChap.toLowerCase() !== 'all chapters' && docChap.toLowerCase() !== targetChapterName.toLowerCase()) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const candidateDocs = filteredDocTokens.length > 0 ? filteredDocTokens : docTokens;
+
   // Base scoring on original query tokens length so synonym expansion doesn't dilute accuracy
   const queryTokensCount = Math.max(1, correctedTokens.length);
 
-  // Score each doc by how many (synonym-expanded) query tokens it contains
-  const scored = docTokens.map(({ doc, tokens }) => {
+  // Score each candidate doc by how many (synonym-expanded) query tokens it contains
+  const scored = candidateDocs.map(({ doc, tokens }) => {
     let hits = 0;
     for (const qt of expandedTokens) {
       if (tokens.has(qt)) hits += 1;
@@ -155,11 +182,18 @@ async function findAnswer(rawQuery) {
   const confidence = Math.min(100, Math.round(best.score * 100));
   const CONFIDENCE_THRESHOLD = 35; // at least 35% keyword overlap with query tokens
 
-  if (best.hits > 0 && confidence >= CONFIDENCE_THRESHOLD) {
+  if (best && best.hits > 0 && confidence >= CONFIDENCE_THRESHOLD) {
     // Fire and forget hit count increment
     QA.findByIdAndUpdate(best.doc._id, { $inc: { hitCount: 1 } }).catch(() => {});
     return {
-      match: { _id: best.doc._id, question: best.doc.question, answer: best.doc.answer },
+      match: {
+        _id: best.doc._id,
+        question: best.doc.question,
+        answer: best.doc.answer,
+        className: best.doc.className,
+        bookName: best.doc.bookName,
+        chapterName: best.doc.chapterName
+      },
       confidence,
       suggestions: scored
         .slice(1, 4)
@@ -178,4 +212,33 @@ async function findAnswer(rawQuery) {
   };
 }
 
-module.exports = { findAnswer, expandQuery, tokenize, invalidateSynonymCache, invalidateQACache };
+/**
+ * Builds dynamic hierarchy of classes -> books -> chapters for cascading dropdowns
+ */
+async function getHierarchy() {
+  const { allQA } = await getQADataset();
+  const hierarchy = {}; // className -> { bookName -> Set(chapterName) }
+
+  (allQA || []).forEach((doc) => {
+    const c = (doc.className || 'General').trim();
+    const b = (doc.bookName || 'General').trim();
+    const ch = (doc.chapterName || 'General').trim();
+
+    if (!hierarchy[c]) hierarchy[c] = {};
+    if (!hierarchy[c][b]) hierarchy[c][b] = new Set();
+    hierarchy[c][b].add(ch);
+  });
+
+  // Convert sets to arrays
+  const formatted = {};
+  Object.keys(hierarchy).sort().forEach((cls) => {
+    formatted[cls] = {};
+    Object.keys(hierarchy[cls]).sort().forEach((bk) => {
+      formatted[cls][bk] = Array.from(hierarchy[cls][bk]).sort();
+    });
+  });
+
+  return formatted;
+}
+
+module.exports = { findAnswer, getHierarchy, expandQuery, tokenize, invalidateSynonymCache, invalidateQACache };

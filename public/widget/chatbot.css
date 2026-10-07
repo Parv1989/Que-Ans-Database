@@ -299,3 +299,148 @@ html, body {
   flex-shrink: 0;
 }
 .chat-input-row button:hover { background: var(--primary-dark); }
+
+/* Context Selector Bar */
+.context-bar {
+  background: #ffffff;
+  border-bottom: 1px solid var(--line);
+  padding: 0.45rem 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.context-badge-info {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.context-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.change-context-btn {
+  background: var(--lavender);
+  color: var(--primary-dark);
+  border: 1px solid var(--line);
+  padding: 0.2rem 0.55rem;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.change-context-btn:hover {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+/* Context Selector Modal */
+.context-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(25, 22, 44, 0.65);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 1rem;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+.context-modal-overlay.hidden {
+  display: none;
+  opacity: 0;
+  pointer-events: none;
+}
+.context-modal-card {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 330px;
+  padding: 1.4rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.22);
+  animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes modalPop {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.context-modal-header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+.context-modal-icon {
+  font-size: 2rem;
+  margin-bottom: 0.3rem;
+}
+.context-modal-header h3 {
+  margin: 0;
+  font-family: 'Baloo 2', sans-serif;
+  color: var(--ink);
+  font-size: 1.2rem;
+}
+.context-modal-header p {
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  line-height: 1.3;
+}
+.context-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.context-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.context-form label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.context-select {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  background: var(--paper);
+  color: var(--ink);
+  outline: none;
+}
+.context-select:focus {
+  border-color: var(--primary);
+  background: #ffffff;
+}
+.save-context-btn {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #ffffff;
+  border: none;
+  padding: 0.7rem;
+  border-radius: 14px;
+  font-family: 'Baloo 2', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(138, 131, 201, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  margin-top: 0.4rem;
+}
+.save-context-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(138, 131, 201, 0.55);
+}
+

@@ -1,7 +1,5 @@
-question,answer,keywords,category
-"What is the price of this book?","The MRP is printed on the back cover of the book. Online store par bhi price listed hai.","cost;rate;kitna paisa;price kya hai",purchase
-"How can I buy this book?","Aap hamari website ke Buy Now button se ya nazdeeki bookstore se ye book kharid sakte hain.","purchase;order;kharidna;buy karna hai",purchase
-"How do I get the answer key?","Answer key book ke last chapter me di gayi hai. Publisher website se bhi download kar sakte hain.","solution;solved answers;answers kaise milegi",content
-"I found a printing mistake in the book","Iske liye maaf kijiye. Kripya galti ka photo aur edition number publisher@example.com par bhejein.","error;mistake;galti;printing error;wrong answer",support
-"Is this book available in Hindi?","Ji haan, is book ka Hindi edition bhi available hai. Website par language option check karein.","hindi version;hindi edition;language",content
-"How do I contact customer support?","Aap hume publisher@example.com par email kar sakte hain ya helpline number par call kar sakte hain.","contact;support;helpline;complaint",support
+question,answer,keywords,category,className,bookName,chapterName
+"Where does King Vikram live?","King Vikram lived in the historic city of Ujjain.","vikram;king vikram;ujjain",history,"Class 3","Ripples","Chapter 4"
+"What is the price of this book?","The MRP is printed on the back cover of the book. Online store par bhi price listed hai.","cost;rate;kitna paisa;price kya hai",purchase,"Class 3","Ripples","Chapter 1"
+"How can I buy this book?","Aap hamari website ke Buy Now button se ya nazdeeki bookstore se ye book kharid sakte hain.","purchase;order;kharidna;buy karna hai",purchase,"Class 3","Ripples","Chapter 1"
+"How do I get the answer key?","Answer key book ke last chapter me di gayi hai. Publisher website se bhi download kar sakte hain.","solution;solved answers;answers kaise milegi",content,"Class 4","Science Explorer","Chapter 5"

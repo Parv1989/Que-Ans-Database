@@ -103,11 +103,20 @@
           <textarea id="qaAnswer" rows="4" required></textarea>
           <span class="field-hint">Yahan bhi <code>^..^</code> (superscript) aur <code>~..~</code> (subscript) kaam karta hai</span>
         </label>
+        <label>Class (e.g. Class 3, Class 4)
+          <input type="text" id="qaClassName" placeholder="e.g. Class 3" required />
+        </label>
+        <label>Book Name (e.g. Ripples, Science Explorer)
+          <input type="text" id="qaBookName" placeholder="e.g. Ripples" required />
+        </label>
+        <label>Chapter (e.g. Chapter 4, Chapter 1)
+          <input type="text" id="qaChapterName" placeholder="e.g. Chapter 4" />
+        </label>
         <label>Alternate phrasings (comma separated, optional)
           <input type="text" id="qaKeywords" placeholder="e.g. refund, money back, return payment" />
         </label>
         <label>Category (optional)
-          <input type="text" id="qaCategory" placeholder="e.g. purchase, support, content" />
+          <input type="text" id="qaCategory" placeholder="e.g. history, science, purchase" />
         </label>
         <div class="modal-actions">
           <button type="button" class="ghost-btn" id="qaCancelBtn">Cancel</button>
@@ -122,8 +131,8 @@
     <div class="modal">
       <h3>Bulk upload questions</h3>
       <p class="muted">
-        CSV columns needed: <strong>question, answer, keywords, category</strong>.
-        Multiple keywords go in one cell separated by a semicolon ( ; ), e.g. <code>refund;money back</code>.
+        CSV columns needed: <strong>question, answer, keywords, category, className, bookName, chapterName</strong>.
+        Multiple keywords go in one cell separated by a semicolon ( ; ), e.g. <code>vikram;ujjain</code>.
       </p>
       <button id="downloadTemplateBtn" class="ghost-btn" style="margin-bottom: 1rem;">Download CSV template</button>
       <form id="bulkForm">

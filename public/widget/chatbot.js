@@ -456,7 +456,12 @@ async function sendQuestion(question) {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question })
+      body: JSON.stringify({
+        question,
+        className: currentClass,
+        bookName: currentBook,
+        chapterName: currentChapter
+      })
     });
     const data = await res.json();
     hideTyping();
@@ -481,3 +486,156 @@ form.addEventListener('submit', (e) => {
   input.value = '';
   sendQuestion(question);
 });
+
+// ---------- Class / Book / Chapter Context Engine ----------
+const HIERARCHY_API_URL = window.location.origin + '/api/ask/hierarchy';
+const currentSelectionBadge = document.getElementById('currentSelectionBadge');
+const changeContextBtn = document.getElementById('changeContextBtn');
+const contextModal = document.getElementById('contextModal');
+const selectClass = document.getElementById('selectClass');
+const selectBook = document.getElementById('selectBook');
+const selectChapter = document.getElementById('selectChapter');
+const saveContextBtn = document.getElementById('saveContextBtn');
+
+let hierarchyData = {};
+let currentClass = localStorage.getItem('bot_selected_class') || '';
+let currentBook = localStorage.getItem('bot_selected_book') || '';
+let currentChapter = localStorage.getItem('bot_selected_chapter') || 'All Chapters';
+
+async function initContextEngine() {
+  try {
+    const res = await fetch(HIERARCHY_API_URL);
+    if (res.ok) {
+      hierarchyData = await res.json();
+    }
+  } catch (err) {
+    console.warn('Could not load hierarchy:', err);
+  }
+
+  populateClassDropdown();
+
+  if (currentClass && currentBook) {
+    updateContextBadge();
+    if (contextModal) contextModal.classList.add('hidden');
+  } else {
+    if (contextModal) contextModal.classList.remove('hidden');
+  }
+}
+
+function populateClassDropdown() {
+  if (!selectClass) return;
+  selectClass.innerHTML = '';
+
+  const classes = Object.keys(hierarchyData);
+  if (classes.length === 0) {
+    classes.push('Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5');
+  }
+
+  classes.forEach((cls) => {
+    const opt = document.createElement('option');
+    opt.value = cls;
+    opt.textContent = cls;
+    selectClass.appendChild(opt);
+  });
+
+  if (currentClass && classes.includes(currentClass)) {
+    selectClass.value = currentClass;
+  } else {
+    currentClass = selectClass.value;
+  }
+
+  populateBookDropdown();
+}
+
+function populateBookDropdown() {
+  if (!selectBook) return;
+  selectBook.innerHTML = '';
+
+  const selectedCls = selectClass.value;
+  const booksMap = hierarchyData[selectedCls] || {};
+  const books = Object.keys(booksMap);
+
+  if (books.length === 0) {
+    books.push('General');
+  }
+
+  books.forEach((bk) => {
+    const opt = document.createElement('option');
+    opt.value = bk;
+    opt.textContent = bk;
+    selectBook.appendChild(opt);
+  });
+
+  if (currentBook && books.includes(currentBook)) {
+    selectBook.value = currentBook;
+  } else {
+    currentBook = selectBook.value;
+  }
+
+  populateChapterDropdown();
+}
+
+function populateChapterDropdown() {
+  if (!selectChapter) return;
+  selectChapter.innerHTML = '';
+
+  const allOpt = document.createElement('option');
+  allOpt.value = 'All Chapters';
+  allOpt.textContent = 'All Chapters';
+  selectChapter.appendChild(allOpt);
+
+  const selectedCls = selectClass.value;
+  const selectedBk = selectBook.value;
+  const chaptersList = (hierarchyData[selectedCls] && hierarchyData[selectedCls][selectedBk]) || [];
+
+  chaptersList.forEach((ch) => {
+    if (ch.toLowerCase() !== 'all chapters' && ch.toLowerCase() !== 'general') {
+      const opt = document.createElement('option');
+      opt.value = ch;
+      opt.textContent = ch;
+      selectChapter.appendChild(opt);
+    }
+  });
+
+  if (currentChapter && chaptersList.includes(currentChapter)) {
+    selectChapter.value = currentChapter;
+  } else {
+    selectChapter.value = 'All Chapters';
+  }
+}
+
+if (selectClass) selectClass.addEventListener('change', populateBookDropdown);
+if (selectBook) selectBook.addEventListener('change', populateChapterDropdown);
+
+function updateContextBadge() {
+  if (!currentSelectionBadge) return;
+  const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? ` (${currentChapter})` : '';
+  currentSelectionBadge.textContent = `${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}`;
+}
+
+if (changeContextBtn) {
+  changeContextBtn.addEventListener('click', () => {
+    if (contextModal) contextModal.classList.remove('hidden');
+  });
+}
+
+if (saveContextBtn) {
+  saveContextBtn.addEventListener('click', () => {
+    currentClass = selectClass ? selectClass.value : 'Class 3';
+    currentBook = selectBook ? selectBook.value : 'Ripples';
+    currentChapter = selectChapter ? selectChapter.value : 'All Chapters';
+
+    localStorage.setItem('bot_selected_class', currentClass);
+    localStorage.setItem('bot_selected_book', currentBook);
+    localStorage.setItem('bot_selected_chapter', currentChapter);
+
+    updateContextBadge();
+    if (contextModal) contextModal.classList.add('hidden');
+
+    const chapText = currentChapter !== 'All Chapters' ? ` (${currentChapter})` : '';
+    addMessage(`📌 Active Context: **${currentClass} • ${currentBook}**${chapText}. Poocho is book ke baare me koi bhi sawaal!`, 'bot');
+  });
+}
+
+initContextEngine();
+

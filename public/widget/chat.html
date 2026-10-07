@@ -21,6 +21,15 @@
       </div>
     </header>
 
+    <!-- Context Selector Strip -->
+    <div class="context-bar">
+      <div class="context-badge-info">
+        <span class="context-icon">📚</span>
+        <span id="currentSelectionBadge" class="context-text">Select Class & Book</span>
+      </div>
+      <button id="changeContextBtn" class="change-context-btn" type="button">Change ⚙️</button>
+    </div>
+
     <!-- Modern Cute AI Robot Mascot -->
     <div class="robot-stage">
       <svg id="robot" class="robot" viewBox="0 0 240 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -123,6 +132,36 @@
       <input id="chatInput" type="text" placeholder="Apna sawaal likhein…" autocomplete="off" required />
       <button type="submit" aria-label="Send">&#10148;</button>
     </form>
+  </div>
+
+  <!-- Class / Book / Chapter Selector Modal Overlay -->
+  <div id="contextModal" class="context-modal-overlay">
+    <div class="context-modal-card">
+      <div class="context-modal-header">
+        <div class="context-modal-icon">📖</div>
+        <h3>Select Class & Book</h3>
+        <p>Sawaal poochne se pehle apni Class aur Book chunein taaki exact answer mile!</p>
+      </div>
+
+      <div class="context-form">
+        <div class="form-group">
+          <label for="selectClass">Class</label>
+          <select id="selectClass" class="context-select"></select>
+        </div>
+
+        <div class="form-group">
+          <label for="selectBook">Book Name</label>
+          <select id="selectBook" class="context-select"></select>
+        </div>
+
+        <div class="form-group">
+          <label for="selectChapter">Chapter (Optional)</label>
+          <select id="selectChapter" class="context-select"></select>
+        </div>
+
+        <button id="saveContextBtn" type="button" class="save-context-btn">Start Chatting 🚀</button>
+      </div>
+    </div>
   </div>
 
   <script src="chatbot.js"></script>

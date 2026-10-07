@@ -13,9 +13,9 @@ router.use(requireAdmin);
 // GET /api/admin/qa/sample-csv - downloadable template
 router.get('/sample-csv', (req, res) => {
   const sample =
-    'question,answer,keywords,category\n' +
-    '"What is the price of this book?","MRP is printed on the back cover.","cost;rate;kitna paisa",purchase\n' +
-    '"How can I buy this book?","Use the Buy Now button on our website.","purchase;order;kharidna",purchase\n';
+    'question,answer,keywords,category,className,bookName,chapterName\n' +
+    '"Where does King Vikram live?","King Vikram lived in Ujjain.","vikram;king vikram;ujjain",history,"Class 3","Ripples","Chapter 4"\n' +
+    '"What is photosynthesis?","Photosynthesis is the process by which green plants make food using sunlight.","sunlight;plants food;chlorophyll",science,"Class 4","Science Explorer","Chapter 2"\n';
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="qa-template.csv"');
   res.send(sample);
@@ -54,7 +54,12 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
       .filter(Boolean);
     const category = (row.category || 'general').trim();
 
-    toInsert.push({ question, answer, keywords, category });
+    // Flexible column headers for class, book, chapter
+    const className = (row.className || row.class || 'Class 3').trim();
+    const bookName = (row.bookName || row.book || 'General').trim();
+    const chapterName = (row.chapterName || row.chapter || 'Chapter 1').trim();
+
+    toInsert.push({ question, answer, keywords, category, className, bookName, chapterName });
   });
 
   let inserted = [];
@@ -72,25 +77,29 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
 
 // GET /api/admin/qa  - list all, newest first, optional ?search=
 router.get('/', async (req, res) => {
-  const { search } = req.query;
+  const { search, className, bookName } = req.query;
   let filter = {};
   if (search && search.trim()) {
     const safeSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    filter = {
-      $or: [
-        { question: { $regex: safeSearch, $options: 'i' } },
-        { keywords: { $regex: safeSearch, $options: 'i' } }
-      ]
-    };
+    filter.$or = [
+      { question: { $regex: safeSearch, $options: 'i' } },
+      { keywords: { $regex: safeSearch, $options: 'i' } },
+      { className: { $regex: safeSearch, $options: 'i' } },
+      { bookName: { $regex: safeSearch, $options: 'i' } },
+      { chapterName: { $regex: safeSearch, $options: 'i' } }
+    ];
   }
+  if (className && className !== 'All') filter.className = className;
+  if (bookName && bookName !== 'All') filter.bookName = bookName;
+
   const items = await QA.find(filter).sort({ createdAt: -1 });
   res.json(items);
 });
 
-// POST /api/admin/qa  { question, answer, keywords[], category }
+// POST /api/admin/qa  { question, answer, keywords[], category, className, bookName, chapterName }
 router.post('/', async (req, res) => {
   try {
-    const { question, answer, keywords = [], category } = req.body;
+    const { question, answer, keywords = [], category, className, bookName, chapterName } = req.body;
     if (!question || !answer) {
       return res.status(400).json({ error: 'Question and answer are both required' });
     }
@@ -98,7 +107,10 @@ router.post('/', async (req, res) => {
       question: question.trim(),
       answer: answer.trim(),
       keywords: keywords.map((k) => k.trim()).filter(Boolean),
-      category: category ? category.trim() : 'general'
+      category: category ? category.trim() : 'general',
+      className: className ? className.trim() : 'Class 3',
+      bookName: bookName ? bookName.trim() : 'General',
+      chapterName: chapterName ? chapterName.trim() : 'Chapter 1'
     });
     invalidateQACache();
     res.status(201).json(doc);
@@ -110,12 +122,15 @@ router.post('/', async (req, res) => {
 // PUT /api/admin/qa/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { question, answer, keywords, category } = req.body;
+    const { question, answer, keywords, category, className, bookName, chapterName } = req.body;
     const update = {};
     if (question !== undefined) update.question = question.trim();
     if (answer !== undefined) update.answer = answer.trim();
     if (keywords !== undefined) update.keywords = keywords.map((k) => k.trim()).filter(Boolean);
     if (category !== undefined) update.category = category.trim();
+    if (className !== undefined) update.className = className.trim();
+    if (bookName !== undefined) update.bookName = bookName.trim();
+    if (chapterName !== undefined) update.chapterName = chapterName.trim();
 
     const doc = await QA.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!doc) return res.status(404).json({ error: 'Entry not found' });

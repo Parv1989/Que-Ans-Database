@@ -99,9 +99,14 @@ function renderQAList(items) {
       (item) => `
     <div class="item-card" data-id="${item._id}">
       <div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.4rem;">
+          <span class="tag" style="background:#eef2ff; color:#4338ca; font-weight:bold;">📚 ${escapeHtml(item.className || 'Class 3')}</span>
+          <span class="tag" style="background:#f0fdf4; color:#15803d; font-weight:bold;">📖 ${escapeHtml(item.bookName || 'General')}</span>
+          <span class="tag" style="background:#fef3c7; color:#b45309; font-weight:bold;">🔖 ${escapeHtml(item.chapterName || 'Chapter 1')}</span>
+        </div>
         <div class="q">${formatText(item.question)}</div>
         <div class="a">${formatText(item.answer)}</div>
-        ${item.keywords.length ? `<div class="tags">${item.keywords.map((k) => `<span class="tag">${escapeHtml(k)}</span>`).join('')}</div>` : ''}
+        ${item.keywords && item.keywords.length ? `<div class="tags">${item.keywords.map((k) => `<span class="tag">${escapeHtml(k)}</span>`).join('')}</div>` : ''}
       </div>
       <div class="item-actions">
         <button class="icon-btn edit-qa">Edit</button>
@@ -142,7 +147,10 @@ function openQAModal(item = null) {
   document.getElementById('qaId').value = item ? item._id : '';
   document.getElementById('qaQuestion').value = item ? item.question : '';
   document.getElementById('qaAnswer').value = item ? item.answer : '';
-  document.getElementById('qaKeywords').value = item ? item.keywords.join(', ') : '';
+  document.getElementById('qaClassName').value = item ? (item.className || 'Class 3') : 'Class 3';
+  document.getElementById('qaBookName').value = item ? (item.bookName || 'Ripples') : 'Ripples';
+  document.getElementById('qaChapterName').value = item ? (item.chapterName || 'Chapter 1') : 'Chapter 1';
+  document.getElementById('qaKeywords').value = item && item.keywords ? item.keywords.join(', ') : '';
   document.getElementById('qaCategory').value = item ? item.category : '';
   qaModal.classList.remove('hidden');
 }
@@ -156,6 +164,9 @@ qaForm.addEventListener('submit', async (e) => {
   const payload = {
     question: document.getElementById('qaQuestion').value,
     answer: document.getElementById('qaAnswer').value,
+    className: document.getElementById('qaClassName').value,
+    bookName: document.getElementById('qaBookName').value,
+    chapterName: document.getElementById('qaChapterName').value,
     keywords: document
       .getElementById('qaKeywords')
       .value.split(',')

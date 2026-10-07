@@ -23,6 +23,24 @@ const QASchema = new mongoose.Schema(
       trim: true,
       default: 'general'
     },
+    className: {
+      type: String,
+      trim: true,
+      default: 'All Classes',
+      index: true
+    },
+    bookName: {
+      type: String,
+      trim: true,
+      default: 'All Books',
+      index: true
+    },
+    chapterName: {
+      type: String,
+      trim: true,
+      default: 'All Chapters',
+      index: true
+    },
     // how many times this answer has been served - useful for the admin dashboard
     hitCount: {
       type: Number,
