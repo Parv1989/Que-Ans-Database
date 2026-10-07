@@ -117,8 +117,17 @@ function populateVoiceList() {
   if (!window.speechSynthesis) return;
   const voices = window.speechSynthesis.getVoices();
 
-  // Score available voices to strictly prioritize Google Hindi
-  const scored = (voices || []).map((v) => {
+  // Keep ONLY Hindi and English voices (remove all other languages like German, French, Spanish, Japanese, Chinese, etc.)
+  const allowedVoices = (voices || []).filter((v) => {
+    const lang = (v.lang || '').toLowerCase().replace('_', '-');
+    const name = (v.name || '').toLowerCase();
+    const isHindi = name.includes('hindi') || name.includes('हिन्दी') || lang.startsWith('hi');
+    const isEnglish = name.includes('english') || lang.startsWith('en');
+    return isHindi || isEnglish;
+  });
+
+  // Score available voices to strictly prioritize Google Hindi and English
+  const scored = allowedVoices.map((v) => {
     let score = 0;
     const lang = (v.lang || '').toLowerCase().replace('_', '-');
     const name = (v.name || '').toLowerCase();
@@ -147,7 +156,7 @@ function populateVoiceList() {
 
   scored.sort((a, b) => b.score - a.score);
 
-  const nativeGoogleHindi = (voices || []).find((v) => {
+  const nativeGoogleHindi = allowedVoices.find((v) => {
     const n = v.name.toLowerCase();
     const u = (v.voiceURI || '').toLowerCase();
     const l = (v.lang || '').toLowerCase();
