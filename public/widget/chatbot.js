@@ -1,4 +1,7 @@
 const API_URL = window.location.origin + '/api/ask';
+const TTS_API_URL = window.location.origin + '/api/tts';
+const HIERARCHY_API_URL = window.location.origin + '/api/ask/hierarchy';
+
 const messagesEl = document.getElementById('messages');
 const form = document.getElementById('chatForm');
 const input = document.getElementById('chatInput');
@@ -7,8 +10,42 @@ const muteBtn = document.getElementById('muteBtn');
 const muteIcon = document.getElementById('muteIcon');
 const voiceSelect = document.getElementById('voiceSelect');
 
+// Context elements
+const currentSelectionBadge = document.getElementById('currentSelectionBadge');
+const changeContextBtn = document.getElementById('changeContextBtn');
+const contextModal = document.getElementById('contextModal');
+const selectClass = document.getElementById('selectClass');
+const selectBook = document.getElementById('selectBook');
+const selectChapter = document.getElementById('selectChapter');
+const saveContextBtn = document.getElementById('saveContextBtn');
+
+// Image lightbox elements
+const imageLightbox = document.getElementById('imageLightbox');
+const lightboxImg = document.getElementById('lightboxImg');
+const closeLightboxBtn = document.getElementById('closeLightboxBtn');
+
+// Context State
+let hierarchyData = {};
+let savedClass = localStorage.getItem('bot_selected_class') || '';
+let savedBook = localStorage.getItem('bot_selected_book') || '';
+let savedChapter = localStorage.getItem('bot_selected_chapter') || 'All Chapters';
+
+let currentClass = savedClass;
+let currentBook = savedBook;
+let currentChapter = savedChapter;
+let hasSavedContext = !!(savedClass && savedBook);
+
+// Voice State & Greeting State
 let voiceEnabled = true;
 let selectedVoiceName = '';
+let cachedVoice = null;
+let userHasChosenVoice = false;
+let currentAudio = null;
+let lipSyncAnimationId = null;
+let visemeTimer = null;
+
+const INITIAL_GREETING = "Hi! You can ask me anything related to this book. I'll answer you instantly.";
+let greetingSpoken = false;
 
 // Escapes raw HTML characters to prevent XSS, then converts Markdown & formatting tags
 function formatText(raw) {
@@ -25,7 +62,7 @@ function formatText(raw) {
     .replace(/\n/g, '<br>');
 }
 
-// Turns raw text into plain, speakable words for the Google voice engine
+// Turns raw text into plain, speakable words for the voice engine
 function toSpeechText(raw) {
   return (raw || '')
     .replace(/<[^>]*>/g, '') // strip any html tags
@@ -39,12 +76,22 @@ function toSpeechText(raw) {
     .trim();
 }
 
-// ---------- Google Natural Voice Selection Engine & Cloud TTS ----------
-let cachedVoice = null;
-let userHasChosenVoice = false;
-let currentAudio = null;
+// ---------- Initial Greeting & Speech Engine ----------
+function playInitialGreeting() {
+  if (greetingSpoken || !voiceEnabled) return;
+  greetingSpoken = true;
+  speak(INITIAL_GREETING);
+}
 
-const TTS_API_URL = window.location.origin + '/api/tts';
+// Unlock audio context and play greeting on first user interaction if blocked by browser autoplay policy
+function tryGreetingOnGesture() {
+  unlockAudioContext();
+  if (!greetingSpoken) {
+    playInitialGreeting();
+  }
+}
+document.addEventListener('pointerdown', tryGreetingOnGesture, { once: true });
+document.addEventListener('keydown', tryGreetingOnGesture, { once: true });
 
 async function speakServerTTS(speechText) {
   if (!voiceEnabled) return;
@@ -242,9 +289,6 @@ if (window.speechSynthesis) {
 }
 
 // ---------- Real-Time Lip-Sync & Robot Visual States ----------
-let lipSyncAnimationId = null;
-let visemeTimer = null;
-
 const VISAME_SHAPES = {
   REST: { d: "M -16 0 Q 0 3 16 0 Q 0 1 -16 0 Z", bg: "M -16 0 Q 0 3 16 0 Q 0 1 -16 0 Z", tongue: 0 },
   A_O: { d: "M -12 -5 Q 0 -13 12 -5 Q 0 13 -12 -5 Z", bg: "M -13 -6 Q 0 -14 13 -6 Q 0 15 -13 -6 Z", tongue: 0.8 },
@@ -314,7 +358,7 @@ function speak(rawText) {
   const speechText = toSpeechText(rawText);
   if (!speechText) return;
 
-  // If google_hindi_server selected OR if no native Google voice is available in browser (e.g. Firefox)
+  // If google_hindi_server selected OR if no native Google voice is available in browser
   if (selectedVoiceName === 'google_hindi_server') {
     speakServerTTS(speechText);
     return;
@@ -324,7 +368,7 @@ function speak(rawText) {
   const isGoogleVoice = voice && (voice.name.toLowerCase().includes('google') || (voice.voiceURI && voice.voiceURI.toLowerCase().includes('google')));
 
   if (!isGoogleVoice && !userHasChosenVoice) {
-    // Automatically use Server Google Hindi TTS on Firefox/Edge instead of mechanical Microsoft Heera
+    // Automatically use Server Hindi TTS if native Google voice not present
     speakServerTTS(speechText);
     return;
   }
@@ -410,26 +454,7 @@ muteBtn.addEventListener('click', () => {
   }
 });
 
-// ---------- Chat Messages & Greeting Engine ----------
-const INITIAL_GREETING = "Hi! You can ask me anything related to this book. I'll answer you instantly.";
-let greetingSpoken = false;
-
-function playInitialGreeting() {
-  if (greetingSpoken || !voiceEnabled) return;
-  greetingSpoken = true;
-  speak(INITIAL_GREETING);
-}
-
-// Unlock audio context and play greeting on first user interaction if blocked by browser autoplay policy
-function tryGreetingOnGesture() {
-  unlockAudioContext();
-  if (!greetingSpoken) {
-    playInitialGreeting();
-  }
-}
-document.addEventListener('pointerdown', tryGreetingOnGesture, { once: true });
-document.addEventListener('keydown', tryGreetingOnGesture, { once: true });
-
+// ---------- Chat Messages ----------
 function addMessage(text, sender, imageUrl = '', shouldSpeak = true) {
   const div = document.createElement('div');
   div.className = `msg ${sender}`;
@@ -529,50 +554,6 @@ form.addEventListener('submit', (e) => {
 });
 
 // ---------- Class / Book / Chapter Context Engine ----------
-const HIERARCHY_API_URL = window.location.origin + '/api/ask/hierarchy';
-const currentSelectionBadge = document.getElementById('currentSelectionBadge');
-const changeContextBtn = document.getElementById('changeContextBtn');
-const contextModal = document.getElementById('contextModal');
-const selectClass = document.getElementById('selectClass');
-const selectBook = document.getElementById('selectBook');
-const selectChapter = document.getElementById('selectChapter');
-const saveContextBtn = document.getElementById('saveContextBtn');
-
-let hierarchyData = {};
-let savedClass = localStorage.getItem('bot_selected_class') || '';
-let savedBook = localStorage.getItem('bot_selected_book') || '';
-let savedChapter = localStorage.getItem('bot_selected_chapter') || 'All Chapters';
-
-let currentClass = savedClass;
-let currentBook = savedBook;
-let currentChapter = savedChapter;
-
-let hasSavedContext = !!(savedClass && savedBook);
-
-async function initContextEngine() {
-  try {
-    const res = await fetch(HIERARCHY_API_URL);
-    if (res.ok) {
-      hierarchyData = await res.json();
-    }
-  } catch (err) {
-    console.warn('Could not load hierarchy:', err);
-  }
-
-  populateClassDropdown();
-
-  if (hasSavedContext) {
-    updateContextBadge();
-    if (contextModal) contextModal.classList.add('hidden');
-    setTimeout(() => {
-      if (!greetingSpoken) playInitialGreeting();
-    }, 400);
-  } else {
-    // Modal stays visible until user makes choice and clicks Start Chatting
-    if (contextModal) contextModal.classList.remove('hidden');
-  }
-}
-
 function populateClassDropdown() {
   if (!selectClass) return;
   selectClass.innerHTML = '';
@@ -601,8 +582,8 @@ function populateBookDropdown() {
   if (!selectBook) return;
   selectBook.innerHTML = '';
 
-  const selectedCls = selectClass.value;
-  const booksMap = hierarchyData[selectedCls] || {};
+  const selectedCls = selectClass ? selectClass.value : '';
+  const booksMap = (hierarchyData && hierarchyData[selectedCls]) || {};
   const books = Object.keys(booksMap);
 
   if (books.length === 0) {
@@ -633,9 +614,9 @@ function populateChapterDropdown() {
   allOpt.textContent = 'All Chapters';
   selectChapter.appendChild(allOpt);
 
-  const selectedCls = selectClass.value;
-  const selectedBk = selectBook.value;
-  const chaptersList = (hierarchyData[selectedCls] && hierarchyData[selectedCls][selectedBk]) || [];
+  const selectedCls = selectClass ? selectClass.value : '';
+  const selectedBk = selectBook ? selectBook.value : '';
+  const chaptersList = (hierarchyData && hierarchyData[selectedCls] && hierarchyData[selectedCls][selectedBk]) || [];
 
   chaptersList.forEach((ch) => {
     if (ch.toLowerCase() !== 'all chapters' && ch.toLowerCase() !== 'general') {
@@ -688,19 +669,38 @@ if (saveContextBtn) {
     if (contextModal) contextModal.classList.add('hidden');
 
     const chapText = currentChapter !== 'All Chapters' ? ` (${currentChapter})` : '';
-    // Show active context note silently (without robot reading aloud context tag)
     addMessage(`📌 Active Context: **${currentClass} • ${currentBook}**${chapText}. Feel free to ask any question about this book!`, 'bot', '', false);
 
-    // Speak initial greeting with voice at start of conversation
     playInitialGreeting();
   });
 }
 
-// Image lightbox handler
-const imageLightbox = document.getElementById('imageLightbox');
-const lightboxImg = document.getElementById('lightboxImg');
-const closeLightboxBtn = document.getElementById('closeLightboxBtn');
+async function initContextEngine() {
+  // Populate dropdowns immediately with defaults so modal is NEVER blank
+  populateClassDropdown();
 
+  try {
+    const res = await fetch(HIERARCHY_API_URL);
+    if (res.ok) {
+      hierarchyData = await res.json();
+      populateClassDropdown();
+    }
+  } catch (err) {
+    console.warn('Could not load hierarchy:', err);
+  }
+
+  if (hasSavedContext) {
+    updateContextBadge();
+    if (contextModal) contextModal.classList.add('hidden');
+    setTimeout(() => {
+      if (!greetingSpoken) playInitialGreeting();
+    }, 400);
+  } else {
+    if (contextModal) contextModal.classList.remove('hidden');
+  }
+}
+
+// Image lightbox handler
 function openLightbox(src) {
   if (!imageLightbox || !lightboxImg) return;
   lightboxImg.src = src;
@@ -728,5 +728,5 @@ if (messagesEl) {
   });
 }
 
+// Start context engine immediately
 initContextEngine();
-
