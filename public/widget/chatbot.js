@@ -117,16 +117,27 @@ function populateVoiceList() {
   if (!window.speechSynthesis) return;
   const voices = window.speechSynthesis.getVoices();
 
-  // Keep ONLY Hindi and English voices (remove all other languages like German, French, Spanish, Japanese, Chinese, etc.)
+  // Keep ONLY Hindi and English voices, and EXCLUDE all Microsoft voices
   const allowedVoices = (voices || []).filter((v) => {
     const lang = (v.lang || '').toLowerCase().replace('_', '-');
     const name = (v.name || '').toLowerCase();
+    const uri = (v.voiceURI || '').toLowerCase();
+
+    // Strictly exclude all Microsoft voices
+    const isMicrosoft = name.includes('microsoft') || uri.includes('microsoft') ||
+      name.includes('heera') || name.includes('ravi') || name.includes('zira') ||
+      name.includes('david') || name.includes('mark') || name.includes('kalpana') ||
+      name.includes('hemant') || name.includes('hazel') || name.includes('george') ||
+      name.includes('susan') || name.includes('richard');
+
+    if (isMicrosoft) return false;
+
     const isHindi = name.includes('hindi') || name.includes('हिन्दी') || lang.startsWith('hi');
     const isEnglish = name.includes('english') || lang.startsWith('en');
     return isHindi || isEnglish;
   });
 
-  // Score available voices to strictly prioritize Google Hindi and English
+  // Sort: Google voices first, then others
   const scored = allowedVoices.map((v) => {
     let score = 0;
     const lang = (v.lang || '').toLowerCase().replace('_', '-');
@@ -136,20 +147,11 @@ function populateVoiceList() {
     const isGoogle = name.includes('google') || uri.includes('google');
     const isHindi = name.includes('hindi') || name.includes('हिन्दी') || lang.startsWith('hi');
     const isIndianEnglish = name.includes('india') || name.includes('indian') || lang === 'en-in';
-    const isMicrosoftLocal = name.includes('microsoft') || name.includes('heera') || name.includes('ravi') || name.includes('zira') || name.includes('david') || name.includes('mark');
 
-    // ABSOLUTE TOP PRIORITY FOR GOOGLE HINDI ("Google हिन्दी")
-    if (isGoogle && isHindi) {
-      score += 10000;
-    } else if (isGoogle && isIndianEnglish) {
-      score += 4000;
-    } else if (isGoogle) {
-      score += 2000;
-    } else if (isHindi) {
-      score += 1000;
-    }
-
-    if (isMicrosoftLocal) score -= 800;
+    if (isGoogle && isHindi) score += 10000;
+    else if (isGoogle && isIndianEnglish) score += 4000;
+    else if (isGoogle) score += 2000;
+    else if (isHindi) score += 1000;
 
     return { voice: v, score };
   });
@@ -166,20 +168,25 @@ function populateVoiceList() {
   if (voiceSelect) {
     voiceSelect.innerHTML = '';
 
-    // Always offer Google Hindi (Server AI Voice) at top
+    // Offer Hindi (Server AI Voice) at top with 'Google' removed
     const serverOpt = document.createElement('option');
     serverOpt.value = 'google_hindi_server';
-    serverOpt.textContent = '✨ Google Hindi (Server AI Voice)';
+    serverOpt.textContent = '✨ Hindi (Server AI Voice)';
     voiceSelect.appendChild(serverOpt);
 
     scored.forEach((item) => {
       const option = document.createElement('option');
       option.value = item.voice.name;
-      let label = item.voice.name;
-      if (item.voice.name.toLowerCase().includes('google')) {
-        label = `✨ ${label}`;
-      }
-      option.textContent = label;
+
+      // Remove the word 'Google' from display name (e.g. 'Google Hindi', 'Google English', 'Google UK English Female/Male')
+      let label = item.voice.name
+        .replace(/\bGoogle\b\s*/gi, '')
+        .trim();
+
+      // Clean up multiple spaces if any
+      label = label.replace(/\s+/g, ' ');
+
+      option.textContent = `✨ ${label}`;
       voiceSelect.appendChild(option);
     });
 
@@ -198,6 +205,12 @@ function populateVoiceList() {
     cachedVoice = null;
   } else {
     cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || null;
+  }
+
+  if (hasSavedContext && !greetingSpoken) {
+    setTimeout(() => {
+      if (!greetingSpoken) playInitialGreeting();
+    }, 300);
   }
 }
 
@@ -397,8 +410,27 @@ muteBtn.addEventListener('click', () => {
   }
 });
 
-// ---------- Chat Messages ----------
-function addMessage(text, sender, imageUrl = '') {
+// ---------- Chat Messages & Greeting Engine ----------
+const INITIAL_GREETING = "Hi! You can ask me anything related to this book. I'll answer you instantly.";
+let greetingSpoken = false;
+
+function playInitialGreeting() {
+  if (greetingSpoken || !voiceEnabled) return;
+  greetingSpoken = true;
+  speak(INITIAL_GREETING);
+}
+
+// Unlock audio context and play greeting on first user interaction if blocked by browser autoplay policy
+function tryGreetingOnGesture() {
+  unlockAudioContext();
+  if (!greetingSpoken) {
+    playInitialGreeting();
+  }
+}
+document.addEventListener('pointerdown', tryGreetingOnGesture, { once: true });
+document.addEventListener('keydown', tryGreetingOnGesture, { once: true });
+
+function addMessage(text, sender, imageUrl = '', shouldSpeak = true) {
   const div = document.createElement('div');
   div.className = `msg ${sender}`;
   const p = document.createElement('p');
@@ -416,7 +448,7 @@ function addMessage(text, sender, imageUrl = '') {
   messagesEl.appendChild(div);
   scrollToBottom();
 
-  if (sender === 'bot') speak(text);
+  if (sender === 'bot' && shouldSpeak) speak(text);
 }
 
 function addSuggestions(suggestions) {
@@ -532,6 +564,9 @@ async function initContextEngine() {
   if (hasSavedContext) {
     updateContextBadge();
     if (contextModal) contextModal.classList.add('hidden');
+    setTimeout(() => {
+      if (!greetingSpoken) playInitialGreeting();
+    }, 400);
   } else {
     // Modal stays visible until user makes choice and clicks Start Chatting
     if (contextModal) contextModal.classList.remove('hidden');
@@ -635,6 +670,7 @@ if (changeContextBtn) {
 
 if (saveContextBtn) {
   saveContextBtn.addEventListener('click', () => {
+    unlockAudioContext();
     currentClass = selectClass ? selectClass.value : 'Class 3';
     currentBook = selectBook ? selectBook.value : 'Ripples';
     currentChapter = selectChapter ? selectChapter.value : 'All Chapters';
@@ -652,7 +688,43 @@ if (saveContextBtn) {
     if (contextModal) contextModal.classList.add('hidden');
 
     const chapText = currentChapter !== 'All Chapters' ? ` (${currentChapter})` : '';
-    addMessage(`📌 Active Context: **${currentClass} • ${currentBook}**${chapText}. Feel free to ask any question about this book!`, 'bot');
+    // Show active context note silently (without robot reading aloud context tag)
+    addMessage(`📌 Active Context: **${currentClass} • ${currentBook}**${chapText}. Feel free to ask any question about this book!`, 'bot', '', false);
+
+    // Speak initial greeting with voice at start of conversation
+    playInitialGreeting();
+  });
+}
+
+// Image lightbox handler
+const imageLightbox = document.getElementById('imageLightbox');
+const lightboxImg = document.getElementById('lightboxImg');
+const closeLightboxBtn = document.getElementById('closeLightboxBtn');
+
+function openLightbox(src) {
+  if (!imageLightbox || !lightboxImg) return;
+  lightboxImg.src = src;
+  imageLightbox.classList.remove('hidden');
+}
+
+function closeLightbox() {
+  if (!imageLightbox) return;
+  imageLightbox.classList.add('hidden');
+  if (lightboxImg) lightboxImg.src = '';
+}
+
+if (closeLightboxBtn) closeLightboxBtn.addEventListener('click', closeLightbox);
+if (imageLightbox) {
+  imageLightbox.addEventListener('click', (e) => {
+    if (e.target === imageLightbox) closeLightbox();
+  });
+}
+
+if (messagesEl) {
+  messagesEl.addEventListener('click', (e) => {
+    if (e.target && e.target.tagName === 'IMG') {
+      openLightbox(e.target.src);
+    }
   });
 }
 

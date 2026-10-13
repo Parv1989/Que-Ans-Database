@@ -173,7 +173,75 @@ nav { display: flex; flex-direction: column; gap: 0.35rem; flex: 1; }
 .panel-header h2 { font-size: 1.6rem; }
 .muted { color: var(--ink-soft); font-size: 0.9rem; margin: 0.35rem 0 0; max-width: 48ch; }
 
-.search-input { width: 100%; max-width: 420px; margin-bottom: 1.25rem; }
+.qa-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.qa-toolbar .search-input {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 260px;
+}
+
+.bulk-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.select-all-box {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s ease;
+}
+
+.select-all-box:hover {
+  border-color: var(--indigo);
+}
+
+.select-all-box input[type="checkbox"],
+.qa-checkbox {
+  width: 1.15rem;
+  height: 1.15rem;
+  cursor: pointer;
+  accent-color: var(--indigo-dark);
+}
+
+.danger-btn {
+  background: #fee2e2;
+  color: var(--danger);
+  border: 1.5px solid #fca5a5;
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.15s ease;
+}
+
+.danger-btn:hover {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
 
 .header-actions { display: flex; gap: 0.6rem; flex-shrink: 0; }
 
@@ -205,6 +273,38 @@ code {
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .item-card:hover { box-shadow: 0 8px 24px rgba(108,99,255,0.12); border-color: #d8d0fa; }
+.item-card.selected {
+  border-color: var(--indigo);
+  background: #fbfaff;
+  box-shadow: 0 4px 16px rgba(108, 99, 255, 0.1);
+}
+
+.item-select-wrap {
+  padding-top: 0.15rem;
+  display: flex;
+  align-items: center;
+}
+
+.item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-thumb {
+  margin-top: 0.5rem;
+}
+
+.item-thumb img {
+  max-width: 150px;
+  max-height: 100px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+  display: block;
+}
 
 .item-card .q { font-weight: 700; font-size: 0.98rem; margin-bottom: 0.35rem; }
 .item-card .a { color: var(--ink-soft); font-size: 0.88rem; line-height: 1.55; }

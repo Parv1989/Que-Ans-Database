@@ -76,29 +76,69 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
   });
 });
 
-// ---------- QA list ----------
+// ---------- QA list & Bulk Actions ----------
 const qaList = document.getElementById('qaList');
 const qaModal = document.getElementById('qaModal');
 const qaForm = document.getElementById('qaForm');
+const selectAllQA = document.getElementById('selectAllQA');
+const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+const bulkDeleteCount = document.getElementById('bulkDeleteCount');
+
+let selectedQAIds = new Set();
+let currentQAItems = [];
+
+function updateBulkUI() {
+  const count = selectedQAIds.size;
+  if (bulkDeleteCount) bulkDeleteCount.textContent = count;
+  if (bulkDeleteBtn) {
+    bulkDeleteBtn.classList.toggle('hidden', count === 0);
+  }
+  if (selectAllQA) {
+    if (currentQAItems.length === 0) {
+      selectAllQA.checked = false;
+      selectAllQA.indeterminate = false;
+    } else if (count === currentQAItems.length) {
+      selectAllQA.checked = true;
+      selectAllQA.indeterminate = false;
+    } else if (count > 0) {
+      selectAllQA.checked = false;
+      selectAllQA.indeterminate = true;
+    } else {
+      selectAllQA.checked = false;
+      selectAllQA.indeterminate = false;
+    }
+  }
+}
 
 async function loadQAList(search = '') {
   const url = new URL(`${API_BASE}/admin/qa`);
   if (search) url.searchParams.set('search', search);
   const res = await authedFetch(url);
   const items = await res.json();
+  currentQAItems = items;
+
+  // Prune any selected IDs that are no longer in current items
+  const validIds = new Set(items.map((i) => i._id));
+  selectedQAIds = new Set([...selectedQAIds].filter((id) => validIds.has(id)));
+  updateBulkUI();
   renderQAList(items);
 }
 
 function renderQAList(items) {
   if (items.length === 0) {
     qaList.innerHTML = '<p class="empty-state">No questions yet — add the first one.</p>';
+    updateBulkUI();
     return;
   }
   qaList.innerHTML = items
-    .map(
-      (item) => `
-    <div class="item-card" data-id="${item._id}">
-      <div>
+    .map((item) => {
+      const isChecked = selectedQAIds.has(item._id);
+      return `
+    <div class="item-card ${isChecked ? 'selected' : ''}" data-id="${item._id}">
+      <div class="item-select-wrap">
+        <input type="checkbox" class="qa-checkbox" data-id="${item._id}" ${isChecked ? 'checked' : ''} aria-label="Select question" />
+      </div>
+      <div class="item-main">
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.4rem;">
           <span class="tag" style="background:#eef2ff; color:#4338ca; font-weight:bold;">📚 ${escapeHtml(item.className || 'Class 3')}</span>
           <span class="tag" style="background:#f0fdf4; color:#15803d; font-weight:bold;">📖 ${escapeHtml(item.bookName || 'General')}</span>
@@ -106,15 +146,31 @@ function renderQAList(items) {
         </div>
         <div class="q">${formatText(item.question)}</div>
         <div class="a">${formatText(item.answer)}</div>
+        ${item.imageUrl ? `<div class="item-thumb"><img src="${escapeHtml(item.imageUrl)}" alt="Diagram" loading="lazy" /></div>` : ''}
         ${item.keywords && item.keywords.length ? `<div class="tags">${item.keywords.map((k) => `<span class="tag">${escapeHtml(k)}</span>`).join('')}</div>` : ''}
       </div>
       <div class="item-actions">
         <button class="icon-btn edit-qa">Edit</button>
         <button class="icon-btn danger delete-qa">Delete</button>
       </div>
-    </div>`
-    )
+    </div>`;
+    })
     .join('');
+
+  qaList.querySelectorAll('.qa-checkbox').forEach((chk) => {
+    chk.addEventListener('change', (e) => {
+      const id = e.target.dataset.id;
+      const card = e.target.closest('.item-card');
+      if (e.target.checked) {
+        selectedQAIds.add(id);
+        if (card) card.classList.add('selected');
+      } else {
+        selectedQAIds.delete(id);
+        if (card) card.classList.remove('selected');
+      }
+      updateBulkUI();
+    });
+  });
 
   qaList.querySelectorAll('.edit-qa').forEach((btn) =>
     btn.addEventListener('click', (e) => {
@@ -123,6 +179,7 @@ function renderQAList(items) {
       openQAModal(item);
     })
   );
+
   qaList.querySelectorAll('.delete-qa').forEach((btn) =>
     btn.addEventListener('click', async (e) => {
       const id = e.target.closest('.item-card').dataset.id;
@@ -134,12 +191,60 @@ function renderQAList(items) {
           alert(data.error || 'Could not delete this question');
           return;
         }
+        selectedQAIds.delete(id);
         loadQAList(document.getElementById('qaSearch').value);
       } catch (err) {
         alert('Delete failed: ' + err.message);
       }
     })
   );
+
+  updateBulkUI();
+}
+
+if (selectAllQA) {
+  selectAllQA.addEventListener('change', (e) => {
+    if (e.target.checked) {
+      currentQAItems.forEach((item) => selectedQAIds.add(item._id));
+    } else {
+      selectedQAIds.clear();
+    }
+    renderQAList(currentQAItems);
+  });
+}
+
+if (bulkDeleteBtn) {
+  bulkDeleteBtn.addEventListener('click', async () => {
+    const ids = Array.from(selectedQAIds);
+    if (ids.length === 0) return;
+
+    const confirmMsg = `Are you sure you want to delete ${ids.length} selected question${ids.length > 1 ? 's' : ''}? This action cannot be undone.`;
+    if (!confirm(confirmMsg)) return;
+
+    bulkDeleteBtn.disabled = true;
+    bulkDeleteBtn.textContent = 'Deleting...';
+
+    try {
+      const res = await authedFetch(`${API_BASE}/admin/qa/bulk-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to delete selected questions.');
+        return;
+      }
+      selectedQAIds.clear();
+      await loadQAList(document.getElementById('qaSearch').value);
+      alert(`Successfully deleted ${data.deletedCount} question${data.deletedCount > 1 ? 's' : ''}.`);
+    } catch (err) {
+      alert('Bulk delete failed: ' + err.message);
+    } finally {
+      bulkDeleteBtn.disabled = false;
+      updateBulkUI();
+    }
+  });
 }
 
 function openQAModal(item = null) {

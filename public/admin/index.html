@@ -57,7 +57,18 @@
           </div>
         </header>
 
-        <input id="qaSearch" class="search-input" placeholder="Search saved questions…" />
+        <div class="qa-toolbar">
+          <input id="qaSearch" class="search-input" placeholder="Search saved questions…" />
+          <div class="bulk-toolbar-actions">
+            <label class="select-all-box" title="Select / deselect all questions">
+              <input type="checkbox" id="selectAllQA" />
+              <span>Select All</span>
+            </label>
+            <button id="bulkDeleteBtn" class="danger-btn hidden" type="button">
+              🗑️ Delete Selected (<span id="bulkDeleteCount">0</span>)
+            </button>
+          </div>
+        </div>
 
         <div id="qaList" class="card-list"></div>
       </section>

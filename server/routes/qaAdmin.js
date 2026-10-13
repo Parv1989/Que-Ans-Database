@@ -176,6 +176,21 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// POST /api/admin/qa/bulk-delete
+router.post('/bulk-delete', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'No question IDs provided' });
+    }
+    const result = await QA.deleteMany({ _id: { $in: ids } });
+    invalidateQACache();
+    res.json({ deletedCount: result.deletedCount });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not delete questions: ' + err.message });
+  }
+});
+
 // DELETE /api/admin/qa/:id
 router.delete('/:id', async (req, res) => {
   try {
