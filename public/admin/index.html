@@ -134,8 +134,9 @@
     <div class="modal">
       <h3>Bulk upload questions</h3>
       <p class="muted">
-        CSV columns needed: <strong>question, answer, keywords, category, className, bookName, chapterName, imageUrl</strong>.
+        CSV columns needed: <strong>question, answer, keywords, Image link, category, className, bookName, chapterName</strong>.
         Multiple keywords go in one cell separated by a semicolon ( ; ), e.g. <code>vikram;ujjain</code>.
+        The <em>Image link</em> column can be blank or a full image URL. Column names are flexible — <code>imageUrl</code>, <code>Image URL</code>, <code>image</code> etc. also work.
       </p>
       <button id="downloadTemplateBtn" class="ghost-btn" style="margin-bottom: 1rem;">Download CSV template</button>
       <form id="bulkForm">

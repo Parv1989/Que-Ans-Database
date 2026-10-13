@@ -1,5 +1,25 @@
-question,answer,keywords,category,className,bookName,chapterName
-Where does King Vikram live?,King Vikram lived in the historic city of Ujjain.,vikram;king vikram;ujjain,history,Class 3,Ripples,Chapter 4
-What is the price of this book?,The MRP is printed on the back cover of the book. Online store par bhi price listed hai.,cost;rate;kitna paisa;price kya hai,purchase,Class 3,Ripples,Chapter 1
-How can I buy this book?,Aap hamari website ke Buy Now button se ya nazdeeki bookstore se ye book kharid sakte hain.,purchase;order;kharidna;buy karna hai,purchase,Class 3,Ripples,Chapter 1
-How do I get the answer key?,Answer key book ke last chapter me di gayi hai. Publisher website se bhi download kar sakte hain.,solution;solved answers;answers kaise milegi,content,Class 4,Science Explorer,Chapter 5
+question,answer,keywords,category,className,bookName,chapterName,imageUrl
+What is the price of this book?,The MRP is printed on the back cover of the book. Online store par bhi price listed hai.,Cost;rate;kitna paisa;price kya hai,English,Class 3,Ripples,Chapter 1,
+How can I buy this book?,Aap hamari website ke Buy Now button se ya nazdeeki bookstore se ye book kharid sakte hain.,Purchase;order;kharidna;buy karna hai,English,Class 3,Ripples,Chapter 1,
+How do I get the answer key?,Answer key book ke last chapter me di gayi hai. Publisher website se bhi download kar sakte hain.,Solution;solved answers;answers kaise milegi,English,Class 3,Ripples,Chapter 1,
+Which planet is called red planet ? ,The planet which we called red that’s MARS .,Red;mars,English,Class 3,Ripples,Chapter 2,https://shivarth-s3.s3.dualstack.ap-south-1.amazonaws.com/uploads/fk-workspace/imgaes/Que5.png
+How many colours are there in a rainbow ?,There are seven colour in a rainbow .,Rainbow ;7 ,English,Class 3,Ripples,Chapter 2,
+What do plants need to make their food ?,The plants need sun to make their food .,Food;sunlight water and carbon dioxide ,English,Class 3,Ripples,Chapter 2,
+What grows from a seed first? ,The roots grows first from the seed .,First,English,Class 3,Ripples,Chapter 2,https://shivarth-s3.s3.dualstack.ap-south-1.amazonaws.com/uploads/fk-workspace/imgaes/Que8.png
+What happens to water when it is heated by the sun ?,Evaporation happens to water when it is heated by the sun.,Heat ,English,Class 3,Ripples,Chapter 3,
+What is the process of water vapour changing into tiny water droplets ? ,The process is condensation. ,Cloud ,English,Class 3,Ripples,Chapter 3,https://shivarth-s3.s3.dualstack.ap-south-1.amazonaws.com/uploads/fk-workspace/imgaes/Que10.png
+What is the SI unit of current ?,The SI unit of current is Ampere .,Current ,English,Class 3,Ripples,Chapter 3,
+Which organ helps us breathe ?,The lungs help us to breathe .,Breathing ,English,Class 3,Ripples,Chapter 3,
+What is the continous movement of water on earth ?,Water cycle is the continous movement on the earth .,Cycle ,English,Class 3,Ripples,Chapter 3,https://shivarth-s3.s3.dualstack.ap-south-1.amazonaws.com/uploads/fk-workspace/imgaes/Que13.png
+What is the capital of india ?,The capital of india is New Delhi .,India ,English,Class 3,Ripples,Chapter 3,
+How many planets are there in our solar system ? ,There are total 8 planets in our solar system .,Solar system ,English,Class 3,Ripples,Chapter 3,
+Which is the largest country in the world by area ?,The largest country in the world by area is Russia .,Geography ,English,Class 3,Ripples,Chapter 3,
+How many vowels are there in english ?,The are total 5 vowels in the english . ,English ,English,Class 3,Ripples,Chapter 3,
+What is known as the brain of a computer ?,CPU is known as the brain of a computrer .,Computer ,English,Class 3,Ripples,Chapter 3,
+Which is the highest mountains in the world ?,Mount everest is the highest mountains in the world .,Mountains ,English,Class 3,Ripples,Chapter 3,
+Which is the largest continent in the world ?,Asia is the largest continent in the word .,Continent ,English,Class 3,Ripples,Chapter 3,
+What is the difference between a concave mirror and a convex mirror ?,"A concave mirror is curved inward , while a convex mirror is curved outward .",Curved;inward;outward,English,Class 3,Ripples,Chapter 3,https://shivarth-s3.s3.dualstack.ap-south-1.amazonaws.com/uploads/fk-workspace/imgaes/Que21.png
+Which blood cells help fight diseases ?,White blood cells help fight diseases .,Fight ,English,Class 3,Ripples,Chapter 3,
+Which organ pumps blood throughout the body ?,Heart pumps blood throughout the body ?,Blood ,English,Class 3,Ripples,Chapter 3,
+What happens when two similar poles of mangnets are brought together ?,They repeal each other .,Poles ,English,Class 3,Ripples,Chapter 3,https://shivarth-s3.s3.dualstack.ap-south-1.amazonaws.com/uploads/fk-workspace/imgaes/Que24.png
+Which mirror is commonly used as a vehicle's side mirror ?,Convex mirror is used as a vehicles's side mirror .,Wide view,English,Class 3,Ripples,Chapter 3,

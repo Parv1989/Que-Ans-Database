@@ -10,12 +10,29 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 
 router.use(requireAdmin);
 
+function getField(row, aliases) {
+  for (const alias of aliases) {
+    if (row[alias] !== undefined && row[alias] !== null && String(row[alias]).trim()) {
+      return String(row[alias]).trim();
+    }
+  }
+  const keys = Object.keys(row);
+  for (const alias of aliases) {
+    const cleanAlias = alias.toLowerCase().replace(/[\s_-]/g, '');
+    const foundKey = keys.find((k) => k.toLowerCase().replace(/[\s_-]/g, '') === cleanAlias);
+    if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null && String(row[foundKey]).trim()) {
+      return String(row[foundKey]).trim();
+    }
+  }
+  return '';
+}
+
 // GET /api/admin/qa/sample-csv - downloadable template
 router.get('/sample-csv', (req, res) => {
   const sample =
-    'question,answer,keywords,category,className,bookName,chapterName,imageUrl\n' +
-    '"Where does King Vikram live?","King Vikram lived in Ujjain.","vikram;king vikram;ujjain",history,"Class 3","Ripples","Chapter 4","Que1.png"\n' +
-    '"What is photosynthesis?","Photosynthesis is the process by which green plants make food using sunlight.","sunlight;plants food;chlorophyll",science,"Class 4","Science Explorer","Chapter 2",""\n';
+    'question,answer,keywords,Image link,category,className,bookName,chapterName\n' +
+    '"Where does King Vikram live?","King Vikram lived in Ujjain.","vikram;king vikram;ujjain","https://example.com/vikram.png",history,"Class 3","Ripples","Chapter 4"\n' +
+    '"What is photosynthesis?","Photosynthesis is the process by which green plants make food using sunlight.","sunlight;plants food;chlorophyll","",science,"Class 4","Science Explorer","Chapter 2"\n';
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="qa-template.csv"');
   res.send(sample);
@@ -29,8 +46,18 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
 
   let records;
   try {
-    records = parse(req.file.buffer.toString('utf-8'), {
-      columns: true,
+    let csvContent = req.file.buffer.toString('utf-8');
+    // Normalize Windows-1252 / ANSI smart quotes if present
+    if (req.file.buffer.includes(0x92) || req.file.buffer.includes(0x93) || req.file.buffer.includes(0x94)) {
+      csvContent = req.file.buffer.toString('latin1').replace(/\x92/g, "'").replace(/[\x93\x94]/g, '"');
+    }
+    // Remove UTF-8 BOM if present
+    if (csvContent.charCodeAt(0) === 0xfeff) {
+      csvContent = csvContent.slice(1);
+    }
+
+    records = parse(csvContent, {
+      columns: (headers) => headers.map((h) => h.trim()),
       skip_empty_lines: true,
       trim: true
     });
@@ -42,23 +69,28 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
   const skipped = [];
 
   records.forEach((row, idx) => {
-    const question = (row.question || '').trim();
-    const answer = (row.answer || '').trim();
+    const question = getField(row, ['question', 'Question', 'q']);
+    const answer = getField(row, ['answer', 'Answer', 'ans']);
     if (!question || !answer) {
       skipped.push({ row: idx + 2, reason: 'Missing question or answer' }); // +2: header row + 1-index
       return;
     }
-    const keywords = (row.keywords || '')
+    const rawKeywords = getField(row, ['keywords', 'Keywords', 'keyword', 'tags']);
+    const keywords = rawKeywords
       .split(';')
       .map((k) => k.trim())
       .filter(Boolean);
-    const category = (row.category || 'general').trim();
+    const category = getField(row, ['category', 'Category', 'cat']) || 'general';
 
     // Flexible column headers for class, book, chapter, and image
-    const className = (row.className || row.class || 'Class 3').trim();
-    const bookName = (row.bookName || row.book || 'General').trim();
-    const chapterName = (row.chapterName || row.chapter || 'Chapter 1').trim();
-    const imageUrl = (row.imageUrl || row.Image || row.image || '').trim();
+    const className = getField(row, ['className', 'class', 'Class', 'classname', 'standard', 'grade']) || 'Class 3';
+    const bookName = getField(row, ['bookName', 'book', 'Book', 'bookname', 'subject']) || 'General';
+    const chapterName = getField(row, ['chapterName', 'chapter', 'Chapter', 'chaptername', 'lesson', 'topic']) || 'Chapter 1';
+    const imageUrl = getField(row, [
+      'Image link', 'Image Link', 'image link', 'image_link',
+      'imageUrl', 'Image URL', 'Image url', 'image_url', 'image url',
+      'Image', 'image', 'img', 'photo', 'picture'
+    ]);
 
     toInsert.push({ question, answer, keywords, category, className, bookName, chapterName, imageUrl });
   });
