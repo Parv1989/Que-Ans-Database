@@ -2,14 +2,18 @@ const Fuse = require('fuse.js');
 const QA = require('../models/QA');
 const Synonym = require('../models/Synonym');
 
-// Common filler words (English + Hinglish) that add noise to matching.
+// Common filler words (English + Hinglish + Hindi) that add noise to matching.
 const STOPWORDS = new Set([
   'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'am',
   'do', 'does', 'did', 'to', 'of', 'in', 'on', 'for', 'and', 'or',
   'i', 'you', 'we', 'my', 'your', 'me', 'it', 'this', 'that',
   'please', 'tell', 'know', 'want', 'can', 'how', 'what', 'kya',
   'hai', 'ka', 'ki', 'ke', 'ko', 'se', 'me', 'mein', 'aur', 'hi',
-  'h', 'pls', 'plz', 'sir', 'mam', 'madam'
+  'h', 'pls', 'plz', 'sir', 'mam', 'madam',
+  // Devanagari Hindi common stopwords
+  'का', 'की', 'के', 'को', 'से', 'में', 'ने', 'पर', 'है', 'हैं', 'था', 'थी', 'थे',
+  'हो', 'हुए', 'हुआ', 'हुई', 'और', 'या', 'भी', 'ही', 'तो', 'कृपया', 'बताओ', 'बताएं',
+  'बताइए', 'मुझे', 'हमें'
 ]);
 
 const CACHE_TTL_MS = 60 * 1000; // refresh every minute
@@ -80,10 +84,18 @@ function invalidateQACache() {
   qaCache = null;
 }
 
+function normalizeText(text) {
+  return (text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function tokenize(text) {
   return (text || '')
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ') // strip punctuation, keep unicode letters/numbers
+    .replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ') // strip punctuation, keep unicode letters, marks (matras), numbers
     .split(/\s+/)
     .filter((tok) => tok.length > 1 && !STOPWORDS.has(tok));
 }
@@ -128,12 +140,6 @@ async function findAnswer(rawQuery, filters = {}) {
     return { match: null, confidence: 0, suggestions: [] };
   }
 
-  const { correctedTokens, expandedTokens } = await expandQuery(rawQuery, vocabFuse, vocabSet);
-
-  if (expandedTokens.length === 0) {
-    return { match: null, confidence: 0, suggestions: [] };
-  }
-
   // Filter docTokens by className, bookName, chapterName if provided
   const targetClassName = (filters.className || '').trim();
   const targetBookName = (filters.bookName || '').trim();
@@ -163,24 +169,63 @@ async function findAnswer(rawQuery, filters = {}) {
 
   const candidateDocs = filteredDocTokens.length > 0 ? filteredDocTokens : docTokens;
 
+  // 1. Direct Exact Match check (normalized)
+  const normQuery = normalizeText(rawQuery);
+  if (normQuery) {
+    const exactMatch = candidateDocs.find(({ doc }) => normalizeText(doc.question) === normQuery)
+      || docTokens.find(({ doc }) => normalizeText(doc.question) === normQuery);
+    if (exactMatch) {
+      QA.findByIdAndUpdate(exactMatch.doc._id, { $inc: { hitCount: 1 } }).catch(() => {});
+      return {
+        match: {
+          _id: exactMatch.doc._id,
+          question: exactMatch.doc.question,
+          answer: exactMatch.doc.answer,
+          className: exactMatch.doc.className,
+          bookName: exactMatch.doc.bookName,
+          chapterName: exactMatch.doc.chapterName,
+          imageUrl: exactMatch.doc.imageUrl
+        },
+        confidence: 100,
+        suggestions: []
+      };
+    }
+  }
+
+  const { correctedTokens, expandedTokens } = await expandQuery(rawQuery, vocabFuse, vocabSet);
+
+  if (expandedTokens.length === 0) {
+    return { match: null, confidence: 0, suggestions: [] };
+  }
+
   // Base scoring on original query tokens length so synonym expansion doesn't dilute accuracy
   const queryTokensCount = Math.max(1, correctedTokens.length);
 
-  // Score each candidate doc by how many (synonym-expanded) query tokens it contains
-  const scored = candidateDocs.map(({ doc, tokens }) => {
-    let hits = 0;
-    for (const qt of expandedTokens) {
-      if (tokens.has(qt)) hits += 1;
-    }
-    const score = hits / queryTokensCount;
-    return { doc, score, hits };
-  });
+  function scoreList(list) {
+    return list.map(({ doc, tokens }) => {
+      let hits = 0;
+      for (const qt of expandedTokens) {
+        if (tokens.has(qt)) hits += 1;
+      }
+      const score = hits / queryTokensCount;
+      return { doc, score, hits };
+    }).sort((a, b) => b.score - a.score || b.hits - a.hits);
+  }
 
-  scored.sort((a, b) => b.score - a.score || b.hits - a.hits);
-
-  const best = scored[0];
-  const confidence = Math.min(100, Math.round(best.score * 100));
+  let scored = scoreList(candidateDocs);
+  let best = scored[0];
   const CONFIDENCE_THRESHOLD = 35; // at least 35% keyword overlap with query tokens
+
+  // Fall back to global search if filtered subset has no confident match
+  if ((!best || best.hits === 0 || (best.score * 100) < CONFIDENCE_THRESHOLD) && filteredDocTokens.length > 0) {
+    const globalScored = scoreList(docTokens);
+    if (globalScored[0] && (globalScored[0].score * 100) >= CONFIDENCE_THRESHOLD) {
+      scored = globalScored;
+      best = scored[0];
+    }
+  }
+
+  const confidence = best ? Math.min(100, Math.round(best.score * 100)) : 0;
 
   if (best && best.hits > 0 && confidence >= CONFIDENCE_THRESHOLD) {
     // Fire and forget hit count increment
