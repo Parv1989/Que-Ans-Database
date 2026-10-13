@@ -89,10 +89,13 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
     const imageUrl = getField(row, [
       'Image link', 'Image Link', 'image link', 'image_link',
       'imageUrl', 'Image URL', 'Image url', 'image_url', 'image url',
-      'Image', 'image', 'img', 'photo', 'picture'
+      'Image', 'image', 'img', 'photo', 'picture', 'answer_image', 'answerImage'
+    ]);
+    const questionImageUrl = getField(row, [
+      'questionImageUrl', 'Question Image', 'Question image', 'question_image', 'questionImage', 'q_image'
     ]);
 
-    toInsert.push({ question, answer, keywords, category, className, bookName, chapterName, imageUrl });
+    toInsert.push({ question, answer, keywords, category, className, bookName, chapterName, imageUrl, questionImageUrl });
   });
 
   let inserted = [];
@@ -132,7 +135,7 @@ router.get('/', async (req, res) => {
 // POST /api/admin/qa  { question, answer, keywords[], category, className, bookName, chapterName, imageUrl }
 router.post('/', async (req, res) => {
   try {
-    const { question, answer, keywords = [], category, className, bookName, chapterName, imageUrl } = req.body;
+    const { question, answer, keywords = [], category, className, bookName, chapterName, imageUrl, questionImageUrl } = req.body;
     if (!question || !answer) {
       return res.status(400).json({ error: 'Question and answer are both required' });
     }
@@ -144,7 +147,8 @@ router.post('/', async (req, res) => {
       className: className ? className.trim() : 'Class 3',
       bookName: bookName ? bookName.trim() : 'General',
       chapterName: chapterName ? chapterName.trim() : 'Chapter 1',
-      imageUrl: imageUrl ? imageUrl.trim() : ''
+      imageUrl: imageUrl ? imageUrl.trim() : '',
+      questionImageUrl: questionImageUrl ? questionImageUrl.trim() : ''
     });
     invalidateQACache();
     res.status(201).json(doc);
@@ -156,7 +160,7 @@ router.post('/', async (req, res) => {
 // PUT /api/admin/qa/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { question, answer, keywords, category, className, bookName, chapterName, imageUrl } = req.body;
+    const { question, answer, keywords, category, className, bookName, chapterName, imageUrl, questionImageUrl } = req.body;
     const update = {};
     if (question !== undefined) update.question = question.trim();
     if (answer !== undefined) update.answer = answer.trim();
@@ -166,6 +170,7 @@ router.put('/:id', async (req, res) => {
     if (bookName !== undefined) update.bookName = bookName.trim();
     if (chapterName !== undefined) update.chapterName = chapterName.trim();
     if (imageUrl !== undefined) update.imageUrl = imageUrl.trim();
+    if (questionImageUrl !== undefined) update.questionImageUrl = questionImageUrl.trim();
 
     const doc = await QA.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!doc) return res.status(404).json({ error: 'Entry not found' });

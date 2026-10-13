@@ -833,3 +833,313 @@ if (messagesEl) {
 
 // Start context engine immediately
 initContextEngine();
+
+// ==========================================================================
+// Practice Worksheet Generator Logic
+// ==========================================================================
+const worksheetBtn = document.getElementById('worksheetBtn');
+const worksheetModal = document.getElementById('worksheetModal');
+const worksheetConfigView = document.getElementById('worksheetConfigView');
+const worksheetPreviewView = document.getElementById('worksheetPreviewView');
+const closeWorksheetConfigBtn = document.getElementById('closeWorksheetConfigBtn');
+const closeWorksheetPreviewBtn = document.getElementById('closeWorksheetPreviewBtn');
+const worksheetContextDisplay = document.getElementById('worksheetContextDisplay');
+const worksheetLoadingSpinner = document.getElementById('worksheetLoadingSpinner');
+const worksheetActiveOptions = document.getElementById('worksheetActiveOptions');
+const worksheetEmptyNotice = document.getElementById('worksheetEmptyNotice');
+const worksheetTotalCount = document.getElementById('worksheetTotalCount');
+const worksheetCountInput = document.getElementById('worksheetCountInput');
+const worksheetPresetChips = document.getElementById('worksheetPresetChips');
+const worksheetIncludeAnswers = document.getElementById('worksheetIncludeAnswers');
+const generateWorksheetBtn = document.getElementById('generateWorksheetBtn');
+const worksheetBackBtn = document.getElementById('worksheetBackBtn');
+const worksheetShuffleAllBtn = document.getElementById('worksheetShuffleAllBtn');
+const worksheetToggleAnswerKeyBtn = document.getElementById('worksheetToggleAnswerKeyBtn');
+const worksheetPrintBtn = document.getElementById('worksheetPrintBtn');
+const worksheetToast = document.getElementById('worksheetToast');
+const printableWorksheetPaper = document.getElementById('printableWorksheetPaper');
+const printSubTitle = document.getElementById('printSubTitle');
+const printChapter = document.getElementById('printChapter');
+const printTotalQuestions = document.getElementById('printTotalQuestions');
+const worksheetPaperQuestions = document.getElementById('worksheetPaperQuestions');
+
+let allPoolQuestions = [];
+let currentWorksheetQuestions = [];
+let includeAnswersState = false;
+let toastTimeout = null;
+
+function showWorksheetToast(msg) {
+  if (!worksheetToast) return;
+  worksheetToast.textContent = msg;
+  worksheetToast.classList.remove('hidden');
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    worksheetToast.classList.add('hidden');
+  }, 2800);
+}
+
+function closeWorksheetModal() {
+  if (worksheetModal) worksheetModal.classList.add('hidden');
+  if (worksheetToast) worksheetToast.classList.add('hidden');
+}
+
+async function openWorksheetModal() {
+  unlockAudioContext();
+  if (!worksheetModal) return;
+
+  worksheetModal.classList.remove('hidden');
+  if (worksheetConfigView) worksheetConfigView.classList.remove('hidden');
+  if (worksheetPreviewView) worksheetPreviewView.classList.add('hidden');
+  if (worksheetLoadingSpinner) worksheetLoadingSpinner.classList.remove('hidden');
+  if (worksheetActiveOptions) worksheetActiveOptions.classList.add('hidden');
+  if (worksheetEmptyNotice) worksheetEmptyNotice.classList.add('hidden');
+
+  const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? ` (${currentChapter})` : '';
+  if (worksheetContextDisplay) {
+    worksheetContextDisplay.textContent = `${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}`;
+  }
+
+  try {
+    const url = `${API_URL}/worksheet-questions?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (worksheetLoadingSpinner) worksheetLoadingSpinner.classList.add('hidden');
+
+    allPoolQuestions = data.questions || [];
+    const total = allPoolQuestions.length;
+    if (worksheetTotalCount) worksheetTotalCount.textContent = total;
+
+    if (total === 0) {
+      if (worksheetEmptyNotice) worksheetEmptyNotice.classList.remove('hidden');
+      if (worksheetActiveOptions) worksheetActiveOptions.classList.add('hidden');
+    } else {
+      if (worksheetEmptyNotice) worksheetEmptyNotice.classList.add('hidden');
+      if (worksheetActiveOptions) worksheetActiveOptions.classList.remove('hidden');
+      if (worksheetCountInput) {
+        worksheetCountInput.max = total;
+        worksheetCountInput.value = Math.min(5, total);
+      }
+      if (worksheetPresetChips) {
+        worksheetPresetChips.querySelectorAll('.preset-chip').forEach((chip) => {
+          const count = chip.dataset.count;
+          chip.classList.toggle('active', count === '5' || (total < 5 && count === 'all'));
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to fetch worksheet questions:', err);
+    if (worksheetLoadingSpinner) worksheetLoadingSpinner.classList.add('hidden');
+    if (worksheetEmptyNotice) worksheetEmptyNotice.classList.remove('hidden');
+  }
+}
+
+function handlePresetClick(e) {
+  const btn = e.target.closest('.preset-chip');
+  if (!btn || !worksheetCountInput) return;
+  const count = btn.dataset.count;
+  const total = allPoolQuestions.length;
+
+  if (count === 'all') {
+    worksheetCountInput.value = total;
+  } else {
+    worksheetCountInput.value = Math.min(parseInt(count, 10), total);
+  }
+
+  worksheetPresetChips.querySelectorAll('.preset-chip').forEach((c) => c.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function generateWorksheet() {
+  if (!allPoolQuestions || allPoolQuestions.length === 0) return;
+  const desiredCount = Math.max(1, Math.min(parseInt(worksheetCountInput.value, 10) || 5, allPoolQuestions.length));
+  includeAnswersState = worksheetIncludeAnswers ? worksheetIncludeAnswers.checked : false;
+
+  // Shuffle and pick requested count
+  const shuffled = [...allPoolQuestions].sort(() => 0.5 - Math.random());
+  currentWorksheetQuestions = shuffled.slice(0, desiredCount);
+
+  renderWorksheetPaper();
+
+  if (worksheetConfigView) worksheetConfigView.classList.add('hidden');
+  if (worksheetPreviewView) worksheetPreviewView.classList.remove('hidden');
+}
+
+function extractQuestionImage(rawQuestion) {
+  if (!rawQuestion) return { text: '', imageUrl: '' };
+
+  // 1. Markdown image syntax ![alt](url)
+  const mdMatch = rawQuestion.match(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+|\/[^\s)]+|[^\s)]+\.(?:png|jpg|jpeg|gif|webp|svg))\)/i);
+  if (mdMatch) {
+    return {
+      text: rawQuestion.replace(mdMatch[0], '').trim(),
+      imageUrl: mdMatch[2].trim()
+    };
+  }
+
+  // 2. Full HTTP/HTTPS image URL in text
+  const urlMatch = rawQuestion.match(/(https?:\/\/[^\s<>]+\.(?:png|jpg|jpeg|gif|webp|svg)(?:\?[^\s<>]*)?)/i);
+  if (urlMatch) {
+    return {
+      text: rawQuestion.replace(urlMatch[0], '').trim(),
+      imageUrl: urlMatch[1].trim()
+    };
+  }
+
+  // 3. Image filename like Que1.png or diagram.jpg
+  const fileMatch = rawQuestion.match(/\b([a-zA-Z0-9_\-\/]+\.(?:png|jpg|jpeg|gif|webp|svg))\b/i);
+  if (fileMatch) {
+    return {
+      text: rawQuestion.replace(fileMatch[0], '').trim(),
+      imageUrl: fileMatch[1].trim()
+    };
+  }
+
+  return { text: rawQuestion, imageUrl: '' };
+}
+
+function renderWorksheetPaper() {
+  if (!worksheetPaperQuestions) return;
+
+  const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? currentChapter : 'All Chapters';
+  if (printSubTitle) printSubTitle.textContent = `${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}`;
+  if (printChapter) printChapter.textContent = chapLabel;
+  if (printTotalQuestions) printTotalQuestions.textContent = currentWorksheetQuestions.length;
+
+  worksheetPaperQuestions.innerHTML = '';
+
+  currentWorksheetQuestions.forEach((q, idx) => {
+    const card = document.createElement('div');
+    card.className = 'worksheet-q-item';
+    card.dataset.id = q._id;
+
+    // Question image: ONLY if the question itself contains an image link or explicit questionImageUrl
+    let questionImgUrl = (q.questionImageUrl && q.questionImageUrl.trim()) ? q.questionImageUrl.trim() : '';
+    let displayText = q.question;
+
+    if (!questionImgUrl) {
+      const parsed = extractQuestionImage(q.question);
+      if (parsed.imageUrl) {
+        questionImgUrl = parsed.imageUrl;
+        displayText = parsed.text || q.question;
+      }
+    }
+
+    const questionImgHtml = questionImgUrl ? `
+      <div class="worksheet-q-img-wrap">
+        <img src="${questionImgUrl}" alt="Question Diagram" class="worksheet-q-img" loading="lazy" />
+      </div>
+    ` : '';
+
+    // Answer image: q.imageUrl belongs to the answer, so it ONLY renders when answer key is enabled
+    const answerImgHtml = (q.imageUrl && q.imageUrl.trim()) ? `
+      <div class="worksheet-ans-img-wrap">
+        <img src="${q.imageUrl.trim()}" alt="Answer Diagram" class="worksheet-ans-img" loading="lazy" />
+      </div>
+    ` : '';
+
+    const answerHtml = includeAnswersState ? `
+      <div class="worksheet-ans-box">
+        <div class="worksheet-ans-text">
+          <strong>Ans:</strong> ${formatText(q.answer)}
+        </div>
+        ${answerImgHtml}
+      </div>
+    ` : `
+      <div class="ruled-lines">
+        <div class="ruled-line"><span class="ruled-prefix">Ans.</span></div>
+        <div class="ruled-line"></div>
+      </div>
+    `;
+
+    card.innerHTML = `
+      <div class="q-header-row">
+        <div class="q-num-text">
+          <span class="q-number">Q${idx + 1}.</span>
+          <span class="q-text">${formatText(displayText)}</span>
+        </div>
+        <div class="q-actions-row no-print">
+          <button type="button" class="q-replace-btn" data-index="${idx}" title="Replace with another unused question from chapter">
+            🔄 Replace
+          </button>
+        </div>
+      </div>
+      ${questionImgHtml}
+      ${answerHtml}
+    `;
+
+    const replaceBtn = card.querySelector('.q-replace-btn');
+    if (replaceBtn) {
+      replaceBtn.addEventListener('click', () => {
+        replaceQuestionAtIndex(idx);
+      });
+    }
+
+    worksheetPaperQuestions.appendChild(card);
+  });
+}
+
+function replaceQuestionAtIndex(index) {
+  // Current question IDs in worksheet
+  const currentIds = new Set(currentWorksheetQuestions.map((q) => q._id));
+  // Available pool of questions NOT in current worksheet
+  const unusedPool = allPoolQuestions.filter((q) => !currentIds.has(q._id));
+
+  if (unusedPool.length === 0) {
+    showWorksheetToast(`⚠️ No more unused questions in this chapter! All ${allPoolQuestions.length} are in use.`);
+    return;
+  }
+
+  // Pick random unused question
+  const replacement = unusedPool[Math.floor(Math.random() * unusedPool.length)];
+  currentWorksheetQuestions[index] = replacement;
+
+  renderWorksheetPaper();
+  showWorksheetToast(`✅ Question #${index + 1} replaced! (${unusedPool.length - 1} unused remaining)`);
+}
+
+function shuffleAllQuestions() {
+  if (allPoolQuestions.length === 0) return;
+  const count = currentWorksheetQuestions.length;
+  const shuffled = [...allPoolQuestions].sort(() => 0.5 - Math.random());
+  currentWorksheetQuestions = shuffled.slice(0, count);
+  renderWorksheetPaper();
+  showWorksheetToast('🔀 All questions reshuffled!');
+}
+
+function toggleAnswerKey() {
+  includeAnswersState = !includeAnswersState;
+  renderWorksheetPaper();
+  showWorksheetToast(includeAnswersState ? '💡 Answer key shown (Teacher Copy)' : '📝 Answer key hidden (Student Practice Copy)');
+}
+
+if (worksheetBtn) worksheetBtn.addEventListener('click', openWorksheetModal);
+if (closeWorksheetConfigBtn) closeWorksheetConfigBtn.addEventListener('click', closeWorksheetModal);
+if (closeWorksheetPreviewBtn) closeWorksheetPreviewBtn.addEventListener('click', closeWorksheetModal);
+if (worksheetPresetChips) worksheetPresetChips.addEventListener('click', handlePresetClick);
+if (generateWorksheetBtn) generateWorksheetBtn.addEventListener('click', generateWorksheet);
+if (worksheetBackBtn) {
+  worksheetBackBtn.addEventListener('click', () => {
+    if (worksheetPreviewView) worksheetPreviewView.classList.add('hidden');
+    if (worksheetConfigView) worksheetConfigView.classList.remove('hidden');
+  });
+}
+if (worksheetShuffleAllBtn) worksheetShuffleAllBtn.addEventListener('click', shuffleAllQuestions);
+if (worksheetToggleAnswerKeyBtn) worksheetToggleAnswerKeyBtn.addEventListener('click', toggleAnswerKey);
+if (worksheetPrintBtn) {
+  worksheetPrintBtn.addEventListener('click', () => {
+    window.print();
+  });
+}
+
+// Close worksheet modal when clicking outside card or pressing Escape
+if (worksheetModal) {
+  worksheetModal.addEventListener('click', (e) => {
+    if (e.target === worksheetModal) closeWorksheetModal();
+  });
+}
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && worksheetModal && !worksheetModal.classList.contains('hidden')) {
+    closeWorksheetModal();
+  }
+});

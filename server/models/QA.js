@@ -47,6 +47,12 @@ const QASchema = new mongoose.Schema(
       trim: true,
       default: ''
     },
+    // Optional diagram or illustration image URL for the question itself
+    questionImageUrl: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     // how many times this answer has been served - useful for the admin dashboard
     hitCount: {
       type: Number,

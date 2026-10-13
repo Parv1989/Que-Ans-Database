@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const QA = require('../models/QA');
 const { findAnswer, getHierarchy } = require('../utils/matcher');
 
 // GET /api/ask/hierarchy - returns dynamic Class -> Book -> Chapter structure for dropdowns
@@ -10,6 +11,36 @@ router.get('/hierarchy', async (req, res) => {
   } catch (err) {
     console.error('hierarchy error:', err);
     res.status(500).json({ error: 'Could not fetch class/book hierarchy' });
+  }
+});
+
+// GET /api/ask/worksheet-questions - returns questions for printable worksheet generation
+router.get('/worksheet-questions', async (req, res) => {
+  try {
+    const { className, bookName, chapterName } = req.query;
+    const query = {};
+
+    if (className && className.trim().toLowerCase() !== 'all' && className.trim().toLowerCase() !== 'all classes') {
+      query.className = new RegExp('^' + className.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i');
+    }
+    if (bookName && bookName.trim().toLowerCase() !== 'all' && bookName.trim().toLowerCase() !== 'all books') {
+      query.bookName = new RegExp('^' + bookName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i');
+    }
+    if (chapterName && chapterName.trim().toLowerCase() !== 'all' && chapterName.trim().toLowerCase() !== 'all chapters') {
+      query.chapterName = new RegExp('^' + chapterName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i');
+    }
+
+    const questions = await QA.find(query)
+      .select('question answer imageUrl questionImageUrl className bookName chapterName')
+      .lean();
+
+    res.json({
+      total: questions.length,
+      questions
+    });
+  } catch (err) {
+    console.error('worksheet questions error:', err);
+    res.status(500).json({ error: 'Could not fetch worksheet questions' });
   }
 });
 

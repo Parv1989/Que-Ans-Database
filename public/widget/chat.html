@@ -13,7 +13,7 @@
     <header class="chat-header">
       <div class="chat-header-info">
         <div class="chat-header-title">Study Buddy</div>
-        <div class="chat-header-sub">Poocho, jo bhi book ke baare me jaanna hai</div>
+        <div class="chat-header-sub">Ask me anything, whatever you want to know about the book</div>
       </div>
       <div class="chat-header-actions">
         <select id="voiceSelect" class="voice-select" aria-label="Select Voice Model" title="Voice Model"></select>
@@ -29,7 +29,10 @@
         <span class="context-icon">📚</span>
         <span id="currentSelectionBadge" class="context-text">Select Class & Book</span>
       </div>
-      <button id="changeContextBtn" class="change-context-btn" type="button">Change ⚙️</button>
+      <div class="context-bar-actions">
+        <button id="worksheetBtn" class="worksheet-btn" type="button" title="Generate printable worksheet">📝 Worksheet</button>
+        <button id="changeContextBtn" class="change-context-btn" type="button">Change ⚙️</button>
+      </div>
     </div>
 
     <!-- Modern Cute AI Robot Mascot -->
@@ -171,8 +174,146 @@
   <!-- Image Zoom Lightbox Modal -->
   <div id="imageLightbox" class="image-lightbox-overlay hidden" aria-hidden="true">
     <div class="image-lightbox-content">
-      <button id="closeLightboxBtn" class="lightbox-close-btn" type="button" aria-label="Close image preview">&times;</button>
+      <button id="closeLightboxBtn" class="lightbox-close-btn" type="button"
+        aria-label="Close image preview">&times;</button>
       <img id="lightboxImg" src="" alt="Full view diagram" />
+    </div>
+  </div>
+
+  <!-- Worksheet Generator & Print Preview Modal Overlay -->
+  <div id="worksheetModal" class="worksheet-modal-overlay hidden" aria-modal="true" role="dialog">
+    <div class="worksheet-modal-card">
+      <!-- Step 1: Pre-generation Options Screen -->
+      <div id="worksheetConfigView" class="worksheet-config-card">
+        <div class="worksheet-modal-header">
+          <div class="worksheet-modal-icon">📝</div>
+          <h3>Worksheet Generator</h3>
+          <p>Generate a clean, ready-to-print practice test worksheet based on your current book & chapter!</p>
+          <button id="closeWorksheetConfigBtn" class="worksheet-close-btn" type="button" aria-label="Close worksheet generator">&times;</button>
+        </div>
+
+        <div class="worksheet-config-body">
+          <div class="worksheet-context-badge">
+            <span class="context-label">Selected Context:</span>
+            <strong id="worksheetContextDisplay" class="context-val">Class 3 • Ripples</strong>
+          </div>
+
+          <div id="worksheetLoadingSpinner" class="worksheet-loading hidden">
+            <div class="spinner-dot"></div>
+            <span>Fetching chapter questions...</span>
+          </div>
+
+          <div id="worksheetActiveOptions">
+            <div class="worksheet-stat-badge">
+              <span class="stat-count" id="worksheetTotalCount">0</span>
+              <span class="stat-text">Questions available in this chapter</span>
+            </div>
+
+            <div class="form-group">
+              <label for="worksheetCountInput">Number of questions in worksheet:</label>
+              <div class="worksheet-count-row">
+                <input id="worksheetCountInput" type="number" min="1" max="50" value="5" class="worksheet-number-input" />
+                <div class="worksheet-preset-chips" id="worksheetPresetChips">
+                  <button type="button" class="preset-chip" data-count="3">3 Qs</button>
+                  <button type="button" class="preset-chip" data-count="5">5 Qs</button>
+                  <button type="button" class="preset-chip" data-count="10">10 Qs</button>
+                  <button type="button" class="preset-chip" data-count="all">All</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group worksheet-toggle-group">
+              <label class="toggle-switch">
+                <input type="checkbox" id="worksheetIncludeAnswers" />
+                <span class="slider"></span>
+              </label>
+              <label for="worksheetIncludeAnswers" class="toggle-text">Include Answer Key (Teacher Copy)</label>
+            </div>
+
+            <button id="generateWorksheetBtn" type="button" class="generate-worksheet-btn">
+              Generate Worksheet 🚀
+            </button>
+          </div>
+
+          <div id="worksheetEmptyNotice" class="worksheet-empty-notice hidden">
+            <div class="notice-icon">⚠️</div>
+            <p><strong>No questions found for this selection.</strong></p>
+            <p>Please select another Class/Book using "Change ⚙️".</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Generated Printable Worksheet Sheet View -->
+      <div id="worksheetPreviewView" class="worksheet-preview-container hidden">
+        <!-- Interactive Top Control Toolbar (hidden on print) -->
+        <div class="worksheet-toolbar no-print">
+          <div class="toolbar-left">
+            <button id="worksheetBackBtn" type="button" class="tool-btn secondary" title="Back to settings">⬅️ Settings</button>
+            <button id="worksheetShuffleAllBtn" type="button" class="tool-btn secondary" title="Shuffle with different questions">🔀 Shuffle All</button>
+            <button id="worksheetToggleAnswerKeyBtn" type="button" class="tool-btn secondary" title="Toggle answer visibility">👁️ Toggle Answers</button>
+          </div>
+          <div class="toolbar-right">
+            <button id="worksheetPrintBtn" type="button" class="tool-btn primary" title="Print or save as PDF">🖨️ Print / Save PDF</button>
+            <button id="closeWorksheetPreviewBtn" class="tool-btn close" type="button" aria-label="Close worksheet preview">&times;</button>
+          </div>
+        </div>
+
+        <!-- Toast Feedback for Question Replacement -->
+        <div id="worksheetToast" class="worksheet-toast hidden no-print" role="status" aria-live="polite"></div>
+
+        <!-- Printable Document Sheet (A4 Styled Paper) -->
+        <div id="printableWorksheetPaper" class="printable-worksheet-paper">
+          <!-- Standard Exam/Test Header -->
+          <div class="worksheet-paper-header">
+            <div class="worksheet-paper-heading">
+              <h2 class="paper-title">PRACTICE WORKSHEET</h2>
+              <div class="paper-sub" id="printSubTitle">Class 3 • Ripples</div>
+            </div>
+            <div class="student-info-grid">
+              <div class="info-row">
+                <span class="info-label">Name:</span>
+                <span class="info-line">____________________________________</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Date:</span>
+                <span class="info-line">_________________</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Roll No:</span>
+                <span class="info-line">______________</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Chapter:</span>
+                <span class="info-text" id="printChapter">All Chapters</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Total Questions:</span>
+                <span class="info-text" id="printTotalQuestions">5</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Marks:</span>
+                <span class="info-line">______ / ______</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="worksheet-paper-divider"></div>
+
+          <!-- Question Cards Container -->
+          <div id="worksheetPaperQuestions" class="worksheet-paper-questions">
+            <!-- Questions rendered here -->
+          </div>
+
+          <!-- Bottom Footer -->
+          <div class="worksheet-paper-footer">
+            <span class="footer-note">*** End of Worksheet ***</span>
+            <div class="footer-signature">
+              <span>Teacher's Signature: </span>
+              <span class="sig-line">__________________________</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
