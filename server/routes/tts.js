@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
 
     // Fetch Google TTS audio base64 server-side to prevent browser CORS / 403 hotlink blocks
     const results = await googleTTS.getAllAudioBase64(text, {
-      lang: 'hi',
+      lang: lang,
       slow: false,
       host: 'https://translate.google.com',
       timeout: 10000

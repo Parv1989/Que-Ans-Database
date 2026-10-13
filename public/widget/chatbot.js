@@ -78,22 +78,22 @@ function toSpeechText(raw) {
 
 // ---------- Initial Greeting & Speech Engine ----------
 function playInitialGreeting() {
-  if (greetingSpoken || !voiceEnabled) return;
-  greetingSpoken = true;
+  if (!voiceEnabled) return;
   speak(INITIAL_GREETING);
 }
 
 // Unlock audio context and play greeting on first user interaction if blocked by browser autoplay policy
 function tryGreetingOnGesture() {
   unlockAudioContext();
+  if (contextModal && !contextModal.classList.contains('hidden')) return;
   if (!greetingSpoken) {
     playInitialGreeting();
   }
 }
-document.addEventListener('pointerdown', tryGreetingOnGesture, { once: true });
-document.addEventListener('keydown', tryGreetingOnGesture, { once: true });
+document.addEventListener('pointerdown', tryGreetingOnGesture);
+document.addEventListener('keydown', tryGreetingOnGesture);
 
-async function speakServerTTS(speechText) {
+async function speakServerTTS(speechText, lang = 'hi') {
   if (!voiceEnabled) return;
   if (currentAudio) {
     currentAudio.pause();
@@ -102,7 +102,7 @@ async function speakServerTTS(speechText) {
   stopLipSync();
 
   try {
-    const res = await fetch(`${TTS_API_URL}?text=${encodeURIComponent(speechText)}`);
+    const res = await fetch(`${TTS_API_URL}?text=${encodeURIComponent(speechText)}&lang=${lang}`);
     const data = await res.json();
 
     if (!data.audios || data.audios.length === 0) {
@@ -122,6 +122,7 @@ async function speakServerTTS(speechText) {
       currentAudio = audio;
 
       audio.onplay = () => {
+        greetingSpoken = true;
         setTalking(true);
         let startTime = performance.now();
         function syncLoop(now) {
@@ -358,9 +359,12 @@ function speak(rawText) {
   const speechText = toSpeechText(rawText);
   if (!speechText) return;
 
+  const isHindiText = /[\u0900-\u097F]/.test(speechText);
+  const targetLang = isHindiText ? 'hi' : 'en';
+
   // If google_hindi_server selected OR if no native Google voice is available in browser
   if (selectedVoiceName === 'google_hindi_server') {
-    speakServerTTS(speechText);
+    speakServerTTS(speechText, targetLang);
     return;
   }
 
@@ -368,22 +372,38 @@ function speak(rawText) {
   const isGoogleVoice = voice && (voice.name.toLowerCase().includes('google') || (voice.voiceURI && voice.voiceURI.toLowerCase().includes('google')));
 
   if (!isGoogleVoice && !userHasChosenVoice) {
-    // Automatically use Server Hindi TTS if native Google voice not present
-    speakServerTTS(speechText);
+    // Automatically use Server TTS if native Google voice not present
+    speakServerTTS(speechText, targetLang);
     return;
   }
 
   if (!window.speechSynthesis) {
-    speakServerTTS(speechText);
+    speakServerTTS(speechText, targetLang);
     return;
   }
 
   const utterance = new SpeechSynthesisUtterance(speechText);
-  if (voice) {
-    utterance.voice = voice;
-    utterance.lang = voice.lang;
+  let utteranceVoice = voice;
+
+  // If text is English, make sure we use a voice that can speak English
+  if (!isHindiText) {
+    const isVoiceHindi = utteranceVoice && (utteranceVoice.lang || '').toLowerCase().startsWith('hi');
+    if (!utteranceVoice || isVoiceHindi) {
+      const allVoices = (window.speechSynthesis.getVoices() || []);
+      const engVoice = allVoices.find((v) => {
+        const n = v.name.toLowerCase();
+        const l = (v.lang || '').toLowerCase();
+        return (n.includes('google') || l.startsWith('en')) && !n.includes('microsoft');
+      });
+      if (engVoice) utteranceVoice = engVoice;
+    }
+  }
+
+  if (utteranceVoice) {
+    utterance.voice = utteranceVoice;
+    utterance.lang = utteranceVoice.lang;
   } else {
-    utterance.lang = 'hi-IN';
+    utterance.lang = isHindiText ? 'hi-IN' : 'en-US';
   }
 
   utterance.rate = 0.94;
@@ -406,6 +426,7 @@ function speak(rawText) {
   };
 
   utterance.onstart = () => {
+    greetingSpoken = true;
     setTalking(true);
     let startTime = performance.now();
     function syncLoop(now) {
@@ -425,7 +446,11 @@ function speak(rawText) {
   };
 
   utterance.onend = () => setTalking(false);
-  utterance.onerror = () => setTalking(false);
+  utterance.onerror = (err) => {
+    console.warn('SpeechSynthesis error, falling back to Server TTS:', err);
+    setTalking(false);
+    speakServerTTS(speechText, targetLang);
+  };
 
   window.speechSynthesis.speak(utterance);
 }
@@ -725,6 +750,15 @@ if (messagesEl) {
     if (e.target && e.target.tagName === 'IMG') {
       openLightbox(e.target.src);
     }
+  });
+}
+
+// Replay welcome message listener
+const replayWelcomeBtn = document.getElementById('replayWelcomeBtn');
+if (replayWelcomeBtn) {
+  replayWelcomeBtn.addEventListener('click', () => {
+    unlockAudioContext();
+    speak(INITIAL_GREETING);
   });
 }
 
