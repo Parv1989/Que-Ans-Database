@@ -37,7 +37,7 @@ let hasSavedContext = !!(savedClass && savedBook);
 
 // Voice State & Greeting State
 let voiceEnabled = true;
-let selectedVoiceName = '';
+let selectedVoiceName = 'google_hindi_server';
 let cachedVoice = null;
 let userHasChosenVoice = false;
 let currentAudio = null;
@@ -116,13 +116,13 @@ async function speakServerTTS(speechText, lang = 'hi') {
 
     if (!audioList || audioList.length === 0) {
       const res = await fetch(`${TTS_API_URL}?text=${encodeURIComponent(speechText)}&lang=${lang}`);
+      if (!res.ok) throw new Error(`Server TTS HTTP error: ${res.status}`);
       const data = await res.json();
       audioList = data.audios;
     }
 
     if (!audioList || audioList.length === 0) {
-      setTalking(false);
-      return;
+      throw new Error('No audio returned by Server TTS');
     }
 
     let audioIndex = 0;
@@ -159,21 +159,62 @@ async function speakServerTTS(speechText, lang = 'hi') {
       };
 
       audio.onerror = (err) => {
-        console.warn('Base64 Audio play error:', err);
-        playNextAudio();
+        console.warn('Base64 Audio play error, falling back to US English:', err);
+        setTalking(false);
+        speakUSEnglishFallback(speechText);
       };
 
       audio.play().catch((err) => {
-        console.warn('Audio play blocked by browser:', err);
+        console.warn('Audio play blocked/failed, falling back to US English:', err);
         setTalking(false);
+        speakUSEnglishFallback(speechText);
       });
     }
 
     playNextAudio();
   } catch (err) {
-    console.warn('Server TTS error:', err);
+    console.warn('Server TTS unavailable, falling back to US English:', err);
     setTalking(false);
+    speakUSEnglishFallback(speechText);
   }
+}
+
+// Secondary fallback helper: Find the best available US English voice (Google preferred, Microsoft excluded)
+function getUSEnglishVoice() {
+  if (!window.speechSynthesis) return null;
+  const allVoices = window.speechSynthesis.getVoices() || [];
+  const nonMicrosoft = allVoices.filter((v) => {
+    const n = v.name.toLowerCase();
+    const u = (v.voiceURI || '').toLowerCase();
+    return !n.includes('microsoft') && !u.includes('microsoft');
+  });
+
+  // 1. Google US English
+  const googleUS = nonMicrosoft.find((v) => {
+    const n = v.name.toLowerCase();
+    const l = (v.lang || '').toLowerCase().replace('_', '-');
+    return n.includes('google') && (l === 'en-us' || n.includes('us english') || n.includes('united states'));
+  });
+  if (googleUS) return googleUS;
+
+  // 2. Any other US English
+  const anyUS = nonMicrosoft.find((v) => {
+    const n = v.name.toLowerCase();
+    const l = (v.lang || '').toLowerCase().replace('_', '-');
+    return l === 'en-us' || n.includes('us english') || n.includes('united states');
+  });
+  if (anyUS) return anyUS;
+
+  // 3. Any Google English
+  const googleEng = nonMicrosoft.find((v) => {
+    const n = v.name.toLowerCase();
+    const l = (v.lang || '').toLowerCase();
+    return n.includes('google') && l.startsWith('en');
+  });
+  if (googleEng) return googleEng;
+
+  // 4. Any English voice
+  return nonMicrosoft.find((v) => (v.lang || '').toLowerCase().startsWith('en')) || null;
 }
 
 function populateVoiceList() {
@@ -200,41 +241,38 @@ function populateVoiceList() {
     return isHindi || isEnglish;
   });
 
-  // Sort: Google voices first, then others
+  // Sort: US English ranked highest as secondary after Hindi Server AI Voice
   const scored = allowedVoices.map((v) => {
     let score = 0;
     const lang = (v.lang || '').toLowerCase().replace('_', '-');
     const name = (v.name || '').toLowerCase();
-    const uri = (v.voiceURI || '').toLowerCase();
 
-    const isGoogle = name.includes('google') || uri.includes('google');
-    const isHindi = name.includes('hindi') || name.includes('हिन्दी') || lang.startsWith('hi');
+    const isGoogle = name.includes('google');
+    const isUSEnglish = lang === 'en-us' || name.includes('us english') || name.includes('united states');
     const isIndianEnglish = name.includes('india') || name.includes('indian') || lang === 'en-in';
+    const isHindi = name.includes('hindi') || name.includes('हिन्दी') || lang.startsWith('hi');
 
-    if (isGoogle && isHindi) score += 10000;
-    else if (isGoogle && isIndianEnglish) score += 4000;
-    else if (isGoogle) score += 2000;
-    else if (isHindi) score += 1000;
+    // Priority: US English is secondary after Server AI Voice
+    if (isGoogle && isUSEnglish) score += 10000;
+    else if (isUSEnglish) score += 7000;
+    else if (isGoogle && isIndianEnglish) score += 5000;
+    else if (isGoogle && isHindi) score += 4000;
+    else if (isGoogle) score += 3000;
+    else if (isHindi) score += 2000;
+    else if (isIndianEnglish) score += 1000;
 
     return { voice: v, score };
   });
 
   scored.sort((a, b) => b.score - a.score);
 
-  const nativeGoogleHindi = allowedVoices.find((v) => {
-    const n = v.name.toLowerCase();
-    const u = (v.voiceURI || '').toLowerCase();
-    const l = (v.lang || '').toLowerCase();
-    return (n.includes('google') || u.includes('google')) && (n.includes('hindi') || n.includes('हिन्दी') || l.startsWith('hi'));
-  });
-
   if (voiceSelect) {
     voiceSelect.innerHTML = '';
 
-    // Offer Hindi (Server AI Voice) at top with 'Google' removed
+    // Hindi (Server AI Voice) is ALWAYS Default at the top
     const serverOpt = document.createElement('option');
     serverOpt.value = 'google_hindi_server';
-    serverOpt.textContent = '✨ Hindi (Server AI Voice)';
+    serverOpt.textContent = '✨ Hindi (Server AI Voice) [Default]';
     voiceSelect.appendChild(serverOpt);
 
     scored.forEach((item) => {
@@ -254,11 +292,7 @@ function populateVoiceList() {
     });
 
     if (!userHasChosenVoice) {
-      if (nativeGoogleHindi) {
-        selectedVoiceName = nativeGoogleHindi.name;
-      } else {
-        selectedVoiceName = 'google_hindi_server';
-      }
+      selectedVoiceName = 'google_hindi_server';
     }
 
     voiceSelect.value = selectedVoiceName;
@@ -267,7 +301,7 @@ function populateVoiceList() {
   if (selectedVoiceName === 'google_hindi_server') {
     cachedVoice = null;
   } else {
-    cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || null;
+    cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || getUSEnglishVoice();
   }
 }
 
@@ -278,8 +312,8 @@ if (voiceSelect) {
     if (selectedVoiceName === 'google_hindi_server') {
       cachedVoice = null;
     } else {
-      const voices = window.speechSynthesis.getVoices();
-      cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || null;
+      const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+      cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || getUSEnglishVoice();
     }
   });
 }
@@ -288,7 +322,8 @@ function pickVoice() {
   if (selectedVoiceName === 'google_hindi_server') return null;
   if (cachedVoice) return cachedVoice;
   populateVoiceList();
-  return cachedVoice;
+  if (cachedVoice) return cachedVoice;
+  return getUSEnglishVoice();
 }
 
 if (window.speechSynthesis) {
@@ -355,8 +390,8 @@ function stopLipSync() {
   setViseme('REST');
 }
 
-function speak(rawText) {
-  if (!voiceEnabled) return;
+function speakWithUtterance(speechText, chosenVoice = null, fallbackLang = 'en-US') {
+  if (!voiceEnabled || !window.speechSynthesis) return;
 
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   if (currentAudio) {
@@ -365,54 +400,12 @@ function speak(rawText) {
   }
   stopLipSync();
 
-  const speechText = toSpeechText(rawText);
-  if (!speechText) return;
-
-  const isHindiText = /[\u0900-\u097F]/.test(speechText);
-  const targetLang = isHindiText ? 'hi' : 'en';
-
-  // If google_hindi_server selected OR if no native Google voice is available in browser
-  if (selectedVoiceName === 'google_hindi_server') {
-    speakServerTTS(speechText, targetLang);
-    return;
-  }
-
-  const voice = pickVoice();
-  const isGoogleVoice = voice && (voice.name.toLowerCase().includes('google') || (voice.voiceURI && voice.voiceURI.toLowerCase().includes('google')));
-
-  if (!isGoogleVoice && !userHasChosenVoice) {
-    // Automatically use Server TTS if native Google voice not present
-    speakServerTTS(speechText, targetLang);
-    return;
-  }
-
-  if (!window.speechSynthesis) {
-    speakServerTTS(speechText, targetLang);
-    return;
-  }
-
   const utterance = new SpeechSynthesisUtterance(speechText);
-  let utteranceVoice = voice;
-
-  // If text is English, make sure we use a voice that can speak English
-  if (!isHindiText) {
-    const isVoiceHindi = utteranceVoice && (utteranceVoice.lang || '').toLowerCase().startsWith('hi');
-    if (!utteranceVoice || isVoiceHindi) {
-      const allVoices = (window.speechSynthesis.getVoices() || []);
-      const engVoice = allVoices.find((v) => {
-        const n = v.name.toLowerCase();
-        const l = (v.lang || '').toLowerCase();
-        return (n.includes('google') || l.startsWith('en')) && !n.includes('microsoft');
-      });
-      if (engVoice) utteranceVoice = engVoice;
-    }
-  }
-
-  if (utteranceVoice) {
-    utterance.voice = utteranceVoice;
-    utterance.lang = utteranceVoice.lang;
+  if (chosenVoice) {
+    utterance.voice = chosenVoice;
+    utterance.lang = chosenVoice.lang || fallbackLang;
   } else {
-    utterance.lang = isHindiText ? 'hi-IN' : 'en-US';
+    utterance.lang = fallbackLang;
   }
 
   utterance.rate = 0.94;
@@ -456,12 +449,57 @@ function speak(rawText) {
 
   utterance.onend = () => setTalking(false);
   utterance.onerror = (err) => {
-    console.warn('SpeechSynthesis error, falling back to Server TTS:', err);
+    console.warn('SpeechSynthesis error:', err);
     setTalking(false);
-    speakServerTTS(speechText, targetLang);
   };
 
+  try {
+    window.speechSynthesis.resume();
+  } catch (e) {}
   window.speechSynthesis.speak(utterance);
+}
+
+function speakUSEnglishFallback(speechText) {
+  const usVoice = getUSEnglishVoice();
+  speakWithUtterance(speechText, usVoice, 'en-US');
+}
+
+function speak(rawText) {
+  if (!voiceEnabled) return;
+
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+  stopLipSync();
+
+  const speechText = toSpeechText(rawText);
+  if (!speechText) return;
+
+  const isHindiText = /[\u0900-\u097F]/.test(speechText);
+  const targetLang = isHindiText ? 'hi' : 'en';
+
+  // Hindi (Server AI Voice) is ALWAYS the Default
+  if (selectedVoiceName === 'google_hindi_server') {
+    speakServerTTS(speechText, targetLang);
+    return;
+  }
+
+  // If user explicitly chose another voice or fallback
+  const voice = pickVoice();
+  let utteranceVoice = voice || getUSEnglishVoice();
+
+  // If text is English, ensure an English-capable voice (preferring US English)
+  if (!isHindiText) {
+    const isVoiceHindi = utteranceVoice && (utteranceVoice.lang || '').toLowerCase().startsWith('hi');
+    if (!utteranceVoice || isVoiceHindi) {
+      utteranceVoice = getUSEnglishVoice();
+    }
+  }
+
+  const langCode = utteranceVoice ? (utteranceVoice.lang || 'en-US') : (isHindiText ? 'hi-IN' : 'en-US');
+  speakWithUtterance(speechText, utteranceVoice, langCode);
 }
 
 // Warmup speech synthesis and audio context on user interaction to pass mobile browser autoplay restrictions
