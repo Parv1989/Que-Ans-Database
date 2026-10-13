@@ -266,29 +266,6 @@ html, body {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
 }
 
-.msg-voice-replay {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: rgba(110, 101, 191, 0.12);
-  color: var(--primary-dark);
-  border: 1px solid rgba(110, 101, 191, 0.25);
-  border-radius: 999px;
-  padding: 0.25rem 0.65rem;
-  font-size: 0.74rem;
-  font-weight: 700;
-  margin-top: 0.45rem;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.15s ease;
-}
-
-.msg-voice-replay:hover {
-  background: var(--primary);
-  color: #ffffff;
-  border-color: var(--primary);
-}
-
 .msg.suggestions { display: flex; flex-direction: column; gap: 0.4rem; align-self: flex-start; max-width: 92%; }
 .suggestion-btn {
   background: #fff;

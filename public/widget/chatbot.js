@@ -76,22 +76,25 @@ function toSpeechText(raw) {
     .trim();
 }
 
-// ---------- Initial Greeting & Speech Engine ----------
-function playInitialGreeting() {
-  if (!voiceEnabled) return;
-  speak(INITIAL_GREETING);
-}
+// ---------- Preload Greeting Audio for Instant Playback ----------
+let preloadedGreetingAudios = null;
+let preloadGreetingPromise = null;
 
-// Unlock audio context and play greeting on first user interaction if blocked by browser autoplay policy
-function tryGreetingOnGesture() {
-  unlockAudioContext();
-  if (contextModal && !contextModal.classList.contains('hidden')) return;
-  if (!greetingSpoken) {
-    playInitialGreeting();
-  }
+function preloadGreetingTTS() {
+  preloadGreetingPromise = fetch(`${TTS_API_URL}?text=${encodeURIComponent(INITIAL_GREETING)}&lang=en`)
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.audios && data.audios.length > 0) {
+        preloadedGreetingAudios = data.audios;
+      }
+      return preloadedGreetingAudios;
+    })
+    .catch((err) => {
+      console.warn('Preload greeting error:', err);
+      return null;
+    });
 }
-document.addEventListener('pointerdown', tryGreetingOnGesture);
-document.addEventListener('keydown', tryGreetingOnGesture);
+preloadGreetingTTS();
 
 async function speakServerTTS(speechText, lang = 'hi') {
   if (!voiceEnabled) return;
@@ -102,10 +105,22 @@ async function speakServerTTS(speechText, lang = 'hi') {
   stopLipSync();
 
   try {
-    const res = await fetch(`${TTS_API_URL}?text=${encodeURIComponent(speechText)}&lang=${lang}`);
-    const data = await res.json();
+    let audioList = null;
+    if (speechText === INITIAL_GREETING) {
+      if (preloadedGreetingAudios && preloadedGreetingAudios.length > 0) {
+        audioList = preloadedGreetingAudios;
+      } else if (preloadGreetingPromise) {
+        audioList = await preloadGreetingPromise;
+      }
+    }
 
-    if (!data.audios || data.audios.length === 0) {
+    if (!audioList || audioList.length === 0) {
+      const res = await fetch(`${TTS_API_URL}?text=${encodeURIComponent(speechText)}&lang=${lang}`);
+      const data = await res.json();
+      audioList = data.audios;
+    }
+
+    if (!audioList || audioList.length === 0) {
       setTalking(false);
       return;
     }
@@ -113,12 +128,12 @@ async function speakServerTTS(speechText, lang = 'hi') {
     let audioIndex = 0;
 
     function playNextAudio() {
-      if (audioIndex >= data.audios.length || !voiceEnabled) {
+      if (audioIndex >= audioList.length || !voiceEnabled) {
         setTalking(false);
         return;
       }
 
-      const audio = new Audio(data.audios[audioIndex++]);
+      const audio = new Audio(audioList[audioIndex++]);
       currentAudio = audio;
 
       audio.onplay = () => {
@@ -253,12 +268,6 @@ function populateVoiceList() {
     cachedVoice = null;
   } else {
     cachedVoice = (voices || []).find((v) => v.name === selectedVoiceName) || null;
-  }
-
-  if (hasSavedContext && !greetingSpoken) {
-    setTimeout(() => {
-      if (!greetingSpoken) playInitialGreeting();
-    }, 300);
   }
 }
 
@@ -455,14 +464,37 @@ function speak(rawText) {
   window.speechSynthesis.speak(utterance);
 }
 
-// Warmup speech synthesis on user interaction to pass mobile browser autoplay restrictions
+// Warmup speech synthesis and audio context on user interaction to pass mobile browser autoplay restrictions
+let audioContextUnlocked = false;
 function unlockAudioContext() {
-  if (voiceEnabled && window.speechSynthesis && !window.speechSynthesis.speaking) {
-    const silent = new SpeechSynthesisUtterance('');
-    silent.volume = 0;
-    window.speechSynthesis.speak(silent);
+  if (audioContextUnlocked) return;
+  audioContextUnlocked = true;
+
+  if (window.speechSynthesis) {
+    try {
+      window.speechSynthesis.resume();
+      if (!window.speechSynthesis.speaking) {
+        const silent = new SpeechSynthesisUtterance('');
+        silent.volume = 0;
+        window.speechSynthesis.speak(silent);
+      }
+    } catch (e) {}
   }
+
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      const dummyCtx = new AudioContextClass();
+      dummyCtx.resume().then(() => {
+        if (dummyCtx.state === 'running') dummyCtx.close();
+      }).catch(() => {});
+    }
+  } catch (e) {}
 }
+
+// Proactively unlock audio on first touch/click anywhere on page
+document.addEventListener('click', unlockAudioContext, { once: true, passive: true });
+document.addEventListener('touchstart', unlockAudioContext, { once: true, passive: true });
 
 muteBtn.addEventListener('click', () => {
   voiceEnabled = !voiceEnabled;
@@ -696,8 +728,17 @@ if (saveContextBtn) {
     const chapText = currentChapter !== 'All Chapters' ? ` (${currentChapter})` : '';
     addMessage(`📌 Active Context: **${currentClass} • ${currentBook}**${chapText}. Feel free to ask any question about this book!`, 'bot', '', false);
 
-    playInitialGreeting();
+    // Start welcome message voice immediately when user clicks Start Chatting
+    if (!greetingSpoken) {
+      speak(INITIAL_GREETING);
+    }
   });
+}
+
+function playInitialGreeting() {
+  if (!greetingSpoken) {
+    speak(INITIAL_GREETING);
+  }
 }
 
 async function initContextEngine() {
@@ -714,14 +755,13 @@ async function initContextEngine() {
     console.warn('Could not load hierarchy:', err);
   }
 
-  if (hasSavedContext) {
-    updateContextBadge();
-    if (contextModal) contextModal.classList.add('hidden');
-    setTimeout(() => {
-      if (!greetingSpoken) playInitialGreeting();
-    }, 400);
-  } else {
-    if (contextModal) contextModal.classList.remove('hidden');
+  // Pre-update badge with currently restored/selected values
+  updateContextBadge();
+
+  // STOP auto-dismiss: The "Select Class & Book" modal must stay visible
+  // so the user can verify/choose and click "Start Chatting 🚀"
+  if (contextModal) {
+    contextModal.classList.remove('hidden');
   }
 }
 
@@ -750,15 +790,6 @@ if (messagesEl) {
     if (e.target && e.target.tagName === 'IMG') {
       openLightbox(e.target.src);
     }
-  });
-}
-
-// Replay welcome message listener
-const replayWelcomeBtn = document.getElementById('replayWelcomeBtn');
-if (replayWelcomeBtn) {
-  replayWelcomeBtn.addEventListener('click', () => {
-    unlockAudioContext();
-    speak(INITIAL_GREETING);
   });
 }
 
