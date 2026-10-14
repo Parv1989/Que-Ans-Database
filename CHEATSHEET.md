@@ -25,6 +25,7 @@ JWT_SECRET=<apni random string>
 ADMIN_USERNAME=<apna username>
 ADMIN_PASSWORD=<apna password>
 ALLOWED_ORIGINS=*
+GEMINI_API_KEY=<apni gemini api key>
 ```
 
 ⚠️ Render ke "Environment" tab me `PORT` variable NAHI hona chahiye — Render khud apna port deta hai.
