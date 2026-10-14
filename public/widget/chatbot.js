@@ -575,8 +575,8 @@ function addMessage(text, sender, imageUrl = '', shouldSpeak = true, isAi = fals
     div.appendChild(img);
   }
 
-  // Add "Explain simply" helper chip on standard bot answers
-  if (sender === 'bot' && !isAi && !text.startsWith('Connection issue') && !text.startsWith('Hi!')) {
+  // Add "Explain simply" helper chip only on answered QA messages from database
+  if (sender === 'bot' && !isAi && relatedQuestion && !text.startsWith('Connection issue') && !text.startsWith('Hi!')) {
     const explainBtn = document.createElement('button');
     explainBtn.type = 'button';
     explainBtn.className = 'explain-chip';
