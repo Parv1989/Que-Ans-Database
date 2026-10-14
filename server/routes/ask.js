@@ -117,26 +117,46 @@ router.post('/ai-explain', async (req, res) => {
       });
     }
 
+    function stripFillerPhrases(text) {
+      if (!text) return '';
+      return text
+        .replace(/^[\s\n]*(hi|hello|hey)(\s+there)?[\s,!.:-]+((that’s|that is|what a)\s+)?(a\s+)?(great|fantastic|brilliant|wonderful|good|fascinating|cool)?\s*question[!,.:-]*\s*/i, '')
+        .replace(/^[\s\n]*(that’s|that is|what a)\s+(a\s+)?(great|fantastic|brilliant|wonderful|good|fascinating|cool)?\s*question[!,.:-]*\s*/i, '')
+        .replace(/^[\s\n]*(hi|hello|hey)(\s+there)?[\s,!.:-]*\s*/i, '')
+        .replace(/[\s\n]*(keep\s+(up\s+the\s+(great\s+)?(learning|work)|exploring|learning|being\s+curious|asking\s+(great\s+)?questions)|happy\s+learning)[\s!.]*$/i, '')
+        .trim();
+    }
+
     let promptText = '';
     if (answer) {
-      promptText = `You are "Study Buddy AI", an encouraging, friendly, kind school tutor for children.
+      promptText = `You are "Study Buddy AI", an educational school tutor for children.
 Grade/Class: ${className || 'Elementary / Middle School'}
 Subject/Book: ${bookName || 'General'}
 Chapter: ${chapterName || 'General'}
 Original Question: ${question || ''}
 Original Answer: ${answer}
 
-Task: Explain this answer in very simple, conversational language that a child can easily understand. Include a short, relatable real-world example or analogy.
-If in Hindi/Hinglish, reply in warm Hindi/Hinglish. If in English, reply in friendly English. Keep response under 80 words.`;
+Task: Explain this answer in simple, conversational language that a child can easily understand, using a short relatable example or analogy.
+CRITICAL RULES:
+1. DO NOT include greetings or pleasantries like "Hi there!", "Hello!", "That's a great question!", etc.
+2. Start DIRECTLY with the explanation.
+3. DO NOT include closing cheerleading sign-offs like "Keep learning!", "Keep exploring!", "Keep up the great work!", etc. End cleanly right when the explanation finishes.
+4. Keep response under 75 words.
+5. If in Hindi/Hinglish, reply in simple Hindi/Hinglish without greetings. If in English, reply in friendly English without greetings.`;
     } else {
-      promptText = `You are "Study Buddy AI", a kind and helpful school tutor for children.
+      promptText = `You are "Study Buddy AI", an educational school tutor for children.
 Grade/Class: ${className || 'Elementary / Middle School'}
 Subject/Book: ${bookName || 'General'}
 Chapter: ${chapterName || 'General'}
 Student Question: ${question}
 
-Task: Answer this student's question accurately and simply for their grade level. Keep the answer clear, positive, and under 80 words.
-If the question is in Hindi/Hinglish, reply in warm Hindi/Hinglish. If in English, reply in friendly English.`;
+Task: Answer this student's question accurately and simply for their grade level.
+CRITICAL RULES:
+1. DO NOT include greetings or pleasantries like "Hi there!", "Hello!", "That's a great question!", etc.
+2. Start DIRECTLY with the answer.
+3. DO NOT include closing cheerleading sign-offs like "Keep learning!", "Keep exploring!", "Keep up the great work!", etc. End cleanly right when the explanation finishes.
+4. Keep response under 75 words.
+5. If in Hindi/Hinglish, reply in simple Hindi/Hinglish without greetings. If in English, reply in friendly English without greetings.`;
     }
 
     // Try high-availability models with automatic fallback if Google has traffic spikes (503/429)
@@ -174,9 +194,11 @@ If the question is in Hindi/Hinglish, reply in warm Hindi/Hinglish. If in Englis
       });
     }
 
+    const cleanedExplanation = stripFillerPhrases(explanation);
+
     res.json({
       available: true,
-      explanation: explanation.trim()
+      explanation: cleanedExplanation || explanation.trim()
     });
   } catch (err) {
     console.error('ai-explain error:', err);
