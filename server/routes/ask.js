@@ -101,7 +101,14 @@ router.post('/ai-explain', async (req, res) => {
       return res.status(400).json({ error: 'Question or answer is required' });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    let apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      // Re-read .env dynamically in case it was updated while server was running
+      const path = require('path');
+      require('dotenv').config({ path: path.join(__dirname, '..', '.env'), override: true });
+      apiKey = process.env.GEMINI_API_KEY;
+    }
+
     if (!apiKey) {
       return res.json({
         available: false,
@@ -131,42 +138,38 @@ Task: Answer this student's question accurately and simply for their grade level
 If the question is in Hindi/Hinglish, reply in warm Hindi/Hinglish. If in English, reply in friendly English.`;
     }
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
-    let response = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }]
-      })
-    });
+    // Try high-availability models with automatic fallback if Google has traffic spikes (503/429)
+    const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-flash-latest'];
+    let explanation = '';
 
-    // Fallback to gemini-flash-latest if needed
-    if (!response.ok && response.status === 404) {
-      const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
-      response = await fetch(fallbackUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptText }] }]
-        })
-      });
+    for (const model of candidateModels) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const response = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: promptText }] }]
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          explanation = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (explanation) break;
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          console.warn(`Gemini model ${model} status ${response.status}:`, errData?.error?.message);
+        }
+      } catch (callErr) {
+        console.warn(`Error calling model ${model}:`, callErr.message);
+      }
     }
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      console.warn('Gemini API request failed:', errData);
-      return res.json({
-        available: false,
-        message: 'AI Tutor could not generate a response right now. Please try again later.'
-      });
-    }
-
-    const data = await response.json();
-    const explanation = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!explanation) {
       return res.json({
         available: false,
-        message: 'Could not generate an AI explanation.'
+        message: 'AI Tutor is temporarily busy. Please try asking again in a few seconds.'
       });
     }
 
