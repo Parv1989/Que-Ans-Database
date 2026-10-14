@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const QA = require('../models/QA');
+const QueryLog = require('../models/QueryLog');
 const { findAnswer, getHierarchy } = require('../utils/matcher');
 
 // GET /api/ask/hierarchy - returns dynamic Class -> Book -> Chapter structure for dropdowns
@@ -55,6 +56,18 @@ router.post('/', async (req, res) => {
     const filters = { className, bookName, chapterName };
     const result = await findAnswer(question.trim(), filters);
 
+    // Fire-and-forget query logging for analytics and unanswered query tracking
+    QueryLog.create({
+      query: question.trim(),
+      answered: !!result.match,
+      confidence: result.confidence || 0,
+      matchedQA: result.match ? result.match._id : null,
+      matchedQuestion: result.match ? result.match.question : '',
+      className: filters.className || 'All Classes',
+      bookName: filters.bookName || 'All Books',
+      chapterName: filters.chapterName || 'All Chapters'
+    }).catch((logErr) => console.warn('QueryLog create warning:', logErr.message));
+
     if (result.match) {
       return res.json({
         answered: true,
@@ -80,4 +93,80 @@ router.post('/', async (req, res) => {
   }
 });
 
+// POST /api/ask/ai-explain - AI fallback or "explain simply" powered by Gemini
+router.post('/ai-explain', async (req, res) => {
+  try {
+    const { question, answer, className, bookName, chapterName } = req.body;
+    if (!question && !answer) {
+      return res.status(400).json({ error: 'Question or answer is required' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.json({
+        available: false,
+        message: 'AI Tutor is in preview mode. Set GEMINI_API_KEY in server/.env to enable live AI tutor answers.'
+      });
+    }
+
+    let promptText = '';
+    if (answer) {
+      promptText = `You are "Study Buddy AI", an encouraging, friendly, kind school tutor for children.
+Grade/Class: ${className || 'Elementary / Middle School'}
+Subject/Book: ${bookName || 'General'}
+Chapter: ${chapterName || 'General'}
+Original Question: ${question || ''}
+Original Answer: ${answer}
+
+Task: Explain this answer in very simple, conversational language that a child can easily understand. Include a short, relatable real-world example or analogy.
+If in Hindi/Hinglish, reply in warm Hindi/Hinglish. If in English, reply in friendly English. Keep response under 80 words.`;
+    } else {
+      promptText = `You are "Study Buddy AI", a kind and helpful school tutor for children.
+Grade/Class: ${className || 'Elementary / Middle School'}
+Subject/Book: ${bookName || 'General'}
+Chapter: ${chapterName || 'General'}
+Student Question: ${question}
+
+Task: Answer this student's question accurately and simply for their grade level. Keep the answer clear, positive, and under 80 words.
+If the question is in Hindi/Hinglish, reply in warm Hindi/Hinglish. If in English, reply in friendly English.`;
+    }
+
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const response = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptText }] }]
+      })
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      console.warn('Gemini API request failed:', errData);
+      return res.json({
+        available: false,
+        message: 'AI Tutor could not generate a response right now. Please try again later.'
+      });
+    }
+
+    const data = await response.json();
+    const explanation = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!explanation) {
+      return res.json({
+        available: false,
+        message: 'Could not generate an AI explanation.'
+      });
+    }
+
+    res.json({
+      available: true,
+      explanation: explanation.trim()
+    });
+  } catch (err) {
+    console.error('ai-explain error:', err);
+    res.status(500).json({ error: 'AI explanation failed: ' + err.message });
+  }
+});
+
 module.exports = router;
+

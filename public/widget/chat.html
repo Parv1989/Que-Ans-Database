@@ -30,6 +30,7 @@
         <span id="currentSelectionBadge" class="context-text">Select Class & Book</span>
       </div>
       <div class="context-bar-actions">
+        <button id="quizBtn" class="quiz-btn" type="button" title="Interactive Chapter Quiz">🎯 Quiz</button>
         <button id="worksheetBtn" class="worksheet-btn" type="button" title="Generate printable worksheet">📝 Worksheet</button>
         <button id="changeContextBtn" class="change-context-btn" type="button">Change ⚙️</button>
       </div>
@@ -136,7 +137,13 @@
     </div>
 
     <form id="chatForm" class="chat-input-row">
-      <input id="chatInput" type="text" placeholder="Type your question here..." autocomplete="off" required />
+      <button id="micBtn" class="mic-btn" type="button" aria-label="Voice question input" title="Speak your question">
+        <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+        </svg>
+      </button>
+      <input id="chatInput" type="text" placeholder="Type or click mic to speak..." autocomplete="off" required />
       <button type="submit" aria-label="Send">&#10148;</button>
     </form>
   </div>
@@ -311,6 +318,106 @@
               <span>Teacher's Signature: </span>
               <span class="sig-line">__________________________</span>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Practice Quiz Modal Overlay -->
+  <div id="quizModal" class="quiz-modal-overlay hidden" aria-modal="true" role="dialog">
+    <div class="quiz-modal-card">
+      <div class="quiz-modal-header">
+        <div class="quiz-header-left">
+          <span class="quiz-badge-icon">🎯</span>
+          <div>
+            <h3 class="quiz-title">Practice Quiz</h3>
+            <span id="quizContextSubtitle" class="quiz-subtitle">Class 3 • Ripples</span>
+          </div>
+        </div>
+        <button id="closeQuizBtn" class="quiz-close-btn" type="button" aria-label="Close Quiz">&times;</button>
+      </div>
+
+      <!-- Quiz Body: Dynamic Steps -->
+      <div id="quizContent" class="quiz-body">
+        <!-- 1. Start Screen -->
+        <div id="quizStartView" class="quiz-view">
+          <div class="quiz-mascot-cheer">
+            <span class="big-icon">🏆</span>
+            <h4>Ready to test your knowledge?</h4>
+            <p id="quizAvailInfo">We'll test you with quick questions from this chapter.</p>
+          </div>
+          <div class="quiz-options-box">
+            <label class="quiz-mode-select-label">Choose Practice Mode:</label>
+            <div class="quiz-mode-cards">
+              <button type="button" class="mode-card active" data-mode="mcq">
+                <span class="mode-icon">🔘</span>
+                <span class="mode-name">Multiple Choice (MCQ)</span>
+                <span class="mode-desc">Pick the right answer from 4 choices</span>
+              </button>
+              <button type="button" class="mode-card" data-mode="flashcard">
+                <span class="mode-icon">🃏</span>
+                <span class="mode-name">Flashcard Memory</span>
+                <span class="mode-desc">Test your recall & reveal answers</span>
+              </button>
+            </div>
+          </div>
+          <button id="startQuizRunBtn" class="start-quiz-btn" type="button">Start Quiz 🚀</button>
+        </div>
+
+        <!-- 2. Active Question Screen -->
+        <div id="quizActiveView" class="quiz-view hidden">
+          <div class="quiz-progress-bar-wrap">
+            <div id="quizProgressBar" class="quiz-progress-bar" style="width: 20%;"></div>
+          </div>
+          <div class="quiz-question-meta">
+            <span id="quizQuestionNumber" class="q-step">Question 1 of 5</span>
+            <span id="quizScoreBadge" class="score-badge">Score: 0</span>
+          </div>
+
+          <div class="quiz-card">
+            <h4 id="quizQuestionText" class="quiz-q-text">Question goes here</h4>
+            <div id="quizDiagramWrap" class="quiz-diagram-wrap hidden">
+              <img id="quizDiagramImg" src="" alt="Quiz diagram" />
+            </div>
+
+            <!-- MCQ Choices Container -->
+            <div id="quizOptionsContainer" class="quiz-options-container">
+              <!-- Rendered options -->
+            </div>
+
+            <!-- Flashcard Container -->
+            <div id="quizFlashcardContainer" class="quiz-flashcard-container hidden">
+              <button id="quizRevealBtn" type="button" class="reveal-btn">🔍 Reveal Answer</button>
+              <div id="quizRevealedAnswer" class="revealed-box hidden">
+                <div class="answer-label">Answer:</div>
+                <div id="quizRevealedAnswerText" class="answer-content"></div>
+                <div class="self-grade-actions">
+                  <button type="button" class="grade-btn got-it" id="quizGradeCorrectBtn">👍 I Got It Right (+1)</button>
+                  <button type="button" class="grade-btn need-rev" id="quizGradeReviewBtn">🔄 Need Revision</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Feedback Bar -->
+            <div id="quizFeedbackBox" class="quiz-feedback-box hidden">
+              <div id="quizFeedbackMsg" class="feedback-msg"></div>
+              <button id="quizNextBtn" type="button" class="quiz-next-btn">Next Question ➡️</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Result Celebration Screen -->
+        <div id="quizResultView" class="quiz-view hidden">
+          <div class="result-trophy">🌟</div>
+          <h3 id="quizResultHeading">Quiz Completed!</h3>
+          <div class="result-stars" id="quizStarsDisplay">⭐⭐⭐</div>
+          <p id="quizScoreText" class="result-score">You scored 5 out of 5!</p>
+          <p id="quizEncourageMsg" class="result-encourage">Brilliant work! You know your chapter very well.</p>
+
+          <div class="result-actions">
+            <button id="quizRestartBtn" type="button" class="tool-btn primary">🔄 Play Again</button>
+            <button id="quizFinishBtn" type="button" class="tool-btn secondary">💬 Back to Chat</button>
           </div>
         </div>
       </div>

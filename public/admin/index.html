@@ -36,6 +36,7 @@
       </div>
       <nav>
         <button class="nav-btn active" data-tab="qa">Questions &amp; Answers</button>
+        <button class="nav-btn" data-tab="analytics">📊 Analytics &amp; Logs</button>
         <button class="nav-btn" data-tab="synonyms">Synonyms</button>
         <button class="nav-btn" data-tab="embed">Get Widget Code</button>
       </nav>
@@ -52,6 +53,7 @@
             <p class="muted">Every entry here is something the bot can answer.</p>
           </div>
           <div class="header-actions">
+            <button id="exportCsvBtn" class="ghost-btn" title="Export questions to CSV">📥 Export CSV</button>
             <button id="bulkUploadBtn" class="ghost-btn">Bulk upload CSV</button>
             <button id="newQABtn" class="primary-btn">+ Add question</button>
           </div>
@@ -59,6 +61,14 @@
 
         <div class="qa-toolbar">
           <input id="qaSearch" class="search-input" placeholder="Search saved questions…" />
+          <div class="qa-filter-group">
+            <select id="qaClassFilter" class="filter-select" title="Filter by Class">
+              <option value="All">All Classes</option>
+            </select>
+            <select id="qaBookFilter" class="filter-select" title="Filter by Book">
+              <option value="All">All Books</option>
+            </select>
+          </div>
           <div class="bulk-toolbar-actions">
             <label class="select-all-box" title="Select / deselect all questions">
               <input type="checkbox" id="selectAllQA" />
@@ -71,6 +81,85 @@
         </div>
 
         <div id="qaList" class="card-list"></div>
+      </section>
+
+      <!-- ANALYTICS & LOGS TAB -->
+      <section id="tab-analytics" class="tab-panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2>Analytics &amp; Student Insights</h2>
+            <p class="muted">Monitor what students are asking, resolution rates, and identify missing questions.</p>
+          </div>
+          <div class="header-actions">
+            <button id="refreshAnalyticsBtn" class="ghost-btn">🔄 Refresh</button>
+          </div>
+        </header>
+
+        <!-- Stats Overview Cards -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">💬</div>
+            <div class="stat-details">
+              <div class="stat-value" id="statTotalQueries">0</div>
+              <div class="stat-label">Total Questions Asked</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🎯</div>
+            <div class="stat-details">
+              <div class="stat-value" id="statResolutionRate">0%</div>
+              <div class="stat-label">Bot Answered Rate</div>
+            </div>
+          </div>
+          <div class="stat-card attention">
+            <div class="stat-icon">❓</div>
+            <div class="stat-details">
+              <div class="stat-value" id="statPendingUnanswered">0</div>
+              <div class="stat-label">Unanswered / Missing</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📚</div>
+            <div class="stat-details">
+              <div class="stat-value" id="statTotalQA">0</div>
+              <div class="stat-label">Questions in DB</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Unanswered Questions Section -->
+        <div class="analytics-section">
+          <div class="section-head">
+            <div>
+              <h3>❓ Unanswered Student Questions (Needs QA Entry)</h3>
+              <p class="muted">Real student queries that lacked an answer. Click <strong>+ Add to QA</strong> to immediately fill the gap!</p>
+            </div>
+          </div>
+          <div id="unansweredList" class="unanswered-list">
+            <div class="empty-state">Loading questions...</div>
+          </div>
+        </div>
+
+        <!-- Dual Grid: Top Hits & Recent Activity -->
+        <div class="analytics-dual-grid">
+          <div class="analytics-sub-card">
+            <div class="section-head">
+              <h3>🔥 Top Most Asked Questions</h3>
+            </div>
+            <div id="topHitList" class="top-hit-list">
+              <div class="empty-state">No questions asked yet.</div>
+            </div>
+          </div>
+
+          <div class="analytics-sub-card">
+            <div class="section-head">
+              <h3>🕒 Recent Query Activity</h3>
+            </div>
+            <div id="recentQueryList" class="recent-query-list">
+              <div class="empty-state">No recent activity.</div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- SYNONYMS TAB -->
@@ -108,11 +197,19 @@
         <input type="hidden" id="qaId" />
         <label>Question (what a student would type)
           <textarea id="qaQuestion" rows="2" required></textarea>
-          <span class="field-hint">Superscript/subscript ke liye: <code>7^2^</code> → 7², <code>H~2~O</code> → H₂O</span>
+          <span class="field-hint">Superscript/subscript: <code>7^2^</code> → 7², <code>H~2~O</code> → H₂O</span>
+          <div id="qaQuestionPreview" class="formula-preview-box hidden">
+            <span class="preview-label">Live Preview:</span>
+            <span class="preview-content"></span>
+          </div>
         </label>
         <label>Answer
           <textarea id="qaAnswer" rows="4" required></textarea>
           <span class="field-hint">Yahan bhi <code>^..^</code> (superscript) aur <code>~..~</code> (subscript) kaam karta hai</span>
+          <div id="qaAnswerPreview" class="formula-preview-box hidden">
+            <span class="preview-label">Live Preview:</span>
+            <span class="preview-content"></span>
+          </div>
         </label>
         <label>Class (e.g. Class 3, Class 4)
           <input type="text" id="qaClassName" placeholder="e.g. Class 3" required />

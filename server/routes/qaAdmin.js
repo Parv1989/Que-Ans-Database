@@ -38,6 +38,47 @@ router.get('/sample-csv', (req, res) => {
   res.send(sample);
 });
 
+function csvEscape(field) {
+  if (field === null || field === undefined) return '""';
+  const str = String(field);
+  return '"' + str.replace(/"/g, '""') + '"';
+}
+
+// GET /api/admin/qa/export-csv - export all or filtered QAs to CSV with UTF-8 BOM
+router.get('/export-csv', async (req, res) => {
+  try {
+    const { className, bookName } = req.query;
+    const filter = {};
+    if (className && className !== 'All') filter.className = className;
+    if (bookName && bookName !== 'All') filter.bookName = bookName;
+
+    const items = await QA.find(filter).sort({ className: 1, bookName: 1, chapterName: 1, createdAt: -1 });
+
+    const headers = ['question', 'answer', 'keywords', 'Image link', 'category', 'className', 'bookName', 'chapterName'];
+    const rows = items.map((doc) => {
+      const kw = (doc.keywords || []).join(';');
+      return [
+        csvEscape(doc.question),
+        csvEscape(doc.answer),
+        csvEscape(kw),
+        csvEscape(doc.imageUrl || ''),
+        csvEscape(doc.category || 'general'),
+        csvEscape(doc.className || 'Class 3'),
+        csvEscape(doc.bookName || 'General'),
+        csvEscape(doc.chapterName || 'Chapter 1')
+      ].join(',');
+    });
+
+    const csvData = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="qa-export-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(csvData);
+  } catch (err) {
+    console.error('export csv error:', err);
+    res.status(500).json({ error: 'Could not export questions to CSV' });
+  }
+});
+
 // POST /api/admin/qa/bulk-upload  (multipart form field name: "file")
 router.post('/bulk-upload', upload.single('file'), async (req, res) => {
   if (!req.file) {

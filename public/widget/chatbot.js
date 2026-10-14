@@ -550,9 +550,19 @@ muteBtn.addEventListener('click', () => {
 });
 
 // ---------- Chat Messages ----------
-function addMessage(text, sender, imageUrl = '', shouldSpeak = true) {
+let lastUserQuestion = '';
+
+function addMessage(text, sender, imageUrl = '', shouldSpeak = true, isAi = false, relatedQuestion = '') {
   const div = document.createElement('div');
   div.className = `msg ${sender}`;
+
+  if (isAi) {
+    const badge = document.createElement('div');
+    badge.className = 'ai-tutor-badge';
+    badge.innerHTML = '✨ Study Buddy AI Tutor';
+    div.appendChild(badge);
+  }
+
   const p = document.createElement('p');
   p.innerHTML = formatText(text);
   div.appendChild(p);
@@ -563,6 +573,21 @@ function addMessage(text, sender, imageUrl = '', shouldSpeak = true) {
     img.alt = 'Question diagram';
     img.loading = 'lazy';
     div.appendChild(img);
+  }
+
+  // Add "Explain simply" helper chip on standard bot answers
+  if (sender === 'bot' && !isAi && !text.startsWith('Connection issue') && !text.startsWith('Hi!')) {
+    const explainBtn = document.createElement('button');
+    explainBtn.type = 'button';
+    explainBtn.className = 'explain-chip';
+    explainBtn.innerHTML = '💡 Explain simply';
+    explainBtn.title = 'Get a simpler explanation from Study Buddy AI';
+    explainBtn.addEventListener('click', () => {
+      unlockAudioContext();
+      explainBtn.disabled = true;
+      requestAiExplanation({ question: relatedQuestion || lastUserQuestion, answer: text });
+    });
+    div.appendChild(explainBtn);
   }
 
   messagesEl.appendChild(div);
@@ -589,6 +614,52 @@ function addSuggestions(suggestions) {
   scrollToBottom();
 }
 
+function addAiFallbackPrompt(question) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg suggestions';
+  const aiBtn = document.createElement('button');
+  aiBtn.type = 'button';
+  aiBtn.className = 'ask-ai-btn';
+  aiBtn.innerHTML = '🤖 Ask AI Tutor ✨';
+  aiBtn.title = 'Ask Study Buddy AI to explain this question';
+  aiBtn.addEventListener('click', () => {
+    unlockAudioContext();
+    aiBtn.disabled = true;
+    requestAiExplanation({ question });
+  });
+  wrap.appendChild(aiBtn);
+  messagesEl.appendChild(wrap);
+  scrollToBottom();
+}
+
+async function requestAiExplanation({ question, answer }) {
+  showTyping();
+  try {
+    const res = await fetch(`${window.location.origin}/api/ask/ai-explain`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question,
+        answer,
+        className: currentClass,
+        bookName: currentBook,
+        chapterName: currentChapter
+      })
+    });
+    const data = await res.json();
+    hideTyping();
+
+    if (data.available && data.explanation) {
+      addMessage(data.explanation, 'bot', '', true, true);
+    } else {
+      addMessage(data.message || 'AI Tutor could not generate a response right now.', 'bot', '', true, true);
+    }
+  } catch (err) {
+    hideTyping();
+    addMessage('Could not connect to AI Tutor right now. Please try again.', 'bot');
+  }
+}
+
 function showTyping() {
   setThinking(true);
   const div = document.createElement('div');
@@ -610,6 +681,7 @@ function scrollToBottom() {
 }
 
 async function sendQuestion(question) {
+  lastUserQuestion = question;
   addMessage(question, 'user');
   showTyping();
 
@@ -628,10 +700,11 @@ async function sendQuestion(question) {
     hideTyping();
 
     if (data.answered) {
-      addMessage(data.answer, 'bot', data.imageUrl);
+      addMessage(data.answer, 'bot', data.imageUrl, true, false, question);
     } else {
-      addMessage(data.message || "I couldn't find an answer for that.", 'bot');
+      addMessage(data.message || "I couldn't find an exact answer for that. Did you mean one of these?", 'bot');
       addSuggestions(data.suggestions);
+      addAiFallbackPrompt(question);
     }
   } catch (err) {
     hideTyping();
@@ -1143,3 +1216,406 @@ window.addEventListener('keydown', (e) => {
     closeWorksheetModal();
   }
 });
+
+// ==========================================================================
+// Speech-to-Text Voice Input (Mic) Engine
+// ==========================================================================
+const micBtn = document.getElementById('micBtn');
+let isSpeechListening = false;
+let speechRecognizer = null;
+
+function setupSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    if (micBtn) {
+      micBtn.addEventListener('click', () => {
+        alert('Voice speech recognition is not supported in this browser. Please try Google Chrome or Microsoft Edge.');
+      });
+    }
+    return;
+  }
+
+  try {
+    speechRecognizer = new SpeechRecognition();
+    speechRecognizer.continuous = false;
+    speechRecognizer.interimResults = false;
+
+    speechRecognizer.onstart = () => {
+      isSpeechListening = true;
+      if (micBtn) micBtn.classList.add('is-recording');
+      if (robotEl) robotEl.classList.add('listening');
+      if (input) input.placeholder = 'Listening... speak your question 🎙️';
+      // Stop any active TTS audio
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      if (currentAudio) currentAudio.pause();
+      stopLipSync();
+      setTalking(false);
+    };
+
+    speechRecognizer.onresult = (event) => {
+      const transcript = event.results && event.results[0] && event.results[0][0] && event.results[0][0].transcript;
+      if (transcript && transcript.trim()) {
+        input.value = transcript.trim();
+        unlockAudioContext();
+        sendQuestion(transcript.trim());
+        input.value = '';
+      }
+    };
+
+    speechRecognizer.onerror = (event) => {
+      console.warn('Speech recognition error:', event.error);
+      if (event.error === 'not-allowed') {
+        alert('Microphone permission was denied. Please allow microphone access in your browser to speak.');
+      }
+      stopSpeechRecognition();
+    };
+
+    speechRecognizer.onend = () => {
+      stopSpeechRecognition();
+    };
+
+    if (micBtn) {
+      micBtn.addEventListener('click', () => {
+        unlockAudioContext();
+        if (isSpeechListening) {
+          speechRecognizer.stop();
+          stopSpeechRecognition();
+        } else {
+          // If server Hindi voice or Indian English is selected, use Indian English / Hindi recognition
+          speechRecognizer.lang = (selectedVoiceName.includes('hindi')) ? 'hi-IN' : 'en-IN';
+          try {
+            speechRecognizer.start();
+          } catch (err) {
+            console.warn('Speech start error:', err);
+          }
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('Speech recognition initialization error:', e);
+  }
+}
+
+function stopSpeechRecognition() {
+  isSpeechListening = false;
+  if (micBtn) micBtn.classList.remove('is-recording');
+  if (robotEl) robotEl.classList.remove('listening');
+  if (input) input.placeholder = 'Type your question or click mic...';
+}
+
+setupSpeechRecognition();
+
+// ==========================================================================
+// Interactive Practice Quiz Engine
+// ==========================================================================
+const quizBtn = document.getElementById('quizBtn');
+const quizModal = document.getElementById('quizModal');
+const closeQuizBtn = document.getElementById('closeQuizBtn');
+const quizContextSubtitle = document.getElementById('quizContextSubtitle');
+
+const quizStartView = document.getElementById('quizStartView');
+const quizActiveView = document.getElementById('quizActiveView');
+const quizResultView = document.getElementById('quizResultView');
+
+const quizAvailInfo = document.getElementById('quizAvailInfo');
+const startQuizRunBtn = document.getElementById('startQuizRunBtn');
+
+const quizProgressBar = document.getElementById('quizProgressBar');
+const quizQuestionNumber = document.getElementById('quizQuestionNumber');
+const quizScoreBadge = document.getElementById('quizScoreBadge');
+const quizQuestionText = document.getElementById('quizQuestionText');
+const quizDiagramWrap = document.getElementById('quizDiagramWrap');
+const quizDiagramImg = document.getElementById('quizDiagramImg');
+
+const quizOptionsContainer = document.getElementById('quizOptionsContainer');
+const quizFlashcardContainer = document.getElementById('quizFlashcardContainer');
+const quizRevealBtn = document.getElementById('quizRevealBtn');
+const quizRevealedAnswer = document.getElementById('quizRevealedAnswer');
+const quizRevealedAnswerText = document.getElementById('quizRevealedAnswerText');
+const quizGradeCorrectBtn = document.getElementById('quizGradeCorrectBtn');
+const quizGradeReviewBtn = document.getElementById('quizGradeReviewBtn');
+
+const quizFeedbackBox = document.getElementById('quizFeedbackBox');
+const quizFeedbackMsg = document.getElementById('quizFeedbackMsg');
+const quizNextBtn = document.getElementById('quizNextBtn');
+
+const quizResultHeading = document.getElementById('quizResultHeading');
+const quizStarsDisplay = document.getElementById('quizStarsDisplay');
+const quizScoreText = document.getElementById('quizScoreText');
+const quizEncourageMsg = document.getElementById('quizEncourageMsg');
+const quizRestartBtn = document.getElementById('quizRestartBtn');
+const quizFinishBtn = document.getElementById('quizFinishBtn');
+
+let currentQuizPool = [];
+let quizQuestions = [];
+let quizCurrentIndex = 0;
+let quizScore = 0;
+let quizMode = 'mcq'; // 'mcq' or 'flashcard'
+
+// Mode selection toggle
+document.querySelectorAll('.mode-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.mode-card').forEach((c) => c.classList.remove('active'));
+    card.classList.add('active');
+    quizMode = card.dataset.mode;
+  });
+});
+
+async function openQuizModal() {
+  if (!quizModal) return;
+  quizModal.classList.remove('hidden');
+
+  const contextStr = `${currentClass || 'All Classes'} • ${currentBook || 'General'}${currentChapter && currentChapter !== 'All Chapters' ? ` • ${currentChapter}` : ''}`;
+  if (quizContextSubtitle) quizContextSubtitle.textContent = contextStr;
+
+  // Show Start View
+  if (quizStartView) quizStartView.classList.remove('hidden');
+  if (quizActiveView) quizActiveView.classList.add('hidden');
+  if (quizResultView) quizResultView.classList.add('hidden');
+
+  if (quizAvailInfo) quizAvailInfo.textContent = 'Fetching questions for this chapter...';
+  if (startQuizRunBtn) startQuizRunBtn.disabled = true;
+
+  try {
+    const url = new URL(`${window.location.origin}/api/ask/worksheet-questions`);
+    if (currentClass) url.searchParams.set('className', currentClass);
+    if (currentBook) url.searchParams.set('bookName', currentBook);
+    if (currentChapter && currentChapter !== 'All Chapters') url.searchParams.set('chapterName', currentChapter);
+
+    const res = await fetch(url);
+    const data = await res.json();
+    currentQuizPool = (data.questions || []).filter((q) => q.question && q.answer);
+
+    if (currentQuizPool.length < 2) {
+      if (quizAvailInfo) {
+        quizAvailInfo.innerHTML = `⚠️ Only <strong>${currentQuizPool.length}</strong> question found for this selection.<br>Please select another Class / Book or add more questions in the admin panel to play the quiz!`;
+      }
+      if (startQuizRunBtn) startQuizRunBtn.disabled = true;
+    } else {
+      if (quizAvailInfo) {
+        quizAvailInfo.innerHTML = `Found <strong>${currentQuizPool.length}</strong> questions in this chapter.<br>We'll pick up to 5 questions to test your knowledge!`;
+      }
+      if (startQuizRunBtn) startQuizRunBtn.disabled = false;
+    }
+  } catch (err) {
+    if (quizAvailInfo) quizAvailInfo.textContent = 'Could not load chapter questions. Please try again.';
+  }
+}
+
+function closeQuizModal() {
+  if (quizModal) quizModal.classList.add('hidden');
+}
+
+function startQuizRun() {
+  if (currentQuizPool.length < 2) return;
+
+  // Shuffle and pick 5 (or pool length)
+  const shuffled = [...currentQuizPool].sort(() => 0.5 - Math.random());
+  quizQuestions = shuffled.slice(0, Math.min(5, shuffled.length));
+
+  quizCurrentIndex = 0;
+  quizScore = 0;
+
+  if (quizStartView) quizStartView.classList.add('hidden');
+  if (quizActiveView) quizActiveView.classList.remove('hidden');
+  if (quizResultView) quizResultView.classList.add('hidden');
+
+  renderQuizQuestion();
+}
+
+function renderQuizQuestion() {
+  if (quizCurrentIndex >= quizQuestions.length) {
+    finishQuizRun();
+    return;
+  }
+
+  const q = quizQuestions[quizCurrentIndex];
+  const total = quizQuestions.length;
+
+  if (quizProgressBar) {
+    quizProgressBar.style.width = `${((quizCurrentIndex + 1) / total) * 100}%`;
+  }
+  if (quizQuestionNumber) {
+    quizQuestionNumber.textContent = `Question ${quizCurrentIndex + 1} of ${total}`;
+  }
+  if (quizScoreBadge) {
+    quizScoreBadge.textContent = `Score: ${quizScore}`;
+  }
+
+  if (quizQuestionText) {
+    quizQuestionText.innerHTML = formatText(q.question);
+  }
+
+  // Diagram check
+  const imgUrl = (q.questionImageUrl || q.imageUrl || '').trim();
+  if (imgUrl && quizDiagramWrap && quizDiagramImg) {
+    quizDiagramImg.src = imgUrl;
+    quizDiagramWrap.classList.remove('hidden');
+  } else if (quizDiagramWrap) {
+    quizDiagramWrap.classList.add('hidden');
+  }
+
+  // Hide feedback bar initially
+  if (quizFeedbackBox) quizFeedbackBox.classList.add('hidden');
+
+  if (quizMode === 'mcq') {
+    if (quizOptionsContainer) quizOptionsContainer.classList.remove('hidden');
+    if (quizFlashcardContainer) quizFlashcardContainer.classList.add('hidden');
+    renderMcqOptions(q);
+  } else {
+    if (quizOptionsContainer) quizOptionsContainer.classList.add('hidden');
+    if (quizFlashcardContainer) quizFlashcardContainer.classList.remove('hidden');
+    renderFlashcardMode(q);
+  }
+}
+
+function renderMcqOptions(currentQ) {
+  if (!quizOptionsContainer) return;
+  quizOptionsContainer.innerHTML = '';
+
+  const correctAnswer = currentQ.answer;
+
+  // Gather distractors from other questions in the pool
+  const distractors = currentQuizPool
+    .filter((q) => q._id !== currentQ._id && q.answer && q.answer !== correctAnswer)
+    .map((q) => q.answer);
+
+  // Pick up to 3 distractors
+  const shuffledDistractors = [...distractors].sort(() => 0.5 - Math.random()).slice(0, 3);
+
+  // Combine and shuffle choices
+  const choices = [correctAnswer, ...shuffledDistractors].sort(() => 0.5 - Math.random());
+
+  choices.forEach((choiceText) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'quiz-option-btn';
+    btn.innerHTML = `<span class="choice-bullet">⚪</span> <span class="choice-text">${formatText(choiceText)}</span>`;
+
+    btn.addEventListener('click', () => {
+      // Disable all option buttons
+      const allBtns = quizOptionsContainer.querySelectorAll('.quiz-option-btn');
+      allBtns.forEach((b) => (b.disabled = true));
+
+      const isCorrect = choiceText.trim() === correctAnswer.trim();
+
+      if (isCorrect) {
+        btn.classList.add('correct');
+        btn.querySelector('.choice-bullet').textContent = '✅';
+        quizScore += 1;
+        if (quizScoreBadge) quizScoreBadge.textContent = `Score: ${quizScore}`;
+
+        // Mascot happy reaction:
+        if (robotEl) {
+          const core = document.getElementById('robotCore');
+          if (core) core.setAttribute('fill', '#00f5d4');
+        }
+
+        if (quizFeedbackMsg) {
+          quizFeedbackMsg.className = 'feedback-msg correct';
+          quizFeedbackMsg.textContent = '🎉 Brilliant! Correct Answer!';
+        }
+      } else {
+        btn.classList.add('wrong');
+        btn.querySelector('.choice-bullet').textContent = '❌';
+
+        // Highlight correct button
+        allBtns.forEach((b) => {
+          if (b.innerText.includes(correctAnswer.trim())) {
+            b.classList.add('correct');
+            b.querySelector('.choice-bullet').textContent = '✅';
+          }
+        });
+
+        if (quizFeedbackMsg) {
+          quizFeedbackMsg.className = 'feedback-msg wrong';
+          quizFeedbackMsg.textContent = '💡 Good try! The correct answer is highlighted.';
+        }
+      }
+
+      if (quizFeedbackBox) quizFeedbackBox.classList.remove('hidden');
+    });
+
+    quizOptionsContainer.appendChild(btn);
+  });
+}
+
+function renderFlashcardMode(currentQ) {
+  if (quizRevealedAnswer) quizRevealedAnswer.classList.add('hidden');
+  if (quizRevealBtn) {
+    quizRevealBtn.classList.remove('hidden');
+    quizRevealBtn.onclick = () => {
+      quizRevealBtn.classList.add('hidden');
+      if (quizRevealedAnswerText) quizRevealedAnswerText.innerHTML = formatText(currentQ.answer);
+      if (quizRevealedAnswer) quizRevealedAnswer.classList.remove('hidden');
+    };
+  }
+
+  if (quizGradeCorrectBtn) {
+    quizGradeCorrectBtn.onclick = () => {
+      quizScore += 1;
+      if (quizScoreBadge) quizScoreBadge.textContent = `Score: ${quizScore}`;
+      advanceQuiz();
+    };
+  }
+
+  if (quizGradeReviewBtn) {
+    quizGradeReviewBtn.onclick = () => {
+      advanceQuiz();
+    };
+  }
+}
+
+function advanceQuiz() {
+  quizCurrentIndex += 1;
+  renderQuizQuestion();
+}
+
+if (quizNextBtn) {
+  quizNextBtn.addEventListener('click', () => advanceQuiz());
+}
+
+function finishQuizRun() {
+  if (quizActiveView) quizActiveView.classList.add('hidden');
+  if (quizResultView) quizResultView.classList.remove('hidden');
+
+  const total = quizQuestions.length;
+  const pct = total > 0 ? (quizScore / total) * 100 : 0;
+
+  if (quizScoreText) {
+    quizScoreText.textContent = `You scored ${quizScore} out of ${total}!`;
+  }
+
+  if (pct === 100) {
+    if (quizResultHeading) quizResultHeading.textContent = '🎉 Outstanding Performance!';
+    if (quizStarsDisplay) quizStarsDisplay.textContent = '⭐⭐⭐';
+    if (quizEncourageMsg) quizEncourageMsg.textContent = 'Incredible! You have completely mastered this chapter!';
+  } else if (pct >= 60) {
+    if (quizResultHeading) quizResultHeading.textContent = '👏 Great Effort!';
+    if (quizStarsDisplay) quizStarsDisplay.textContent = '⭐⭐';
+    if (quizEncourageMsg) quizEncourageMsg.textContent = 'Well done! A little more revision and you will score 100%!';
+  } else {
+    if (quizResultHeading) quizResultHeading.textContent = '💪 Good Practice!';
+    if (quizStarsDisplay) quizStarsDisplay.textContent = '⭐';
+    if (quizEncourageMsg) quizEncourageMsg.textContent = 'Keep practicing! Review the chapter questions and try again.';
+  }
+}
+
+if (quizBtn) quizBtn.addEventListener('click', openQuizModal);
+if (closeQuizBtn) closeQuizBtn.addEventListener('click', closeQuizModal);
+if (startQuizRunBtn) startQuizRunBtn.addEventListener('click', startQuizRun);
+if (quizRestartBtn) quizRestartBtn.addEventListener('click', startQuizRun);
+if (quizFinishBtn) quizFinishBtn.addEventListener('click', closeQuizModal);
+
+// Close on escape key or clicking backdrop
+if (quizModal) {
+  quizModal.addEventListener('click', (e) => {
+    if (e.target === quizModal) closeQuizModal();
+  });
+}
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && quizModal && !quizModal.classList.contains('hidden')) {
+    closeQuizModal();
+  }
+});
+

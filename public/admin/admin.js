@@ -9,6 +9,7 @@ function showDashboard() {
   loginScreen.classList.add('hidden');
   dashboard.classList.remove('hidden');
   loadQAList();
+  loadAnalyticsData();
   loadSynList();
   renderEmbedSnippet();
 }
@@ -72,7 +73,13 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
     document.querySelectorAll('.nav-btn').forEach((b) => b.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach((p) => p.classList.add('hidden'));
     btn.classList.add('active');
-    document.getElementById(`tab-${btn.dataset.tab}`).classList.remove('hidden');
+    const tabName = btn.dataset.tab;
+    document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+    if (tabName === 'analytics') {
+      loadAnalyticsData();
+    } else if (tabName === 'qa') {
+      loadQAList(document.getElementById('qaSearch').value);
+    }
   });
 });
 
@@ -83,9 +90,37 @@ const qaForm = document.getElementById('qaForm');
 const selectAllQA = document.getElementById('selectAllQA');
 const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
 const bulkDeleteCount = document.getElementById('bulkDeleteCount');
+const qaClassFilter = document.getElementById('qaClassFilter');
+const qaBookFilter = document.getElementById('qaBookFilter');
+const exportCsvBtn = document.getElementById('exportCsvBtn');
 
 let selectedQAIds = new Set();
 let currentQAItems = [];
+let resolvingQueryText = null;
+
+function populateFilterOptions(items) {
+  if (!qaClassFilter || !qaBookFilter) return;
+  const currentClassVal = qaClassFilter.value || 'All';
+  const currentBookVal = qaBookFilter.value || 'All';
+
+  const classes = new Set(['All']);
+  const books = new Set(['All']);
+
+  items.forEach((item) => {
+    if (item.className) classes.add(item.className.trim());
+    if (item.bookName) books.add(item.bookName.trim());
+  });
+
+  qaClassFilter.innerHTML = Array.from(classes)
+    .map((c) => `<option value="${escapeHtml(c)}">${c === 'All' ? 'All Classes' : escapeHtml(c)}</option>`)
+    .join('');
+  qaBookFilter.innerHTML = Array.from(books)
+    .map((b) => `<option value="${escapeHtml(b)}">${b === 'All' ? 'All Books' : escapeHtml(b)}</option>`)
+    .join('');
+
+  if (classes.has(currentClassVal)) qaClassFilter.value = currentClassVal;
+  if (books.has(currentBookVal)) qaBookFilter.value = currentBookVal;
+}
 
 function updateBulkUI() {
   const count = selectedQAIds.size;
@@ -113,9 +148,25 @@ function updateBulkUI() {
 async function loadQAList(search = '') {
   const url = new URL(`${API_BASE}/admin/qa`);
   if (search) url.searchParams.set('search', search);
+
+  const selectedClass = qaClassFilter ? qaClassFilter.value : 'All';
+  const selectedBook = qaBookFilter ? qaBookFilter.value : 'All';
+
+  if (selectedClass && selectedClass !== 'All') url.searchParams.set('className', selectedClass);
+  if (selectedBook && selectedBook !== 'All') url.searchParams.set('bookName', selectedBook);
+
   const res = await authedFetch(url);
   const items = await res.json();
   currentQAItems = items;
+
+  // Populate or refresh filter dropdowns on initial or full loads
+  if (!search && (!selectedClass || selectedClass === 'All') && (!selectedBook || selectedBook === 'All')) {
+    populateFilterOptions(items);
+  }
+
+  // Update total QA count in analytics card if rendered
+  const statTotalQA = document.getElementById('statTotalQA');
+  if (statTotalQA) statTotalQA.textContent = items.length;
 
   // Prune any selected IDs that are no longer in current items
   const validIds = new Set(items.map((i) => i._id));
@@ -124,9 +175,42 @@ async function loadQAList(search = '') {
   renderQAList(items);
 }
 
+if (qaClassFilter) {
+  qaClassFilter.addEventListener('change', () => loadQAList(document.getElementById('qaSearch').value));
+}
+if (qaBookFilter) {
+  qaBookFilter.addEventListener('change', () => loadQAList(document.getElementById('qaSearch').value));
+}
+
+if (exportCsvBtn) {
+  exportCsvBtn.addEventListener('click', async () => {
+    const selectedClass = qaClassFilter ? qaClassFilter.value : 'All';
+    const selectedBook = qaBookFilter ? qaBookFilter.value : 'All';
+    const url = new URL(`${API_BASE}/admin/qa/export-csv`);
+    if (selectedClass && selectedClass !== 'All') url.searchParams.set('className', selectedClass);
+    if (selectedBook && selectedBook !== 'All') url.searchParams.set('bookName', selectedBook);
+
+    try {
+      const res = await authedFetch(url);
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `qa-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      alert('CSV export error: ' + err.message);
+    }
+  });
+}
+
 function renderQAList(items) {
   if (items.length === 0) {
-    qaList.innerHTML = '<p class="empty-state">No questions yet — add the first one.</p>';
+    qaList.innerHTML = '<p class="empty-state">No questions found matching your filter/search.</p>';
     updateBulkUI();
     return;
   }
@@ -143,6 +227,7 @@ function renderQAList(items) {
           <span class="tag" style="background:#eef2ff; color:#4338ca; font-weight:bold;">📚 ${escapeHtml(item.className || 'Class 3')}</span>
           <span class="tag" style="background:#f0fdf4; color:#15803d; font-weight:bold;">📖 ${escapeHtml(item.bookName || 'General')}</span>
           <span class="tag" style="background:#fef3c7; color:#b45309; font-weight:bold;">🔖 ${escapeHtml(item.chapterName || 'Chapter 1')}</span>
+          ${item.hitCount > 0 ? `<span class="tag" style="background:#fce7f3; color:#be185d; font-weight:bold;">🔥 ${item.hitCount} Hits</span>` : ''}
         </div>
         <div class="q">${formatText(item.question)}</div>
         <div class="a">${formatText(item.answer)}</div>
@@ -247,22 +332,53 @@ if (bulkDeleteBtn) {
   });
 }
 
-function openQAModal(item = null) {
+function updateFormulaPreview(inputId, previewBoxId) {
+  const inputEl = document.getElementById(inputId);
+  const previewBox = document.getElementById(previewBoxId);
+  if (!inputEl || !previewBox) return;
+
+  const val = inputEl.value;
+  const contentSpan = previewBox.querySelector('.preview-content');
+  if (val && (val.includes('^') || val.includes('~') || val.includes('*'))) {
+    contentSpan.innerHTML = formatText(val);
+    previewBox.classList.remove('hidden');
+  } else {
+    previewBox.classList.add('hidden');
+  }
+}
+
+document.getElementById('qaQuestion').addEventListener('input', () => {
+  updateFormulaPreview('qaQuestion', 'qaQuestionPreview');
+});
+document.getElementById('qaAnswer').addEventListener('input', () => {
+  updateFormulaPreview('qaAnswer', 'qaAnswerPreview');
+});
+
+function openQAModal(item = null, prefill = null) {
   document.getElementById('qaModalTitle').textContent = item ? 'Edit question' : 'Add a question';
   document.getElementById('qaId').value = item ? item._id : '';
-  document.getElementById('qaQuestion').value = item ? item.question : '';
+  document.getElementById('qaQuestion').value = item ? item.question : (prefill ? prefill.question : '');
   document.getElementById('qaAnswer').value = item ? item.answer : '';
-  document.getElementById('qaClassName').value = item ? (item.className || 'Class 3') : 'Class 3';
-  document.getElementById('qaBookName').value = item ? (item.bookName || 'Ripples') : 'Ripples';
-  document.getElementById('qaChapterName').value = item ? (item.chapterName || 'Chapter 1') : 'Chapter 1';
+  document.getElementById('qaClassName').value = item ? (item.className || 'Class 3') : (prefill ? prefill.className || 'Class 3' : 'Class 3');
+  document.getElementById('qaBookName').value = item ? (item.bookName || 'Ripples') : (prefill ? prefill.bookName || 'General' : 'Ripples');
+  document.getElementById('qaChapterName').value = item ? (item.chapterName || 'Chapter 1') : (prefill ? prefill.chapterName || 'Chapter 1' : 'Chapter 1');
   document.getElementById('qaKeywords').value = item && item.keywords ? item.keywords.join(', ') : '';
   document.getElementById('qaCategory').value = item ? item.category : '';
   document.getElementById('qaImageUrl').value = item ? (item.imageUrl || '') : '';
+
+  updateFormulaPreview('qaQuestion', 'qaQuestionPreview');
+  updateFormulaPreview('qaAnswer', 'qaAnswerPreview');
   qaModal.classList.remove('hidden');
 }
 
-document.getElementById('newQABtn').addEventListener('click', () => openQAModal());
-document.getElementById('qaCancelBtn').addEventListener('click', () => qaModal.classList.add('hidden'));
+document.getElementById('newQABtn').addEventListener('click', () => {
+  resolvingQueryText = null;
+  openQAModal();
+});
+document.getElementById('qaCancelBtn').addEventListener('click', () => {
+  resolvingQueryText = null;
+  qaModal.classList.add('hidden');
+});
 
 qaForm.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -290,6 +406,21 @@ qaForm.addEventListener('submit', async (e) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
+
+  // If this entry was created from an unanswered query log, resolve it
+  if (resolvingQueryText) {
+    try {
+      await authedFetch(`${API_BASE}/admin/analytics/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queryText: resolvingQueryText })
+      });
+      resolvingQueryText = null;
+      loadAnalyticsData();
+    } catch (e) {
+      console.warn('Auto resolve error:', e);
+    }
+  }
 
   qaModal.classList.add('hidden');
   loadQAList(document.getElementById('qaSearch').value);
@@ -481,3 +612,133 @@ function formatText(raw) {
     .replace(/\^([^\^]+)\^/g, '<sup>$1</sup>')
     .replace(/~([^~]+)~/g, '<sub>$1</sub>');
 }
+
+// ---------- Analytics & Student Query Logs ----------
+async function loadAnalyticsData() {
+  try {
+    const [overviewRes, unansweredRes] = await Promise.all([
+      authedFetch(`${API_BASE}/admin/analytics/overview`),
+      authedFetch(`${API_BASE}/admin/analytics/unanswered`)
+    ]);
+
+    const overview = await overviewRes.json();
+    const unanswered = await unansweredRes.json();
+
+    const statTotalQueries = document.getElementById('statTotalQueries');
+    const statResolutionRate = document.getElementById('statResolutionRate');
+    const statPendingUnanswered = document.getElementById('statPendingUnanswered');
+
+    if (statTotalQueries) statTotalQueries.textContent = overview.totalQueries || 0;
+    if (statResolutionRate) statResolutionRate.textContent = `${overview.resolutionRate || 0}%`;
+    if (statPendingUnanswered) statPendingUnanswered.textContent = overview.pendingUnansweredCount || 0;
+
+    renderUnansweredList(unanswered || []);
+    renderTopHitList(overview.topQuestions || []);
+    renderRecentQueries(overview.recentQueries || []);
+  } catch (err) {
+    console.warn('Could not load analytics:', err);
+  }
+}
+
+function renderUnansweredList(items) {
+  const container = document.getElementById('unansweredList');
+  if (!container) return;
+
+  if (!items || items.length === 0) {
+    container.innerHTML = '<div class="empty-state">🎉 Wonderful! No pending unanswered questions right now.</div>';
+    return;
+  }
+
+  container.innerHTML = items
+    .map((item) => {
+      const timeStr = item.lastAsked
+        ? new Date(item.lastAsked).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : '';
+      return `
+      <div class="unanswered-card">
+        <div class="unanswered-info">
+          <div class="unanswered-query">"${escapeHtml(item.originalQuery || item._id)}"</div>
+          <div class="unanswered-meta">
+            <span class="unanswered-badge">Asked ${item.count} ${item.count === 1 ? 'time' : 'times'}</span>
+            ${item.className ? `<span>📚 ${escapeHtml(item.className)}</span>` : ''}
+            ${item.bookName ? `<span>📖 ${escapeHtml(item.bookName)}</span>` : ''}
+            ${item.chapterName ? `<span>🔖 ${escapeHtml(item.chapterName)}</span>` : ''}
+            ${timeStr ? `<span>🕒 ${timeStr}</span>` : ''}
+          </div>
+        </div>
+        <div class="unanswered-actions">
+          <button class="btn-add-qa" data-query="${escapeHtml(item.originalQuery || item._id)}" data-class="${escapeHtml(item.className || 'Class 3')}" data-book="${escapeHtml(item.bookName || 'General')}" data-chapter="${escapeHtml(item.chapterName || 'Chapter 1')}">+ Add to QA</button>
+        </div>
+      </div>
+    `;
+    })
+    .join('');
+
+  container.querySelectorAll('.btn-add-qa').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const q = e.target.dataset.query;
+      const cls = e.target.dataset.class;
+      const bk = e.target.dataset.book;
+      const ch = e.target.dataset.chapter;
+      resolvingQueryText = q;
+      openQAModal(null, { question: q, className: cls, bookName: bk, chapterName: ch });
+    });
+  });
+}
+
+function renderTopHitList(items) {
+  const container = document.getElementById('topHitList');
+  if (!container) return;
+
+  if (!items || items.length === 0) {
+    container.innerHTML = '<div class="empty-state">No questions answered yet.</div>';
+    return;
+  }
+
+  container.innerHTML = items
+    .map(
+      (item) => `
+      <div class="top-hit-item">
+        <div style="flex:1; min-width:0;">
+          <div class="top-hit-text">${formatText(item.question)}</div>
+          <div class="top-hit-sub">📚 ${escapeHtml(item.className || 'General')} • 📖 ${escapeHtml(item.bookName || 'General')}</div>
+        </div>
+        <div class="hit-count-badge">${item.hitCount} hits</div>
+      </div>
+    `
+    )
+    .join('');
+}
+
+function renderRecentQueries(items) {
+  const container = document.getElementById('recentQueryList');
+  if (!container) return;
+
+  if (!items || items.length === 0) {
+    container.innerHTML = '<div class="empty-state">No recent activity.</div>';
+    return;
+  }
+
+  container.innerHTML = items
+    .map((item) => {
+      const timeStr = item.createdAt
+        ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : '';
+      return `
+      <div class="query-item">
+        <div style="flex:1; min-width:0;">
+          <div class="query-text">"${escapeHtml(item.query)}"</div>
+          <div class="query-sub">${escapeHtml(item.className || 'All')} • ${timeStr}</div>
+        </div>
+        <span class="status-pill ${item.answered ? 'success' : 'miss'}">${item.answered ? 'Answered' : 'Unmatched'}</span>
+      </div>
+    `;
+    })
+    .join('');
+}
+
+const refreshAnalyticsBtn = document.getElementById('refreshAnalyticsBtn');
+if (refreshAnalyticsBtn) {
+  refreshAnalyticsBtn.addEventListener('click', () => loadAnalyticsData());
+}
+

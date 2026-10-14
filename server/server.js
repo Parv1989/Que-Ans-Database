@@ -8,6 +8,7 @@ const askRoute = require('./routes/ask');
 const authRoutes = require('./routes/authRoutes');
 const qaAdminRoutes = require('./routes/qaAdmin');
 const synonymAdminRoutes = require('./routes/synonymAdmin');
+const analyticsAdminRoutes = require('./routes/analyticsAdmin');
 const ttsRoutes = require('./routes/tts');
 
 const rateLimit = require('express-rate-limit');
@@ -43,6 +44,7 @@ app.use('/api/tts', ttsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin/qa', qaAdminRoutes);
 app.use('/api/admin/synonyms', synonymAdminRoutes);
+app.use('/api/admin/analytics', analyticsAdminRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
