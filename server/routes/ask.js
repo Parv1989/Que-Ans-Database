@@ -83,7 +83,8 @@ router.post('/', async (req, res) => {
 
     return res.json({
       answered: false,
-      message: "I couldn't find an exact answer for that. Did you mean one of these questions?",
+      message: result.message || "I couldn't find an exact answer for that. Please explain or rephrase your question in more detail.",
+      clarificationNeeded: !!result.clarificationNeeded,
       suggestions: result.suggestions,
       confidence: result.confidence
     });
@@ -112,7 +113,7 @@ router.post('/ai-explain', async (req, res) => {
     if (!apiKey) {
       return res.json({
         available: false,
-        message: 'AI Tutor is in preview mode. Set GEMINI_API_KEY in server/.env to enable live AI tutor answers.'
+        message: 'AI Tutor is in preview mode. Please add GEMINI_API_KEY in Render Environment Variables (or server/.env for local).'
       });
     }
 
