@@ -6,14 +6,28 @@ const googleTTS = require('google-tts-api');
 router.get('/', async (req, res) => {
   try {
     const text = (req.query.text || '').trim();
-    const lang = req.query.lang || 'hi';
+    const reqLang = (req.query.lang || 'hi').trim().toLowerCase();
     if (!text) return res.status(400).json({ error: 'Text parameter is required' });
+
+    let ttsLang = 'hi';
+    let ttsHost = 'https://translate.google.com';
+
+    if (reqLang === 'uk' || reqLang === 'en-gb' || reqLang === 'uk_english') {
+      ttsLang = 'en';
+      ttsHost = 'https://translate.google.co.uk';
+    } else if (reqLang === 'en' || reqLang === 'en-us' || reqLang === 'english') {
+      ttsLang = 'en';
+      ttsHost = 'https://translate.google.com';
+    } else {
+      ttsLang = 'hi';
+      ttsHost = 'https://translate.google.com';
+    }
 
     // Fetch Google TTS audio base64 server-side to prevent browser CORS / 403 hotlink blocks
     const results = await googleTTS.getAllAudioBase64(text, {
-      lang: lang,
+      lang: ttsLang,
       slow: false,
-      host: 'https://translate.google.com',
+      host: ttsHost,
       timeout: 10000
     });
 

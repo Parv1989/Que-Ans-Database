@@ -161,13 +161,21 @@ async function speakServerTTS(speechText, lang = 'hi') {
       audio.onerror = (err) => {
         console.warn('Base64 Audio play error, falling back to speech synthesis:', err);
         setTalking(false);
-        speakHindiFallback(speechText);
+        if (lang === 'uk' || lang === 'en') {
+          speakUKEnglishFallback(speechText);
+        } else {
+          speakHindiFallback(speechText);
+        }
       };
 
       audio.play().catch((err) => {
         console.warn('Audio play blocked/failed, falling back to speech synthesis:', err);
         setTalking(false);
-        speakHindiFallback(speechText);
+        if (lang === 'uk' || lang === 'en') {
+          speakUKEnglishFallback(speechText);
+        } else {
+          speakHindiFallback(speechText);
+        }
       });
     }
 
@@ -175,7 +183,11 @@ async function speakServerTTS(speechText, lang = 'hi') {
   } catch (err) {
     console.warn('Server TTS unavailable, falling back to speech synthesis:', err);
     setTalking(false);
-    speakHindiFallback(speechText);
+    if (lang === 'uk' || lang === 'en') {
+      speakUKEnglishFallback(speechText);
+    } else {
+      speakHindiFallback(speechText);
+    }
   }
 }
 
@@ -356,7 +368,7 @@ function stopLipSync() {
   setViseme('REST');
 }
 
-function speakWithUtterance(speechText, chosenVoice = null, fallbackLang = 'en-US') {
+function speakWithUtterance(speechText, chosenVoice = null, fallbackLang = 'en-GB') {
   if (!voiceEnabled || !window.speechSynthesis) return;
 
   if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -371,7 +383,14 @@ function speakWithUtterance(speechText, chosenVoice = null, fallbackLang = 'en-U
     utterance.voice = chosenVoice;
     utterance.lang = chosenVoice.lang || fallbackLang;
   } else {
-    utterance.lang = fallbackLang;
+    // If chosenVoice is null, prevent browser from using a random non-English system voice!
+    const anyEnglish = (window.speechSynthesis.getVoices() || []).find((v) => (v.lang || '').toLowerCase().startsWith('en'));
+    if (anyEnglish && fallbackLang.toLowerCase().startsWith('en')) {
+      utterance.voice = anyEnglish;
+      utterance.lang = anyEnglish.lang;
+    } else {
+      utterance.lang = fallbackLang;
+    }
   }
 
   utterance.rate = 0.94;
@@ -440,18 +459,23 @@ function speak(rawText) {
 
   const isHindiText = /[\u0900-\u097F]/.test(speechText);
 
+  // If user selected UK English
   if (selectedVoiceName === 'uk_english') {
     if (isHindiText) {
       speakServerTTS(speechText, 'hi');
     } else {
-      const ukVoice = getUKEnglishVoice();
-      speakWithUtterance(speechText, ukVoice, 'en-GB');
+      speakServerTTS(speechText, 'uk');
     }
     return;
   }
 
-  // Default: Hindi voice
-  speakServerTTS(speechText, 'hi');
+  // If user selected Hindi
+  if (isHindiText) {
+    speakServerTTS(speechText, 'hi');
+  } else {
+    // English text should ALWAYS be spoken with UK English TTS, never with Hindi phonetics!
+    speakServerTTS(speechText, 'uk');
+  }
 }
 
 // Warmup speech synthesis and audio context on user interaction to pass mobile browser autoplay restrictions
