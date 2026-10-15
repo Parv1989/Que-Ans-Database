@@ -231,6 +231,7 @@ function renderQAList(items) {
         </div>
         <div class="q">${formatText(item.question)}</div>
         <div class="a">${formatText(item.answer)}</div>
+        ${item.detailedAnswer ? `<div class="detailed-a" style="font-size:0.8rem; color:#4b5563; background:#f9fafb; border-left:3px solid #10b981; padding:0.3rem 0.55rem; margin-top:0.35rem; border-radius:4px;"><strong>💡 Detailed Answer (Explain simply):</strong> ${formatText(item.detailedAnswer)}</div>` : ''}
         ${item.imageUrl ? `<div class="item-thumb"><img src="${escapeHtml(item.imageUrl)}" alt="Diagram" loading="lazy" /></div>` : ''}
         ${item.keywords && item.keywords.length ? `<div class="tags">${item.keywords.map((k) => `<span class="tag">${escapeHtml(k)}</span>`).join('')}</div>` : ''}
       </div>
@@ -353,12 +354,21 @@ document.getElementById('qaQuestion').addEventListener('input', () => {
 document.getElementById('qaAnswer').addEventListener('input', () => {
   updateFormulaPreview('qaAnswer', 'qaAnswerPreview');
 });
+const qaDetailedAnswerEl = document.getElementById('qaDetailedAnswer');
+if (qaDetailedAnswerEl) {
+  qaDetailedAnswerEl.addEventListener('input', () => {
+    updateFormulaPreview('qaDetailedAnswer', 'qaDetailedAnswerPreview');
+  });
+}
 
 function openQAModal(item = null, prefill = null) {
   document.getElementById('qaModalTitle').textContent = item ? 'Edit question' : 'Add a question';
   document.getElementById('qaId').value = item ? item._id : '';
   document.getElementById('qaQuestion').value = item ? item.question : (prefill ? prefill.question : '');
   document.getElementById('qaAnswer').value = item ? item.answer : '';
+  if (qaDetailedAnswerEl) {
+    qaDetailedAnswerEl.value = item ? (item.detailedAnswer || '') : '';
+  }
   document.getElementById('qaClassName').value = item ? (item.className || 'Class 3') : (prefill ? prefill.className || 'Class 3' : 'Class 3');
   document.getElementById('qaBookName').value = item ? (item.bookName || 'Ripples') : (prefill ? prefill.bookName || 'General' : 'Ripples');
   document.getElementById('qaChapterName').value = item ? (item.chapterName || 'Chapter 1') : (prefill ? prefill.chapterName || 'Chapter 1' : 'Chapter 1');
@@ -368,6 +378,9 @@ function openQAModal(item = null, prefill = null) {
 
   updateFormulaPreview('qaQuestion', 'qaQuestionPreview');
   updateFormulaPreview('qaAnswer', 'qaAnswerPreview');
+  if (qaDetailedAnswerEl) {
+    updateFormulaPreview('qaDetailedAnswer', 'qaDetailedAnswerPreview');
+  }
   qaModal.classList.remove('hidden');
 }
 
@@ -386,6 +399,7 @@ qaForm.addEventListener('submit', async (e) => {
   const payload = {
     question: document.getElementById('qaQuestion').value,
     answer: document.getElementById('qaAnswer').value,
+    detailedAnswer: qaDetailedAnswerEl ? qaDetailedAnswerEl.value.trim() : '',
     className: document.getElementById('qaClassName').value,
     bookName: document.getElementById('qaBookName').value,
     chapterName: document.getElementById('qaChapterName').value,

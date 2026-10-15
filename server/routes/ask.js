@@ -72,6 +72,7 @@ router.post('/', async (req, res) => {
       return res.json({
         answered: true,
         answer: result.match.answer,
+        detailedAnswer: result.match.detailedAnswer || '',
         matchedQuestion: result.match.question,
         className: result.match.className,
         bookName: result.match.bookName,

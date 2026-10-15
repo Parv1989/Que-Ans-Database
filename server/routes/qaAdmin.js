@@ -30,9 +30,9 @@ function getField(row, aliases) {
 // GET /api/admin/qa/sample-csv - downloadable template
 router.get('/sample-csv', (req, res) => {
   const sample =
-    'question,answer,keywords,Image link,category,className,bookName,chapterName\n' +
-    '"Where does King Vikram live?","King Vikram lived in Ujjain.","vikram;king vikram;ujjain","https://example.com/vikram.png",history,"Class 3","Ripples","Chapter 4"\n' +
-    '"What is photosynthesis?","Photosynthesis is the process by which green plants make food using sunlight.","sunlight;plants food;chlorophyll","",science,"Class 4","Science Explorer","Chapter 2"\n';
+    'question,answer,detailedAnswer,keywords,Image link,category,className,bookName,chapterName\n' +
+    '"Where does King Vikram live?","King Vikram lived in Ujjain.","King Vikramaditya was a legendary emperor of ancient India whose capital was Ujjain. He was renowned for his wisdom, justice, and valor.","vikram;king vikram;ujjain","https://example.com/vikram.png",history,"Class 3","Ripples","Chapter 4"\n' +
+    '"What is photosynthesis?","Photosynthesis is the process by which green plants make food using sunlight.","Photosynthesis is the biochemical process where plants convert light energy from the sun, water, and carbon dioxide into glucose and oxygen using chlorophyll.","sunlight;plants food;chlorophyll","",science,"Class 4","Science Explorer","Chapter 2"\n';
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="qa-template.csv"');
   res.send(sample);
@@ -54,12 +54,13 @@ router.get('/export-csv', async (req, res) => {
 
     const items = await QA.find(filter).sort({ className: 1, bookName: 1, chapterName: 1, createdAt: -1 });
 
-    const headers = ['question', 'answer', 'keywords', 'Image link', 'category', 'className', 'bookName', 'chapterName'];
+    const headers = ['question', 'answer', 'detailedAnswer', 'keywords', 'Image link', 'category', 'className', 'bookName', 'chapterName'];
     const rows = items.map((doc) => {
       const kw = (doc.keywords || []).join(';');
       return [
         csvEscape(doc.question),
         csvEscape(doc.answer),
+        csvEscape(doc.detailedAnswer || ''),
         csvEscape(kw),
         csvEscape(doc.imageUrl || ''),
         csvEscape(doc.category || 'general'),
@@ -112,6 +113,9 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
   records.forEach((row, idx) => {
     const question = getField(row, ['question', 'Question', 'q']);
     const answer = getField(row, ['answer', 'Answer', 'ans']);
+    const detailedAnswer = getField(row, [
+      'detailedAnswer', 'detailed_answer', 'detailed answer', 'detailed', 'explanation', 'detail', 'Detailed Answer'
+    ]);
     if (!question || !answer) {
       skipped.push({ row: idx + 2, reason: 'Missing question or answer' }); // +2: header row + 1-index
       return;
@@ -136,7 +140,7 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
       'questionImageUrl', 'Question Image', 'Question image', 'question_image', 'questionImage', 'q_image'
     ]);
 
-    toInsert.push({ question, answer, keywords, category, className, bookName, chapterName, imageUrl, questionImageUrl });
+    toInsert.push({ question, answer, detailedAnswer, keywords, category, className, bookName, chapterName, imageUrl, questionImageUrl });
   });
 
   let inserted = [];
@@ -173,16 +177,17 @@ router.get('/', async (req, res) => {
   res.json(items);
 });
 
-// POST /api/admin/qa  { question, answer, keywords[], category, className, bookName, chapterName, imageUrl }
+// POST /api/admin/qa  { question, answer, detailedAnswer, keywords[], category, className, bookName, chapterName, imageUrl }
 router.post('/', async (req, res) => {
   try {
-    const { question, answer, keywords = [], category, className, bookName, chapterName, imageUrl, questionImageUrl } = req.body;
+    const { question, answer, detailedAnswer, keywords = [], category, className, bookName, chapterName, imageUrl, questionImageUrl } = req.body;
     if (!question || !answer) {
       return res.status(400).json({ error: 'Question and answer are both required' });
     }
     const doc = await QA.create({
       question: question.trim(),
       answer: answer.trim(),
+      detailedAnswer: detailedAnswer ? detailedAnswer.trim() : '',
       keywords: keywords.map((k) => k.trim()).filter(Boolean),
       category: category ? category.trim() : 'general',
       className: className ? className.trim() : 'Class 3',
@@ -201,10 +206,11 @@ router.post('/', async (req, res) => {
 // PUT /api/admin/qa/:id
 router.put('/:id', async (req, res) => {
   try {
-    const { question, answer, keywords, category, className, bookName, chapterName, imageUrl, questionImageUrl } = req.body;
+    const { question, answer, detailedAnswer, keywords, category, className, bookName, chapterName, imageUrl, questionImageUrl } = req.body;
     const update = {};
     if (question !== undefined) update.question = question.trim();
     if (answer !== undefined) update.answer = answer.trim();
+    if (detailedAnswer !== undefined) update.detailedAnswer = detailedAnswer.trim();
     if (keywords !== undefined) update.keywords = keywords.map((k) => k.trim()).filter(Boolean);
     if (category !== undefined) update.category = category.trim();
     if (className !== undefined) update.className = className.trim();

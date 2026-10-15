@@ -12,6 +12,12 @@ const QASchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+    // Detailed educational answer stored in database, shown when user clicks "Explain simply"
+    detailedAnswer: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     // Extra phrases/words admin wants this question to match on,
     // e.g. question = "How do I get my refund?" keywords = ["refund", "money back", "return payment"]
     keywords: {

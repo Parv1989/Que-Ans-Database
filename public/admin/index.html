@@ -203,10 +203,18 @@
             <span class="preview-content"></span>
           </div>
         </label>
-        <label>Answer
-          <textarea id="qaAnswer" rows="4" required></textarea>
+        <label>Answer (Direct / Concise Answer)
+          <textarea id="qaAnswer" rows="3" required></textarea>
           <span class="field-hint">Yahan bhi <code>^..^</code> (superscript) aur <code>~..~</code> (subscript) kaam karta hai</span>
           <div id="qaAnswerPreview" class="formula-preview-box hidden">
+            <span class="preview-label">Live Preview:</span>
+            <span class="preview-content"></span>
+          </div>
+        </label>
+        <label>Detailed Answer / Explanation (shown when user clicks "Explain simply")
+          <textarea id="qaDetailedAnswer" rows="4" placeholder="Detailed explanation or breakdown of this answer stored in database..."></textarea>
+          <span class="field-hint">'Explain simply' click karne par ye detailed answer database se turant dikhega</span>
+          <div id="qaDetailedAnswerPreview" class="formula-preview-box hidden">
             <span class="preview-label">Live Preview:</span>
             <span class="preview-content"></span>
           </div>
@@ -242,9 +250,9 @@
     <div class="modal">
       <h3>Bulk upload questions</h3>
       <p class="muted">
-        CSV columns needed: <strong>question, answer, keywords, Image link, category, className, bookName, chapterName</strong>.
+        CSV columns: <strong>question, answer, detailedAnswer, keywords, Image link, category, className, bookName, chapterName</strong>.
         Multiple keywords go in one cell separated by a semicolon ( ; ), e.g. <code>vikram;ujjain</code>.
-        The <em>Image link</em> column can be blank or a full image URL. Column names are flexible — <code>imageUrl</code>, <code>Image URL</code>, <code>image</code> etc. also work.
+        The <em>Image link</em> and <em>detailedAnswer</em> columns are optional. Column names are flexible — <code>detailed_answer</code>, <code>explanation</code>, <code>imageUrl</code> etc. also work.
       </p>
       <button id="downloadTemplateBtn" class="ghost-btn" style="margin-bottom: 1rem;">Download CSV template</button>
       <form id="bulkForm">

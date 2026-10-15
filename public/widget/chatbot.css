@@ -237,16 +237,30 @@ html, body {
   background: #fff;
   color: var(--ink);
   border: 1px solid var(--line);
-  align-self: flex-end;
-  border-bottom-right-radius: 4px;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .msg.user {
   background: var(--primary);
   color: #fff;
-  align-self: flex-start;
-  border-bottom-left-radius: 4px;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.detailed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  margin-bottom: 0.45rem;
+  border: 1px solid rgba(4, 120, 87, 0.2);
 }
 
 .msg img {
