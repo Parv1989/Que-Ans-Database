@@ -548,6 +548,7 @@ function addMessage(text, sender, imageUrl = '', shouldSpeak = true, isAi = fals
     img.src = imageUrl.trim();
     img.alt = 'Question diagram';
     img.loading = 'lazy';
+    img.onload = () => scrollToBottom(true);
     div.appendChild(img);
   }
 
@@ -675,9 +676,33 @@ function hideTyping() {
   if (el) el.remove();
 }
 
-function scrollToBottom() {
-  messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
+/**
+ * Resilient multi-frame auto-scroll to keep newest messages and diagrams fully visible
+ */
+function scrollToBottom(forceInstant = false) {
+  if (!messagesEl) return;
+  if (forceInstant) {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  } else {
+    messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
+  }
+  requestAnimationFrame(() => {
+    if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+  });
+  setTimeout(() => { if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight; }, 60);
+  setTimeout(() => { if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight; }, 180);
+  setTimeout(() => { if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight; }, 360);
 }
+
+// Auto-scroll observer: automatically scrolls to bottom when child messages or images load
+if (messagesEl) {
+  const chatScrollObserver = new MutationObserver(() => {
+    scrollToBottom();
+  });
+  chatScrollObserver.observe(messagesEl, { childList: true, subtree: true });
+}
+
+window.addEventListener('resize', () => scrollToBottom(true));
 
 async function sendQuestion(question) {
   lastUserQuestion = question;
@@ -1617,4 +1642,14 @@ window.addEventListener('keydown', (e) => {
     closeQuizModal();
   }
 });
+
+// Auto-send query if passed in URL (e.g. ?q=... or ?question=...)
+const urlParams = new URLSearchParams(window.location.search);
+const initialQuestion = urlParams.get('q') || urlParams.get('question');
+if (initialQuestion && initialQuestion.trim()) {
+  setTimeout(() => {
+    sendQuestion(initialQuestion.trim());
+  }, 700);
+}
+
 

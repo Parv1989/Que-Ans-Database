@@ -1,5 +1,6 @@
 const QA = require('../models/QA');
 const Synonym = require('../models/Synonym');
+const { devanagariToLatin, normalizePhonetic, getConceptSynonyms } = require('./transliterate');
 
 // Common filler words (English + Hinglish + Hindi) that add noise to matching.
 const STOPWORDS = new Set([
@@ -121,11 +122,42 @@ async function getQADataset() {
   }
 
   const allQA = await QA.find().lean();
-  const docTokens = allQA.map((doc) => ({
-    doc,
-    qTokens: new Set(tokenize(doc.question)),
-    allTokens: new Set(tokenize([doc.question, ...(doc.keywords || [])].join(' ')))
-  }));
+  const docTokens = allQA.map((doc) => {
+    const rawTokens = tokenize(doc.question);
+    const transTokens = tokenize(devanagariToLatin(doc.question));
+    const phoneticQ = normalizePhonetic(doc.question);
+
+    // Build question token set with transliteration & concept synonyms
+    const qTokensSet = new Set([...rawTokens, ...transTokens]);
+    for (const t of [...rawTokens, ...transTokens]) {
+      const syns = getConceptSynonyms(t);
+      syns.forEach((s) => {
+        tokenize(s).forEach((p) => qTokensSet.add(p));
+        tokenize(devanagariToLatin(s)).forEach((p) => qTokensSet.add(p));
+      });
+    }
+
+    // Build allTokens set (question + keywords + concepts + transliterations)
+    const allTokensSet = new Set(qTokensSet);
+    const kwText = (doc.keywords || []).join(' ');
+    const kwTokens = tokenize(kwText);
+    const kwTransTokens = tokenize(devanagariToLatin(kwText));
+    for (const kt of [...kwTokens, ...kwTransTokens]) {
+      allTokensSet.add(kt);
+      const syns = getConceptSynonyms(kt);
+      syns.forEach((s) => {
+        tokenize(s).forEach((p) => allTokensSet.add(p));
+        tokenize(devanagariToLatin(s)).forEach((p) => allTokensSet.add(p));
+      });
+    }
+
+    return {
+      doc,
+      phoneticQ,
+      qTokens: qTokensSet,
+      allTokens: allTokensSet
+    };
+  });
 
   const vocabSet = new Set();
   for (const { allTokens } of docTokens) {
@@ -146,16 +178,37 @@ function invalidateQACache() {
 
 async function expandQuery(rawQuery, vocabSet) {
   const rawTokens = tokenize(rawQuery);
-  const correctedTokens = rawTokens.map((t) => correctToken(t, vocabSet));
+  const transTokens = tokenize(devanagariToLatin(rawQuery));
+  const combinedRaw = Array.from(new Set([...rawTokens, ...transTokens]));
+
+  const correctedTokens = combinedRaw.map((t) => correctToken(t, vocabSet));
   const synonymMap = await getSynonymMap();
 
   const expanded = new Set(correctedTokens);
   for (const tok of correctedTokens) {
+    // 1. Synonyms from database
     const group = synonymMap.get(tok);
     if (group) {
-      for (const syn of group) expanded.add(syn);
+      for (const syn of group) {
+        tokenize(syn).forEach((p) => expanded.add(p));
+      }
+    }
+
+    // 2. Bilingual Concept Synonyms (English <-> Hindi <-> Hinglish)
+    const conceptSyns = getConceptSynonyms(tok);
+    for (const cs of conceptSyns) {
+      tokenize(cs).forEach((p) => expanded.add(p));
+      tokenize(devanagariToLatin(cs)).forEach((p) => expanded.add(p));
     }
   }
+
+  // Also check concept synonyms for the full trimmed query phrase
+  const fullConceptSyns = getConceptSynonyms(rawQuery.trim());
+  for (const fcs of fullConceptSyns) {
+    tokenize(fcs).forEach((p) => expanded.add(p));
+    tokenize(devanagariToLatin(fcs)).forEach((p) => expanded.add(p));
+  }
+
   return { rawTokens, correctedTokens, expandedTokens: Array.from(expanded) };
 }
 
@@ -163,6 +216,7 @@ async function expandQuery(rawQuery, vocabSet) {
  * Finds the best matching QA entry for a student's question.
  * Filters by className, bookName, and chapterName if provided.
  * Enforces strict educational accuracy: NO false guesses on unrelated or vague questions.
+ * Handles zero-AI cross-lingual question matching (English <-> Hindi <-> Hinglish).
  */
 async function findAnswer(rawQuery, filters = {}) {
   const { allQA, docTokens, vocabSet } = await getQADataset();
@@ -201,7 +255,7 @@ async function findAnswer(rawQuery, filters = {}) {
 
   const candidateDocs = filteredDocTokens.length > 0 ? filteredDocTokens : docTokens;
 
-  // 1. Direct Exact Match check (normalized)
+  // 1. Direct Exact Normalized Match check
   const normQuery = normalizeText(rawQuery);
   if (normQuery) {
     const exactMatch = candidateDocs.find(({ doc }) => normalizeText(doc.question) === normQuery)
@@ -225,6 +279,31 @@ async function findAnswer(rawQuery, filters = {}) {
     }
   }
 
+  // 2. Direct Phonetic & Transliteration Match (Zero-AI: Hindi <-> Hinglish <-> English)
+  // Handles: 'shivaji kon the?' <-> 'शिवाजी कौन थे?', 'ped hume kya dete h' <-> 'पेड़ हमें क्या देते हैं?', etc.
+  const queryPhonetic = normalizePhonetic(rawQuery);
+  if (queryPhonetic) {
+    const phoneticMatch = candidateDocs.find((d) => d.phoneticQ === queryPhonetic)
+      || docTokens.find((d) => d.phoneticQ === queryPhonetic);
+    if (phoneticMatch) {
+      QA.findByIdAndUpdate(phoneticMatch.doc._id, { $inc: { hitCount: 1 } }).catch(() => {});
+      return {
+        match: {
+          _id: phoneticMatch.doc._id,
+          question: phoneticMatch.doc.question,
+          answer: phoneticMatch.doc.answer,
+          detailedAnswer: phoneticMatch.doc.detailedAnswer || '',
+          className: phoneticMatch.doc.className,
+          bookName: phoneticMatch.doc.bookName,
+          chapterName: phoneticMatch.doc.chapterName,
+          imageUrl: phoneticMatch.doc.imageUrl
+        },
+        confidence: 100,
+        suggestions: []
+      };
+    }
+  }
+
   const { correctedTokens, expandedTokens } = await expandQuery(rawQuery, vocabSet);
 
   // If query had only stopwords or symbols
@@ -240,11 +319,30 @@ async function findAnswer(rawQuery, filters = {}) {
     };
   }
 
-  // 2. Handling single-token / ultra-short queries (e.g. "tree", "water", "light")
-  // In an educational bot, single ambiguous words MUST NOT trigger random questions.
+  // 3. Handling single-token queries (e.g. "shivaji", "tree", "vowels")
   if (correctedTokens.length === 1) {
     const singleWord = correctedTokens[0];
-    const candidateHits = candidateDocs.filter(d => d.allTokens.has(singleWord));
+    const candidateHits = candidateDocs.filter((d) => d.allTokens.has(singleWord));
+
+    // If this unique single term unambiguously matches exactly one QA document in the book, answer it directly!
+    if (candidateHits.length === 1) {
+      const singleMatch = candidateHits[0];
+      QA.findByIdAndUpdate(singleMatch.doc._id, { $inc: { hitCount: 1 } }).catch(() => {});
+      return {
+        match: {
+          _id: singleMatch.doc._id,
+          question: singleMatch.doc.question,
+          answer: singleMatch.doc.answer,
+          detailedAnswer: singleMatch.doc.detailedAnswer || '',
+          className: singleMatch.doc.className,
+          bookName: singleMatch.doc.bookName,
+          chapterName: singleMatch.doc.chapterName,
+          imageUrl: singleMatch.doc.imageUrl
+        },
+        confidence: 90,
+        suggestions: []
+      };
+    }
 
     const explanationMsg = isHindiQuery
       ? `आपका प्रश्न "${rawQuery}" काफ़ी छोटा या अधूरा है। कृपया प्रश्न को थोड़ा और विस्तार से बताएं (जैसे: इसके बारे में आप क्या जानना चाहते हैं?) ताकि सही उत्तर मिल सके।`
@@ -255,11 +353,11 @@ async function findAnswer(rawQuery, filters = {}) {
       confidence: 0,
       clarificationNeeded: true,
       message: explanationMsg,
-      suggestions: candidateHits.slice(0, 3).map(c => ({ _id: c.doc._id, question: c.doc.question }))
+      suggestions: candidateHits.slice(0, 3).map((c) => ({ _id: c.doc._id, question: c.doc.question }))
     };
   }
 
-  // 3. Bi-directional Precision & Recall Scoring for Multi-Token Queries
+  // 4. Bi-directional Precision & Recall Scoring for Multi-Token Queries
   function scoreList(list) {
     return list.map(({ doc, qTokens, allTokens }) => {
       let qHits = 0;
@@ -269,11 +367,31 @@ async function findAnswer(rawQuery, filters = {}) {
         if (allTokens.has(qt)) allHits += 1;
       }
 
-      // Query coverage: fraction of student query tokens matched in question/keywords
-      const queryCoverage = allHits / correctedTokens.length;
+      // Check which of the student's original query concepts had at least one match in the doc
+      let studentTokensMatched = 0;
+      for (const st of correctedTokens) {
+        const tokenExpansions = new Set([st, devanagariToLatin(st)]);
+        const syns = getConceptSynonyms(st);
+        syns.forEach((s) => {
+          tokenize(s).forEach((p) => tokenExpansions.add(p));
+          tokenize(devanagariToLatin(s)).forEach((p) => tokenExpansions.add(p));
+        });
+
+        let hasHit = false;
+        for (const te of tokenExpansions) {
+          if (allTokens.has(te)) {
+            hasHit = true;
+            break;
+          }
+        }
+        if (hasHit) studentTokensMatched += 1;
+      }
+
+      // Query coverage: fraction of student query tokens matched in question/keywords/concepts
+      const queryCoverage = studentTokensMatched / Math.max(1, correctedTokens.length);
       // Question coverage: fraction of saved question tokens matched
       const qTokenCount = Math.max(1, qTokens.size);
-      const questionCoverage = qHits / qTokenCount;
+      const questionCoverage = Math.min(1.0, qHits / qTokenCount);
 
       // Combined score giving 70% weight to query coverage and 30% to question coverage
       const combinedScore = (queryCoverage * 0.70) + (questionCoverage * 0.30);
@@ -282,6 +400,7 @@ async function findAnswer(rawQuery, filters = {}) {
         doc,
         allHits,
         qHits,
+        studentTokensMatched,
         queryCoverage,
         combinedScore
       };
@@ -305,7 +424,7 @@ async function findAnswer(rawQuery, filters = {}) {
   // Strict Educational Accuracy Rules:
   // - Must match at least 2 tokens (or 100% of tokens if query length is 2)
   // - Query coverage must be >= 60%
-  // - Confidence must be >= 60% (raised from 35% to prevent false guesses)
+  // - Confidence must be >= 60%
   const minHitsNeeded = Math.min(2, correctedTokens.length);
   const isValidMatch = best && best.allHits >= minHitsNeeded && best.queryCoverage >= 0.60 && confidence >= 60;
 
