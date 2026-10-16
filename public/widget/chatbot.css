@@ -54,6 +54,50 @@ html, body {
   gap: 0.45rem;
 }
 
+.theme-toggle-btn {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #f2f1f9;
+  font-size: 0.82rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+.theme-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: scale(1.08);
+}
+
+.speed-select {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 12px;
+  padding: 0.22rem 0.4rem;
+  font-size: 0.73rem;
+  font-family: inherit;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.speed-select:hover, .speed-select:focus {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+.speed-select option {
+  background: #3a3552;
+  color: #ffffff;
+}
+
 .voice-select {
   background: rgba(255, 255, 255, 0.16);
   color: #ffffff;
@@ -394,6 +438,27 @@ html, body {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(255, 112, 166, 0.5);
   background: linear-gradient(135deg, #ff5c9b, #d94b84);
+}
+.notes-btn {
+  background: linear-gradient(135deg, #4ea5f5, #2980d6);
+  color: #ffffff;
+  border: none;
+  padding: 0.22rem 0.65rem;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(41, 128, 214, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+.notes-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(41, 128, 214, 0.5);
+  background: linear-gradient(135deg, #3d98eb, #1f6ebf);
 }
 .change-context-btn {
   background: var(--lavender);
@@ -957,9 +1022,40 @@ html, body {
 .worksheet-paper-header {
   margin-bottom: 1.2rem;
 }
+.worksheet-text-input {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.84rem;
+  background: var(--paper);
+  color: var(--ink);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.worksheet-text-input:focus {
+  border-color: var(--primary);
+  background: #ffffff;
+}
+
 .worksheet-paper-heading {
   text-align: center;
   margin-bottom: 1rem;
+}
+.paper-school-name {
+  font-size: 1.35rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #111;
+  text-align: center;
+  margin-bottom: 0.35rem;
+  font-family: 'Baloo 2', Georgia, serif;
+}
+.paper-school-name.hidden {
+  display: none !important;
 }
 .paper-title {
   margin: 0;
@@ -1345,6 +1441,38 @@ html, body {
 .explain-chip:hover {
   background: #dcfce7;
   transform: translateY(-1px);
+}
+
+.explain-wrap {
+  margin-top: 0.35rem;
+}
+
+.explain-chip.active {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.inline-explanation-box {
+  margin-top: 0.6rem;
+  padding: 0.65rem 0.85rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-left: 3.5px solid #10b981;
+  border-radius: 8px;
+  animation: modalPop 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.inline-explanation-box .detailed-badge {
+  margin-bottom: 0.35rem;
+  font-size: 0.7rem;
+}
+
+.inline-explanation-box .explained-text {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: #14532d;
 }
 
 .ask-ai-btn {
@@ -1740,6 +1868,256 @@ html, body {
   display: flex;
   gap: 0.8rem;
   justify-content: center;
+}
+
+/* ==========================================================================
+   Dark Mode Theme Overrides
+   ========================================================================== */
+body.dark-mode {
+  --ink: #f0edf8;
+  --ink-soft: #a8a1c8;
+  --primary: #9d96db;
+  --primary-dark: #221d37;
+  --lavender: #2c2646;
+  --paper: #120f20;
+  --line: #292444;
+  background: #120f20;
+}
+
+body.dark-mode .chat-shell {
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.45);
+}
+
+body.dark-mode .chat-header {
+  background: #1e1933;
+  border-bottom: 1px solid #292444;
+}
+
+body.dark-mode .robot-stage {
+  background: linear-gradient(180deg, #1c1830 0%, #131022 100%);
+  border-bottom-color: #292444;
+}
+
+body.dark-mode .robot-shadow {
+  fill: #000;
+  opacity: 0.35;
+}
+
+body.dark-mode .context-bar {
+  background: #171329;
+  color: #f0edf8;
+  border-bottom-color: #292444;
+}
+
+body.dark-mode .change-context-btn {
+  background: #272142;
+  color: #c9c3e8;
+  border-color: #3b3360;
+}
+body.dark-mode .change-context-btn:hover {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+body.dark-mode .messages {
+  background: #120f20;
+}
+
+body.dark-mode .msg.bot {
+  background: #1e1933;
+  color: #f0edf8;
+  border-color: #2e284a;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+body.dark-mode .msg.user {
+  background: linear-gradient(135deg, #7c74b8, #635b9d);
+}
+
+body.dark-mode .msg.bot.detailed-answer-msg {
+  background: #17212e;
+  border-color: #1e3952;
+}
+
+body.dark-mode .detailed-badge {
+  background: #0f3024;
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+body.dark-mode .explain-chip {
+  background: #25203f;
+  color: #c6bfff;
+  border-color: #40376c;
+}
+body.dark-mode .explain-chip:hover {
+  background: #342d59;
+}
+
+body.dark-mode .explain-chip.active {
+  background: #1b382b;
+  border-color: #34d399;
+  color: #a7f3d0;
+}
+
+body.dark-mode .inline-explanation-box {
+  background: #15251d;
+  border: 1px solid #1e3d2f;
+  border-left: 3.5px solid #34d399;
+}
+
+body.dark-mode .inline-explanation-box .explained-text {
+  color: #d1fae5;
+}
+
+body.dark-mode .suggestion-btn {
+  background: #1e1933;
+  color: #f0edf8;
+  border-color: #2e284a;
+}
+body.dark-mode .suggestion-btn:hover {
+  border-color: var(--primary);
+  color: #c9c3e8;
+  background: #262040;
+}
+
+body.dark-mode .ask-ai-btn {
+  background: linear-gradient(135deg, #2b1f48, #3b2868);
+  border-color: #7b59b8;
+  color: #d8c2ff;
+}
+
+body.dark-mode .chat-input-row {
+  background: #171329;
+  border-top-color: #292444;
+}
+
+body.dark-mode .chat-input-row input {
+  background: #221d3a;
+  color: #f0edf8;
+  border-color: #342c55;
+}
+body.dark-mode .chat-input-row input:focus {
+  background: #292346;
+  border-color: var(--primary);
+}
+
+body.dark-mode .context-modal-card {
+  background: #1e1933;
+  color: #f0edf8;
+  border: 1px solid #332b52;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+}
+
+body.dark-mode .context-modal-header h3 {
+  color: #f0edf8;
+}
+
+body.dark-mode .context-modal-header p {
+  color: #a8a1c8;
+}
+
+body.dark-mode .context-form label {
+  color: #f0edf8;
+}
+
+body.dark-mode .context-select {
+  background: #221d3a;
+  color: #f0edf8;
+  border-color: #342c55;
+}
+
+body.dark-mode .context-modal-close-btn {
+  background: #282244;
+  color: #a8a1c8;
+}
+body.dark-mode .context-modal-close-btn:hover {
+  background: #393160;
+  color: #ffffff;
+}
+
+body.dark-mode .quiz-modal-card,
+body.dark-mode .worksheet-config-card {
+  background: #1e1933;
+  color: #f0edf8;
+  border: 1px solid #332b52;
+}
+
+body.dark-mode .mode-card {
+  background: #221d3a;
+  border-color: #342c55;
+  color: #f0edf8;
+}
+body.dark-mode .mode-card.active {
+  background: #292348;
+  border-color: var(--primary);
+}
+
+body.dark-mode .quiz-card {
+  background: #221d3a;
+  border-color: #342c55;
+  color: #f0edf8;
+}
+
+body.dark-mode .quiz-q-text {
+  color: #f0edf8;
+}
+
+body.dark-mode .quiz-option-btn {
+  background: #1a162d;
+  border-color: #342c55;
+  color: #f0edf8;
+}
+
+body.dark-mode .worksheet-number-input,
+body.dark-mode .worksheet-text-input {
+  background: #221d3a;
+  color: #f0edf8;
+  border-color: #342c55;
+}
+
+body.dark-mode .preset-chip {
+  background: #221d3a;
+  border-color: #342c55;
+  color: #f0edf8;
+}
+
+body.dark-mode .worksheet-toolbar {
+  background: #171329;
+  border-bottom-color: #292444;
+}
+
+body.dark-mode .typing-dots {
+  background: #1e1933;
+  border-color: #2e284a;
+}
+
+body.dark-mode .mic-btn {
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  border: 1.5px solid #ab9ffa !important;
+  box-shadow: 0 2px 10px rgba(138, 131, 201, 0.4) !important;
+}
+
+body.dark-mode .mic-btn svg,
+body.dark-mode .mic-btn .mic-icon {
+  fill: #ffffff !important;
+  color: #ffffff !important;
+}
+
+body.dark-mode .mic-btn:hover {
+  background: #9d95e8 !important;
+  color: #ffffff !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(157, 149, 232, 0.6) !important;
+  transform: scale(1.08);
+}
+
+body.dark-mode .mic-btn.is-recording {
+  background: linear-gradient(135deg, #ff4757, #ff6b81) !important;
+  color: #ffffff !important;
+  border-color: #ff4757 !important;
+  box-shadow: 0 0 16px rgba(255, 71, 87, 0.85) !important;
 }
 
 

@@ -9,6 +9,35 @@ const robotEl = document.getElementById('robot');
 const muteBtn = document.getElementById('muteBtn');
 const muteIcon = document.getElementById('muteIcon');
 const voiceSelect = document.getElementById('voiceSelect');
+const voiceSpeedSelect = document.getElementById('voiceSpeedSelect');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+
+// Dark Mode Theme State
+let isDarkMode = localStorage.getItem('studybuddy_theme') === 'dark';
+function applyTheme(dark) {
+  if (dark) {
+    document.body.classList.add('dark-mode');
+    if (themeToggleBtn) {
+      themeToggleBtn.textContent = '☀️';
+      themeToggleBtn.title = 'Switch to Light Mode';
+    }
+  } else {
+    document.body.classList.remove('dark-mode');
+    if (themeToggleBtn) {
+      themeToggleBtn.textContent = '🌙';
+      themeToggleBtn.title = 'Switch to Dark Mode';
+    }
+  }
+}
+applyTheme(isDarkMode);
+
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener('click', () => {
+    isDarkMode = !isDarkMode;
+    localStorage.setItem('studybuddy_theme', isDarkMode ? 'dark' : 'light');
+    applyTheme(isDarkMode);
+  });
+}
 
 // Context elements
 const currentSelectionBadge = document.getElementById('currentSelectionBadge');
@@ -19,6 +48,7 @@ const selectBook = document.getElementById('selectBook');
 const selectChapter = document.getElementById('selectChapter');
 const saveContextBtn = document.getElementById('saveContextBtn');
 const closeContextModalBtn = document.getElementById('closeContextModalBtn');
+const exportNotesBtn = document.getElementById('exportNotesBtn');
 
 // Image lightbox elements
 const imageLightbox = document.getElementById('imageLightbox');
@@ -39,6 +69,7 @@ let hasSavedContext = !!(savedClass && savedBook);
 // Voice State & Greeting State
 let voiceEnabled = true;
 let selectedVoiceName = localStorage.getItem('studybuddy_voice_lang') || 'hindi';
+let speechSpeed = parseFloat(localStorage.getItem('studybuddy_voice_speed')) || 1.0;
 let cachedVoice = null;
 let userHasChosenVoice = false;
 let currentAudio = null;
@@ -135,6 +166,7 @@ async function speakServerTTS(speechText, lang = 'hi') {
       }
 
       const audio = new Audio(audioList[audioIndex++]);
+      audio.playbackRate = speechSpeed;
       currentAudio = audio;
 
       audio.onplay = () => {
@@ -147,7 +179,7 @@ async function speakServerTTS(speechText, lang = 'hi') {
             return;
           }
           let elapsed = now - startTime;
-          let cycle = Math.floor(elapsed / 140) % 4;
+          let cycle = Math.floor(elapsed / (140 / speechSpeed)) % 4;
           let cycleVisemes = ['A_O', 'E_I', 'CONSONANT', 'U'];
           setViseme(cycleVisemes[cycle]);
           lipSyncAnimationId = requestAnimationFrame(syncLoop);
@@ -316,6 +348,17 @@ if (voiceSelect) {
   });
 }
 
+if (voiceSpeedSelect) {
+  voiceSpeedSelect.value = String(speechSpeed);
+  voiceSpeedSelect.addEventListener('change', (e) => {
+    speechSpeed = parseFloat(e.target.value) || 1.0;
+    localStorage.setItem('studybuddy_voice_speed', speechSpeed);
+    if (currentAudio) {
+      currentAudio.playbackRate = speechSpeed;
+    }
+  });
+}
+
 function pickVoice() {
   if (selectedVoiceName === 'indian_english' || selectedVoiceName === 'uk_english') {
     return getIndianEnglishVoice();
@@ -412,7 +455,7 @@ function speakWithUtterance(speechText, chosenVoice = null, fallbackLang = 'en-I
     }
   }
 
-  utterance.rate = 0.94;
+  utterance.rate = Math.max(0.6, Math.min(1.6, 0.94 * speechSpeed));
   utterance.pitch = 1.0;
   utterance.volume = 1.0;
 
@@ -427,7 +470,7 @@ function speakWithUtterance(speechText, chosenVoice = null, fallbackLang = 'en-I
         if (window.speechSynthesis && window.speechSynthesis.speaking) {
           setViseme('CONSONANT');
         }
-      }, 130);
+      }, Math.max(80, 130 / speechSpeed));
     }
   };
 
@@ -441,7 +484,7 @@ function speakWithUtterance(speechText, chosenVoice = null, fallbackLang = 'en-I
         return;
       }
       let elapsed = now - startTime;
-      let cycle = Math.floor(elapsed / 140) % 4;
+      let cycle = Math.floor(elapsed / (140 / speechSpeed)) % 4;
       let cycleVisemes = ['A_O', 'E_I', 'CONSONANT', 'U'];
       if (!visemeTimer) {
         setViseme(cycleVisemes[cycle]);
@@ -547,9 +590,17 @@ muteBtn.addEventListener('click', () => {
 // ---------- Chat Messages ----------
 let lastUserQuestion = '';
 
-function addMessage(text, sender, imageUrl = '', shouldSpeak = true, isAi = false, relatedQuestion = '', detailedAnswer = '') {
+function addMessage(text, sender, imageUrl = '', shouldSpeak = true, isAi = false, relatedQuestion = '', detailedAnswer = '', isRealAnswer = false) {
   const div = document.createElement('div');
   div.className = `msg ${sender}`;
+
+  if (isRealAnswer && sender === 'bot') {
+    div.dataset.isAnswer = "true";
+    div.dataset.question = relatedQuestion || lastUserQuestion || '';
+    div.dataset.isAi = isAi ? "true" : "false";
+  } else {
+    div.dataset.isAnswer = "false";
+  }
 
   if (isAi) {
     const badge = document.createElement('div');
@@ -573,46 +624,104 @@ function addMessage(text, sender, imageUrl = '', shouldSpeak = true, isAi = fals
 
   // Add "Explain simply" helper chip only on answered QA messages from database
   if (sender === 'bot' && !isAi && relatedQuestion && !text.startsWith('Connection issue') && !text.startsWith('Hi!')) {
+    const explainWrap = document.createElement('div');
+    explainWrap.className = 'explain-wrap';
+
     const explainBtn = document.createElement('button');
     explainBtn.type = 'button';
     explainBtn.className = 'explain-chip';
     explainBtn.innerHTML = '💡 Explain simply';
-    explainBtn.title = 'View detailed answer from database';
+    explainBtn.title = 'View explained answer for this question';
+
+    let explanationBox = null;
+
+    const renderExplanation = (content) => {
+      if (!explanationBox) {
+        explanationBox = document.createElement('div');
+        explanationBox.className = 'inline-explanation-box';
+
+        const badge = document.createElement('div');
+        badge.className = 'detailed-badge';
+        badge.innerHTML = '💡 Explained Answer';
+        explanationBox.appendChild(badge);
+
+        const expP = document.createElement('p');
+        expP.className = 'explained-text';
+        expP.innerHTML = formatText(content);
+        explanationBox.appendChild(expP);
+
+        div.appendChild(explanationBox);
+      } else {
+        explanationBox.classList.remove('hidden');
+      }
+
+      explainBtn.classList.add('active');
+      explainBtn.innerHTML = '💡 Hide explanation';
+      div.dataset.detailedText = content;
+      scrollToBottom();
+      if (voiceEnabled) speak(content);
+    };
+
     explainBtn.addEventListener('click', () => {
       unlockAudioContext();
-      explainBtn.disabled = true;
-      showDetailedDatabaseAnswer(relatedQuestion, detailedAnswer, text);
+
+      if (explanationBox && !explanationBox.classList.contains('hidden')) {
+        explanationBox.classList.add('hidden');
+        explainBtn.classList.remove('active');
+        explainBtn.innerHTML = '💡 Explain simply';
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        if (currentAudio) currentAudio.pause();
+        setTalking(false);
+        return;
+      }
+
+      if (explanationBox && explanationBox.classList.contains('hidden')) {
+        const content = (detailedAnswer && detailedAnswer.trim())
+          ? detailedAnswer.trim()
+          : (div.dataset.detailedText || text);
+        renderExplanation(content);
+        return;
+      }
+
+      // Check if detailedAnswer is present in database
+      if (detailedAnswer && detailedAnswer.trim()) {
+        renderExplanation(detailedAnswer.trim());
+      } else {
+        // Fallback to AI Tutor explanation if detailed answer not yet in DB
+        explainBtn.disabled = true;
+        explainBtn.innerHTML = '⏳ Explaining simply...';
+        fetch(`${window.location.origin}/api/ask/ai-explain`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: relatedQuestion,
+            answer: text,
+            className: currentClass,
+            bookName: currentBook,
+            chapterName: currentChapter
+          })
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            explainBtn.disabled = false;
+            const content = (data && data.explanation) ? data.explanation : text;
+            renderExplanation(content);
+          })
+          .catch(() => {
+            explainBtn.disabled = false;
+            renderExplanation(text);
+          });
+      }
     });
-    div.appendChild(explainBtn);
+
+    explainWrap.appendChild(explainBtn);
+    div.appendChild(explainWrap);
   }
 
   messagesEl.appendChild(div);
   scrollToBottom();
 
   if (sender === 'bot' && shouldSpeak) speak(text);
-}
-
-function showDetailedDatabaseAnswer(question, detailedAnswer, basicAnswer) {
-  const content = (detailedAnswer && detailedAnswer.trim())
-    ? detailedAnswer.trim()
-    : basicAnswer;
-
-  const div = document.createElement('div');
-  div.className = 'msg bot detailed-answer-msg';
-
-  const badge = document.createElement('div');
-  badge.className = 'detailed-badge';
-  badge.innerHTML = '💡 Detailed Explanation';
-  div.appendChild(badge);
-
-  const p = document.createElement('p');
-  p.innerHTML = formatText(content);
-  div.appendChild(p);
-
-  messagesEl.appendChild(div);
-  scrollToBottom();
-
-  if (voiceEnabled) speak(content);
 }
 
 function addSuggestions(suggestions) {
@@ -669,9 +778,9 @@ async function requestAiExplanation({ question, answer }) {
     hideTyping();
 
     if (data.available && data.explanation) {
-      addMessage(data.explanation, 'bot', '', true, true);
+      addMessage(data.explanation, 'bot', '', true, true, question, '', true);
     } else {
-      addMessage(data.message || 'AI Tutor could not generate a response right now.', 'bot', '', true, true);
+      addMessage(data.message || 'AI Tutor could not generate a response right now.', 'bot', '', true, true, '', '', false);
     }
   } catch (err) {
     hideTyping();
@@ -743,9 +852,9 @@ async function sendQuestion(question) {
     hideTyping();
 
     if (data.answered) {
-      addMessage(data.answer, 'bot', data.imageUrl, true, false, question, data.detailedAnswer);
+      addMessage(data.answer, 'bot', data.imageUrl, true, false, question, data.detailedAnswer, true);
     } else {
-      addMessage(data.message || "I couldn't find an exact answer for that. Did you mean one of these?", 'bot');
+      addMessage(data.message || "I couldn't find an exact answer for that. Did you mean one of these?", 'bot', '', true, false, '', '', false);
       addSuggestions(data.suggestions);
       addAiFallbackPrompt(question);
     }
@@ -763,6 +872,124 @@ form.addEventListener('submit', (e) => {
   input.value = '';
   sendQuestion(question);
 });
+
+// ---------- Export & Print Study Notes ----------
+function exportStudyNotes() {
+  if (!messagesEl) return;
+  const answerElements = messagesEl.querySelectorAll('.msg.bot[data-is-answer="true"]');
+  const qaMap = new Map();
+
+  answerElements.forEach((el) => {
+    const p = el.querySelector('p');
+    const q = el.dataset.question ? el.dataset.question.trim() : '';
+    if (p && q) {
+      const ans = p.innerText.trim();
+      // Ensure only real answers are included (no fallback/connection error strings)
+      if (
+        ans &&
+        !ans.includes("couldn't find an exact answer") &&
+        !ans.includes("could not find an exact answer") &&
+        !ans.includes("I couldn't find an answer") &&
+        !ans.startsWith('Hi!') &&
+        !ans.startsWith('Connection issue') &&
+        !ans.startsWith('Could not connect')
+      ) {
+        qaMap.set(q.toLowerCase(), {
+          question: q,
+          answer: ans,
+          isAi: el.dataset.isAi === 'true',
+          imageUrl: el.querySelector('img') ? el.querySelector('img').src : ''
+        });
+      }
+    }
+  });
+
+  const qaPairs = Array.from(qaMap.values());
+
+  if (qaPairs.length === 0) {
+    alert('Abhi tak chat me koi verified answer nahi mila hai. Pehle sawaalo ke jawab prapt karein (database ya AI Tutor se), fir notes export karein!');
+    return;
+  }
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Please allow popups to print/save your study notes!');
+    return;
+  }
+
+  const schoolName = localStorage.getItem('studybuddy_worksheet_school') || '';
+  const now = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? ` • Chapter: ${currentChapter}` : '';
+
+  let itemsHtml = '';
+  qaPairs.forEach((item, idx) => {
+    itemsHtml += `
+      <div class="note-card">
+        <div class="q-title"><span class="q-num">Q${idx + 1}.</span> ${formatText(item.question)}</div>
+        <div class="a-body"><span class="a-tag">Answer:</span> ${formatText(item.answer)}</div>
+        ${item.isAi ? `<div class="tag-ai">✨ Explained by Study Buddy AI Tutor</div>` : `<div class="tag-db">📚 Verified from Textbook</div>`}
+        ${item.imageUrl ? `<div class="diag-wrap"><img src="${item.imageUrl}" alt="Diagram" /></div>` : ''}
+      </div>
+    `;
+  });
+
+  printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Study Notes - ${currentBook || 'Study Buddy'}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; padding: 2rem; color: #222; margin: 0; background: #fff; }
+    .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .school-name { font-size: 1.3rem; font-weight: 800; text-transform: uppercase; color: #111; margin-bottom: 0.2rem; }
+    .title { font-size: 1.5rem; font-weight: 800; text-transform: uppercase; margin: 0; color: #2b3a8c; }
+    .sub { font-size: 0.95rem; color: #555; margin-top: 0.3rem; font-weight: 600; }
+    .meta-bar { display: flex; justify-content: space-between; font-size: 0.85rem; color: #666; margin-top: 0.8rem; border-top: 1px dashed #ccc; padding-top: 0.5rem; }
+    .note-card { margin-bottom: 1.2rem; padding: 0.9rem 1.1rem; border-left: 4px solid #4ea5f5; background: #f8faff; border-radius: 0 8px 8px 0; page-break-inside: avoid; }
+    .q-title { font-size: 1rem; font-weight: 700; color: #1a2540; margin-bottom: 0.4rem; }
+    .q-num { color: #2b82db; }
+    .a-body { font-size: 0.92rem; color: #2b3040; line-height: 1.5; }
+    .a-tag { font-weight: 700; color: #2e7d32; }
+    .diag-wrap { margin-top: 0.6rem; text-align: center; }
+    .diag-wrap img { max-width: 280px; max-height: 200px; border-radius: 6px; border: 1px solid #ddd; }
+    .footer { text-align: center; margin-top: 2rem; font-size: 0.8rem; color: #888; border-top: 1px solid #eee; padding-top: 0.8rem; }
+    @media print {
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    ${schoolName ? `<div class="school-name">${schoolName}</div>` : ''}
+    <h1 class="title">My Study Revision Notes</h1>
+    <div class="sub">${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}</div>
+    <div class="meta-bar">
+      <span>Date: ${now}</span>
+      <span>Total Questions: ${qaPairs.length}</span>
+    </div>
+  </div>
+  <div class="content">
+    ${itemsHtml}
+  </div>
+  <div class="footer">
+    Study Buddy Revision Notes • Generated for student self-study
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() { window.print(); }, 250);
+    };
+  <\/script>
+</body>
+</html>`);
+  printWindow.document.close();
+}
+
+if (exportNotesBtn) {
+  exportNotesBtn.addEventListener('click', () => {
+    unlockAudioContext();
+    exportStudyNotes();
+  });
+}
 
 // ---------- Class / Book / Chapter Context Engine ----------
 function populateClassDropdown() {
@@ -992,6 +1219,7 @@ const worksheetLoadingSpinner = document.getElementById('worksheetLoadingSpinner
 const worksheetActiveOptions = document.getElementById('worksheetActiveOptions');
 const worksheetEmptyNotice = document.getElementById('worksheetEmptyNotice');
 const worksheetTotalCount = document.getElementById('worksheetTotalCount');
+const worksheetSchoolInput = document.getElementById('worksheetSchoolInput');
 const worksheetCountInput = document.getElementById('worksheetCountInput');
 const worksheetPresetChips = document.getElementById('worksheetPresetChips');
 const worksheetIncludeAnswers = document.getElementById('worksheetIncludeAnswers');
@@ -1002,6 +1230,7 @@ const worksheetToggleAnswerKeyBtn = document.getElementById('worksheetToggleAnsw
 const worksheetPrintBtn = document.getElementById('worksheetPrintBtn');
 const worksheetToast = document.getElementById('worksheetToast');
 const printableWorksheetPaper = document.getElementById('printableWorksheetPaper');
+const printSchoolHeader = document.getElementById('printSchoolHeader');
 const printSubTitle = document.getElementById('printSubTitle');
 const printChapter = document.getElementById('printChapter');
 const printTotalQuestions = document.getElementById('printTotalQuestions');
@@ -1041,6 +1270,13 @@ async function openWorksheetModal() {
   const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? ` (${currentChapter})` : '';
   if (worksheetContextDisplay) {
     worksheetContextDisplay.textContent = `${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}`;
+  }
+
+  if (worksheetSchoolInput) {
+    const savedSchool = localStorage.getItem('studybuddy_worksheet_school');
+    if (savedSchool !== null) {
+      worksheetSchoolInput.value = savedSchool;
+    }
   }
 
   try {
@@ -1144,6 +1380,21 @@ function extractQuestionImage(rawQuestion) {
 
 function renderWorksheetPaper() {
   if (!worksheetPaperQuestions) return;
+
+  const schoolName = (worksheetSchoolInput ? worksheetSchoolInput.value.trim() : '');
+  if (schoolName) {
+    localStorage.setItem('studybuddy_worksheet_school', schoolName);
+    if (printSchoolHeader) {
+      printSchoolHeader.textContent = schoolName;
+      printSchoolHeader.classList.remove('hidden');
+    }
+  } else {
+    localStorage.removeItem('studybuddy_worksheet_school');
+    if (printSchoolHeader) {
+      printSchoolHeader.textContent = '';
+      printSchoolHeader.classList.add('hidden');
+    }
+  }
 
   const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? currentChapter : 'All Chapters';
   if (printSubTitle) printSubTitle.textContent = `${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}`;
@@ -1416,6 +1667,7 @@ const quizScoreText = document.getElementById('quizScoreText');
 const quizEncourageMsg = document.getElementById('quizEncourageMsg');
 const quizRestartBtn = document.getElementById('quizRestartBtn');
 const quizFinishBtn = document.getElementById('quizFinishBtn');
+const quizPrintCertBtn = document.getElementById('quizPrintCertBtn');
 
 let currentQuizPool = [];
 let quizQuestions = [];
@@ -1677,6 +1929,84 @@ if (closeQuizBtn) closeQuizBtn.addEventListener('click', closeQuizModal);
 if (startQuizRunBtn) startQuizRunBtn.addEventListener('click', startQuizRun);
 if (quizRestartBtn) quizRestartBtn.addEventListener('click', startQuizRun);
 if (quizFinishBtn) quizFinishBtn.addEventListener('click', closeQuizModal);
+
+function printQuizCertificate() {
+  const studentName = prompt('Enter Student Name for Certificate:', 'Super Star Student') || 'Super Star Student';
+  const total = quizQuestions.length;
+  const pct = total > 0 ? Math.round((quizScore / total) * 100) : 0;
+  const schoolName = localStorage.getItem('studybuddy_worksheet_school') || '';
+  const now = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? currentChapter : 'All Chapters';
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Please allow popups to print/save your certificate!');
+    return;
+  }
+
+  printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Certificate of Achievement - ${studentName}</title>
+  <style>
+    @page { size: landscape; margin: 1cm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Baloo 2", Arial, sans-serif; margin: 0; padding: 2rem; background: #fff; color: #222; }
+    .cert-border { border: 10px double #2b3a8c; padding: 2.5rem; text-align: center; border-radius: 18px; position: relative; background: #fdfdff; }
+    .cert-seal { font-size: 3.5rem; margin-bottom: 0.2rem; }
+    .school-title { font-size: 1.3rem; font-weight: 800; text-transform: uppercase; color: #e65c92; letter-spacing: 1px; }
+    .cert-title { font-size: 2.4rem; font-weight: 900; color: #1a237e; text-transform: uppercase; margin: 0.5rem 0; letter-spacing: 2px; }
+    .cert-subtitle { font-size: 1.1rem; color: #555; margin-bottom: 1.5rem; }
+    .awarded-to { font-size: 1rem; color: #777; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.4rem; }
+    .student-name { font-size: 2.2rem; font-weight: 800; color: #0d47a1; border-bottom: 2px solid #ffb300; display: inline-block; padding: 0 2rem 0.3rem; margin-bottom: 1.5rem; }
+    .cert-text { font-size: 1.05rem; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto 2rem; }
+    .score-badge { display: inline-block; background: #e8f5e9; color: #2e7d32; font-weight: 800; padding: 0.4rem 1.2rem; border-radius: 20px; font-size: 1.1rem; border: 1px solid #c8e6c9; }
+    .footer-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 3rem; padding: 0 2rem; }
+    .sig-block { text-align: center; }
+    .sig-line { width: 180px; border-bottom: 1.5px solid #444; margin-bottom: 0.4rem; }
+    .sig-label { font-size: 0.85rem; color: #666; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="cert-border">
+    <div class="cert-seal">🌟 🏆 🌟</div>
+    ${schoolName ? `<div class="school-title">${schoolName}</div>` : ''}
+    <div class="cert-title">Certificate of Achievement</div>
+    <div class="cert-subtitle">This certificate is proudly awarded to</div>
+    <div class="student-name">${studentName}</div>
+    <div class="cert-text">
+      For successfully completing the Chapter Practice Quiz in <strong>${currentBook || 'Study Buddy'}</strong> (${currentClass || 'Class 3'} • ${chapLabel}) with dedication and excellence!
+      <br><br>
+      <span class="score-badge">Scored: ${quizScore} / ${total} (${pct}%)</span>
+    </div>
+    <div class="footer-row">
+      <div class="sig-block">
+        <div class="sig-line"></div>
+        <div class="sig-label">Date: ${now}</div>
+      </div>
+      <div class="sig-block">
+        <div style="font-size: 1.4rem; font-weight: 700; color: #3949ab; margin-bottom: 0.2rem;">Study Buddy AI 🤖</div>
+        <div class="sig-line"></div>
+        <div class="sig-label">Verified Publisher Learning Platform</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() { window.print(); }, 250);
+    };
+  <\/script>
+</body>
+</html>`);
+  printWindow.document.close();
+}
+
+if (quizPrintCertBtn) {
+  quizPrintCertBtn.addEventListener('click', () => {
+    unlockAudioContext();
+    printQuizCertificate();
+  });
+}
 
 // Close on escape key or clicking backdrop
 if (quizModal) {

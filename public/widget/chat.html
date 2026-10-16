@@ -16,6 +16,12 @@
         <div class="chat-header-sub">Ask me anything, whatever you want to know about the book</div>
       </div>
       <div class="chat-header-actions">
+        <button id="themeToggleBtn" class="theme-toggle-btn" type="button" aria-label="Toggle Dark Mode" title="Toggle Dark Mode">🌙</button>
+        <select id="voiceSpeedSelect" class="speed-select" aria-label="Voice Speed" title="Voice Speed">
+          <option value="0.8">0.8x</option>
+          <option value="1" selected>1.0x</option>
+          <option value="1.2">1.2x</option>
+        </select>
         <select id="voiceSelect" class="voice-select" aria-label="Select Voice Language" title="Voice Language">
           <option value="hindi">✨ Hindi</option>
           <option value="indian_english">✨ Indian English</option>
@@ -35,6 +41,7 @@
       <div class="context-bar-actions">
         <button id="quizBtn" class="quiz-btn" type="button" title="Interactive Chapter Quiz">🎯 Quiz</button>
         <button id="worksheetBtn" class="worksheet-btn" type="button" title="Generate printable worksheet">📝 Worksheet</button>
+        <button id="exportNotesBtn" class="notes-btn" type="button" title="Print or Save Study Notes">📄 Notes</button>
         <button id="changeContextBtn" class="change-context-btn" type="button">Change ⚙️</button>
       </div>
     </div>
@@ -226,6 +233,11 @@
             </div>
 
             <div class="form-group">
+              <label for="worksheetSchoolInput">School / Institute Name (Optional):</label>
+              <input id="worksheetSchoolInput" type="text" class="worksheet-text-input" placeholder="e.g. Delhi Public School" />
+            </div>
+
+            <div class="form-group">
               <label for="worksheetCountInput">Number of questions in worksheet:</label>
               <div class="worksheet-count-row">
                 <input id="worksheetCountInput" type="number" min="1" max="50" value="5" class="worksheet-number-input" />
@@ -281,6 +293,7 @@
         <div id="printableWorksheetPaper" class="printable-worksheet-paper">
           <!-- Standard Exam/Test Header -->
           <div class="worksheet-paper-header">
+            <div id="printSchoolHeader" class="paper-school-name hidden"></div>
             <div class="worksheet-paper-heading">
               <h2 class="paper-title">PRACTICE WORKSHEET</h2>
               <div class="paper-sub" id="printSubTitle">Class 3 • Ripples</div>
@@ -425,6 +438,7 @@
           <p id="quizEncourageMsg" class="result-encourage">Brilliant work! You know your chapter very well.</p>
 
           <div class="result-actions">
+            <button id="quizPrintCertBtn" type="button" class="tool-btn secondary" title="Print achievement certificate">📜 Certificate</button>
             <button id="quizRestartBtn" type="button" class="tool-btn primary">🔄 Play Again</button>
             <button id="quizFinishBtn" type="button" class="tool-btn secondary">💬 Back to Chat</button>
           </div>
