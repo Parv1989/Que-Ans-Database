@@ -38,6 +38,7 @@
         <button class="nav-btn active" data-tab="qa">Questions &amp; Answers</button>
         <button class="nav-btn" data-tab="analytics">📊 Analytics &amp; Logs</button>
         <button class="nav-btn" data-tab="synonyms">Synonyms</button>
+        <button class="nav-btn" data-tab="pedagogy">📋 Smart Plans &amp; Mind Maps</button>
         <button class="nav-btn" data-tab="embed">Get Widget Code</button>
       </nav>
       <button id="logoutBtn" class="logout-btn">Log out</button>
@@ -184,6 +185,213 @@
         </header>
         <pre id="embedSnippet" class="code-block"></pre>
         <button id="copyEmbedBtn" class="primary-btn">Copy code</button>
+      </section>
+
+      <!-- PEDAGOGY TAB: LESSON PLANS & MIND MAPS -->
+      <section id="tab-pedagogy" class="tab-panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2>Smart Lesson Plans &amp; Mind Maps</h2>
+            <p class="muted">Generate once with AI, edit &amp; customize, and save permanently to MongoDB for zero ongoing API load.</p>
+          </div>
+          <div class="header-actions">
+            <button id="pedagogyRefreshBtn" class="ghost-btn" title="Refresh chapters list">🔄 Refresh</button>
+            <button id="pedagogyGenerateAIBtn" class="primary-btn" title="Generate with AI for selected chapter">✨ Auto-Generate with AI</button>
+            <button id="pedagogySaveBtn" class="primary-btn" style="background: #059669;" title="Save edits to Database">💾 Save Changes</button>
+          </div>
+        </header>
+
+        <!-- Chapter Selector & Status Banner -->
+        <div class="pedagogy-toolbar-card">
+          <div class="pedagogy-select-row">
+            <div class="field-wrap">
+              <label for="pedagogyChapterSelect">Select Class &amp; Chapter:</label>
+              <select id="pedagogyChapterSelect" class="filter-select"></select>
+            </div>
+            <div id="pedagogyStatusBadge" class="pedagogy-status-badge">Checking status...</div>
+          </div>
+          <div id="pedagogyAiLoadingBanner" class="pedagogy-ai-loading hidden">
+            <div class="spinner-small"></div>
+            <span>Generating authentic CBSE Lesson Plan &amp; Mind Map via Gemini AI... (Please wait a few seconds)</span>
+          </div>
+        </div>
+
+        <!-- Mode Sub-Tabs -->
+        <div class="pedagogy-subtabs-bar">
+          <button type="button" class="pedagogy-subtab active" data-sub="lessonplan">📋 Lesson Plan Editor</button>
+          <button type="button" class="pedagogy-subtab" data-sub="mindmap">🧠 Mind Map Editor</button>
+        </div>
+
+        <!-- Subpanel 1: Lesson Plan Form -->
+        <div id="subpanel-lessonplan" class="pedagogy-subpanel">
+          <div class="ped-form-grid">
+            <div class="ped-field-group">
+              <label>Unit / Chapter Title:
+                <input type="text" id="lpUnitTitle" placeholder="e.g. Journey of Water &amp; Weather Patterns" />
+              </label>
+            </div>
+            <div class="ped-field-group">
+              <label>Pedagogical Methodology:
+                <input type="text" id="lpMethodology" placeholder="e.g. 5E Inquiry Model, Visual Learning &amp; Discussion" />
+              </label>
+            </div>
+          </div>
+
+          <div class="ped-field-group">
+            <label>Learning Objectives (One objective per line):
+              <textarea id="lpLearningObjectives" rows="3" placeholder="Students will understand the water cycle...&#10;Students will identify evaporation and condensation..."></textarea>
+            </label>
+          </div>
+
+          <div class="ped-field-group">
+            <label>Bloom's Taxonomy Levels (Comma separated):
+              <input type="text" id="lpBloomTaxonomy" placeholder="Remembering, Understanding, Applying, Analyzing" />
+            </label>
+          </div>
+
+          <!-- 4 Periods Breakdown -->
+          <div class="ped-section-divider">
+            <h4>📅 4-Period Detailed Breakdown</h4>
+            <span class="muted">Teacher &amp; Student activities per period</span>
+          </div>
+
+          <div class="periods-container">
+            <!-- Period 1 -->
+            <div class="period-card">
+              <div class="period-card-header">
+                <span class="period-badge">Period 1</span>
+                <input type="text" class="period-title-input" id="p1Title" placeholder="Title: Introduction &amp; Concept Hook" />
+              </div>
+              <div class="period-card-body">
+                <div class="ped-grid-2">
+                  <label>Teacher Activity:
+                    <textarea id="p1Teacher" rows="2" placeholder="Introduce concept, ask hook questions..."></textarea>
+                  </label>
+                  <label>Student Activity:
+                    <textarea id="p1Student" rows="2" placeholder="Active listening, pair discussion..."></textarea>
+                  </label>
+                </div>
+                <div class="ped-grid-2">
+                  <label>Teaching Aids:
+                    <input type="text" id="p1Aids" placeholder="Blackboard, Flashcards, Textbook" />
+                  </label>
+                  <label>Formative Assessment Question:
+                    <input type="text" id="p1Assessment" placeholder="Check understanding question" />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Period 2 -->
+            <div class="period-card">
+              <div class="period-card-header">
+                <span class="period-badge">Period 2</span>
+                <input type="text" class="period-title-input" id="p2Title" placeholder="Title: Core Processes &amp; Mechanisms" />
+              </div>
+              <div class="period-card-body">
+                <div class="ped-grid-2">
+                  <label>Teacher Activity:
+                    <textarea id="p2Teacher" rows="2" placeholder="Step-by-step process explanation..."></textarea>
+                  </label>
+                  <label>Student Activity:
+                    <textarea id="p2Student" rows="2" placeholder="Note taking, flow charting..."></textarea>
+                  </label>
+                </div>
+                <div class="ped-grid-2">
+                  <label>Teaching Aids:
+                    <input type="text" id="p2Aids" placeholder="Process Charts, Diagrams" />
+                  </label>
+                  <label>Formative Assessment Question:
+                    <input type="text" id="p2Assessment" placeholder="Process check question" />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Period 3 -->
+            <div class="period-card">
+              <div class="period-card-header">
+                <span class="period-badge">Period 3</span>
+                <input type="text" class="period-title-input" id="p3Title" placeholder="Title: Visual Models &amp; Practical Application" />
+              </div>
+              <div class="period-card-body">
+                <div class="ped-grid-2">
+                  <label>Teacher Activity:
+                    <textarea id="p3Teacher" rows="2" placeholder="Guiding diagram analysis and real-life examples..."></textarea>
+                  </label>
+                  <label>Student Activity:
+                    <textarea id="p3Student" rows="2" placeholder="Sketching diagrams, labeling parts..."></textarea>
+                  </label>
+                </div>
+                <div class="ped-grid-2">
+                  <label>Teaching Aids:
+                    <input type="text" id="p3Aids" placeholder="Diagram Sheets, Smart Board" />
+                  </label>
+                  <label>Formative Assessment Question:
+                    <input type="text" id="p3Assessment" placeholder="Application question" />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Period 4 -->
+            <div class="period-card">
+              <div class="period-card-header">
+                <span class="period-badge">Period 4</span>
+                <input type="text" class="period-title-input" id="p4Title" placeholder="Title: Synthesis, Evaluation &amp; Revision" />
+              </div>
+              <div class="period-card-body">
+                <div class="ped-grid-2">
+                  <label>Teacher Activity:
+                    <textarea id="p4Teacher" rows="2" placeholder="Recap quiz, clarifying doubts..."></textarea>
+                  </label>
+                  <label>Student Activity:
+                    <textarea id="p4Student" rows="2" placeholder="Solving practice worksheet, self-assessment..."></textarea>
+                  </label>
+                </div>
+                <div class="ped-grid-2">
+                  <label>Teaching Aids:
+                    <input type="text" id="p4Aids" placeholder="Worksheet, Question Cards" />
+                  </label>
+                  <label>Formative Assessment Question:
+                    <input type="text" id="p4Assessment" placeholder="Summative test question" />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ped-form-grid" style="margin-top: 1rem;">
+            <div class="ped-field-group">
+              <label>Classroom Group Activity / Experiment:
+                <textarea id="lpClassroomActivity" rows="2" placeholder="e.g. Water in a ziplock bag sunny window demonstration..."></textarea>
+              </label>
+            </div>
+            <div class="ped-field-group">
+              <label>Homework Assignment:
+                <textarea id="lpHomeworkAssignment" rows="2" placeholder="e.g. Draw and label the water cycle in your notebook..."></textarea>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subpanel 2: Mind Map Form -->
+        <div id="subpanel-mindmap" class="pedagogy-subpanel hidden">
+          <div class="ped-field-group">
+            <label>Central Topic Name:
+              <input type="text" id="mmCentralTopic" placeholder="e.g. Water Cycle &amp; Weather" />
+            </label>
+          </div>
+
+          <div class="ped-section-divider">
+            <h4>🌿 Mind Map Branches (Categories &amp; Subtopics)</h4>
+            <span class="muted">Each branch represents a key conceptual cluster</span>
+          </div>
+
+          <div class="branches-container" id="mmBranchesContainer">
+            <!-- 4 Branches dynamically rendered or edited here -->
+          </div>
+        </div>
       </section>
 
     </main>

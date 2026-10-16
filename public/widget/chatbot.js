@@ -1,6 +1,17 @@
 const API_URL = window.location.origin + '/api/ask';
 const TTS_API_URL = window.location.origin + '/api/tts';
 const HIERARCHY_API_URL = window.location.origin + '/api/ask/hierarchy';
+const PEDAGOGY_API_URL = window.location.origin + '/api/pedagogy';
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 const messagesEl = document.getElementById('messages');
 const form = document.getElementById('chatForm');
@@ -1540,6 +1551,1350 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ==========================================================================
+// Formal School Test Paper Generator & Examination Paper Engine
+// ==========================================================================
+const testPaperBtn = document.getElementById('testPaperBtn');
+const testPaperModal = document.getElementById('testPaperModal');
+const testPaperConfigView = document.getElementById('testPaperConfigView');
+const testPaperPreviewView = document.getElementById('testPaperPreviewView');
+const closeTestPaperConfigBtn = document.getElementById('closeTestPaperConfigBtn');
+const closeTestPaperPreviewBtn = document.getElementById('closeTestPaperPreviewBtn');
+const testPaperContextDisplay = document.getElementById('testPaperContextDisplay');
+const testPaperLoadingSpinner = document.getElementById('testPaperLoadingSpinner');
+const testPaperActiveOptions = document.getElementById('testPaperActiveOptions');
+const testPaperEmptyNotice = document.getElementById('testPaperEmptyNotice');
+const testPaperTotalCount = document.getElementById('testPaperTotalCount');
+const testPaperTotalLabel = document.getElementById('testPaperTotalLabel');
+const testPaperSchoolInput = document.getElementById('testPaperSchoolInput');
+const testPaperExamTitleInput = document.getElementById('testPaperExamTitleInput');
+const testPaperTimeSelect = document.getElementById('testPaperTimeSelect');
+const testPaperMarksChips = document.getElementById('testPaperMarksChips');
+const testPaperIncludeAnswers = document.getElementById('testPaperIncludeAnswers');
+const generateTestPaperBtn = document.getElementById('generateTestPaperBtn');
+const testPaperBackBtn = document.getElementById('testPaperBackBtn');
+const testPaperShuffleBtn = document.getElementById('testPaperShuffleBtn');
+const testPaperToggleKeyBtn = document.getElementById('testPaperToggleKeyBtn');
+const testPaperPrintBtn = document.getElementById('testPaperPrintBtn');
+const printableTestPaper = document.getElementById('printableTestPaper');
+
+// Dual Mode & Advanced Test Paper Elements
+const tpModeAutoTab = document.getElementById('tpModeAutoTab');
+const tpModeManualTab = document.getElementById('tpModeManualTab');
+const tpAutoViewContainer = document.getElementById('tpAutoViewContainer');
+const tpManualViewContainer = document.getElementById('tpManualViewContainer');
+const testPaperScopeSelect = document.getElementById('testPaperScopeSelect');
+const tpAutoDistributionPreview = document.getElementById('tpAutoDistributionPreview');
+const manualSelectedCount = document.getElementById('manualSelectedCount');
+const manualTotalMarks = document.getElementById('manualTotalMarks');
+const manualSelectAllBtn = document.getElementById('manualSelectAllBtn');
+const manualDeselectAllBtn = document.getElementById('manualDeselectAllBtn');
+const tpManualQuestionsList = document.getElementById('tpManualQuestionsList');
+const generateManualTestPaperBtn = document.getElementById('generateManualTestPaperBtn');
+
+// New Advanced Features: Multi-Chapter, Search, Custom Question, Layout, Sets, Word Export
+const tpMultiChapterContainer = document.getElementById('tpMultiChapterContainer');
+const tpChapterPillsList = document.getElementById('tpChapterPillsList');
+const tpSelectAllChaptersBtn = document.getElementById('tpSelectAllChaptersBtn');
+const testPaperLayoutSelect = document.getElementById('testPaperLayoutSelect');
+const tpManualSearchInput = document.getElementById('tpManualSearchInput');
+const tpManualClearSearch = document.getElementById('tpManualClearSearch');
+const tpFilterTypeChips = document.getElementById('tpFilterTypeChips');
+const tpOpenAddCustomBtn = document.getElementById('tpOpenAddCustomBtn');
+const tpCustomQCard = document.getElementById('tpCustomQCard');
+const tpCustomQInput = document.getElementById('tpCustomQInput');
+const tpCustomSectionSelect = document.getElementById('tpCustomSectionSelect');
+const tpCustomMarksInput = document.getElementById('tpCustomMarksInput');
+const tpCustomAnsInput = document.getElementById('tpCustomAnsInput');
+const tpSaveCustomQBtn = document.getElementById('tpSaveCustomQBtn');
+const tpCancelCustomQBtn = document.getElementById('tpCancelCustomQBtn');
+const tpSetABtn = document.getElementById('tpSetABtn');
+const tpSetBBtn = document.getElementById('tpSetBBtn');
+const tpSetCBtn = document.getElementById('tpSetCBtn');
+const testPaperToggleLayoutBtn = document.getElementById('testPaperToggleLayoutBtn');
+const testPaperExportWordBtn = document.getElementById('testPaperExportWordBtn');
+
+let allTestPoolQuestions = [];
+let testPaperSectionA = [];
+let testPaperSectionB = [];
+let testPaperSectionC = [];
+let testPaperSectionD = [];
+let targetMaxMarks = 20;
+let testPaperAnswerKeyState = false;
+let testPaperCurrentMode = 'auto'; // 'auto' | 'manual'
+let testPaperLayoutMode = 'paper'; // 'paper' | 'booklet'
+let testPaperCurrentSet = 'A'; // 'A' | 'B' | 'C'
+let manualQuestionConfigs = new Map(); // qId -> { selected, section, marks, question }
+let selectedMultiChapters = new Set();
+let availableBookChapters = [];
+let manualSearchKeyword = '';
+let manualTypeFilter = 'all'; // 'all' | 'diagram' | 'text'
+
+function closeTestPaperModal() {
+  if (testPaperModal) testPaperModal.classList.add('hidden');
+}
+
+// Populate and manage multi-chapter selection checklist
+async function loadMultiChaptersList() {
+  if (!tpChapterPillsList) return;
+  tpChapterPillsList.innerHTML = '<div style="font-size:0.8rem; color:#888;">Loading chapters...</div>';
+
+  try {
+    const url = `${API_URL}/chapters?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    availableBookChapters = (data.chapters || []).filter(ch => ch && ch !== 'All Chapters');
+
+    tpChapterPillsList.innerHTML = '';
+    if (availableBookChapters.length === 0) {
+      tpChapterPillsList.innerHTML = '<div style="font-size:0.8rem; color:#888;">No chapter list found.</div>';
+      return;
+    }
+
+    selectedMultiChapters.clear();
+    // Default select current chapter if available, else select all
+    if (currentChapter && currentChapter !== 'All Chapters' && availableBookChapters.includes(currentChapter)) {
+      selectedMultiChapters.add(currentChapter);
+    } else {
+      availableBookChapters.forEach(ch => selectedMultiChapters.add(ch));
+    }
+
+    availableBookChapters.forEach(ch => {
+      const pill = document.createElement('label');
+      pill.className = 'tp-ch-pill';
+      const isChecked = selectedMultiChapters.has(ch);
+      pill.innerHTML = `
+        <input type="checkbox" value="${ch}" ${isChecked ? 'checked' : ''} />
+        <span>${ch}</span>
+      `;
+
+      pill.querySelector('input').addEventListener('change', (e) => {
+        if (e.target.checked) {
+          selectedMultiChapters.add(ch);
+        } else {
+          selectedMultiChapters.delete(ch);
+        }
+        loadTestPaperQuestions();
+      });
+
+      tpChapterPillsList.appendChild(pill);
+    });
+  } catch (err) {
+    console.warn('Error fetching chapters for multi-select:', err);
+    tpChapterPillsList.innerHTML = '<div style="font-size:0.8rem; color:#888;">Could not load chapters.</div>';
+  }
+}
+
+if (tpSelectAllChaptersBtn) {
+  tpSelectAllChaptersBtn.addEventListener('click', () => {
+    if (!tpChapterPillsList) return;
+    const checkboxes = tpChapterPillsList.querySelectorAll('input[type="checkbox"]');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => {
+      cb.checked = !allChecked;
+      if (!allChecked) {
+        selectedMultiChapters.add(cb.value);
+      } else {
+        selectedMultiChapters.delete(cb.value);
+      }
+    });
+    loadTestPaperQuestions();
+  });
+}
+
+// Fetch test questions based on scope
+async function loadTestPaperQuestions() {
+  if (testPaperLoadingSpinner) testPaperLoadingSpinner.classList.remove('hidden');
+  if (testPaperActiveOptions) testPaperActiveOptions.classList.add('hidden');
+  if (testPaperEmptyNotice) testPaperEmptyNotice.classList.add('hidden');
+
+  const scope = testPaperScopeSelect ? testPaperScopeSelect.value : 'chapter';
+
+  if (testPaperContextDisplay) {
+    let scopeText = '';
+    if (scope === 'book') {
+      scopeText = ' • Entire Book (All Chapters)';
+    } else if (scope === 'custom') {
+      scopeText = ` • ${selectedMultiChapters.size} Chapters Selected`;
+    } else {
+      scopeText = (currentChapter && currentChapter !== 'All Chapters') ? ` • Chapter: ${currentChapter}` : '';
+    }
+    testPaperContextDisplay.textContent = `${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${scopeText}`;
+  }
+
+  try {
+    let questionsLoaded = [];
+
+    if (scope === 'custom') {
+      const chaptersToFetch = Array.from(selectedMultiChapters);
+      if (chaptersToFetch.length === 0) {
+        questionsLoaded = [];
+      } else {
+        const fetchPromises = chaptersToFetch.map(ch =>
+          fetch(`${API_URL}/worksheet-questions?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(ch)}`)
+            .then(r => r.json())
+            .then(d => d.questions || [])
+            .catch(() => [])
+        );
+        const results = await Promise.all(fetchPromises);
+        const seen = new Set();
+        results.flat().forEach(q => {
+          if (q && q.question && !seen.has(q._id || q.question)) {
+            seen.add(q._id || q.question);
+            questionsLoaded.push(q);
+          }
+        });
+      }
+    } else {
+      const targetChapter = (scope === 'book') ? 'All Chapters' : (currentChapter || 'All Chapters');
+      const url = `${API_URL}/worksheet-questions?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(targetChapter)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      questionsLoaded = data.questions || [];
+    }
+
+    if (testPaperLoadingSpinner) testPaperLoadingSpinner.classList.add('hidden');
+
+    allTestPoolQuestions = questionsLoaded;
+    const total = allTestPoolQuestions.length;
+    if (testPaperTotalCount) testPaperTotalCount.textContent = total;
+    if (testPaperTotalLabel) {
+      if (scope === 'book') {
+        testPaperTotalLabel.textContent = 'Questions available in entire book';
+      } else if (scope === 'custom') {
+        testPaperTotalLabel.textContent = `Questions available in ${selectedMultiChapters.size} selected chapters`;
+      } else {
+        testPaperTotalLabel.textContent = 'Questions available in this chapter';
+      }
+    }
+
+    if (total === 0) {
+      if (testPaperEmptyNotice) testPaperEmptyNotice.classList.remove('hidden');
+      if (testPaperActiveOptions) testPaperActiveOptions.classList.add('hidden');
+    } else {
+      if (testPaperEmptyNotice) testPaperEmptyNotice.classList.add('hidden');
+      if (testPaperActiveOptions) testPaperActiveOptions.classList.remove('hidden');
+
+      // Initialize or preserve manual configs
+      manualQuestionConfigs.clear();
+      allTestPoolQuestions.forEach((q, idx) => {
+        let sec = 'A';
+        let mrk = 1;
+        if (q.imageUrl && q.imageUrl.trim()) {
+          sec = 'C';
+          mrk = 5;
+        } else if (idx % 3 === 1) {
+          sec = 'B';
+          mrk = 2;
+        } else if (idx % 3 === 2) {
+          sec = 'B';
+          mrk = 3;
+        }
+        manualQuestionConfigs.set(q._id || String(idx), {
+          selected: true,
+          section: sec,
+          marks: mrk,
+          question: q
+        });
+      });
+
+      updateAutoDistributionPreview();
+      renderManualQuestionsList();
+    }
+  } catch (e) {
+    console.warn('Failed to load questions for test paper:', e);
+    if (testPaperLoadingSpinner) testPaperLoadingSpinner.classList.add('hidden');
+    if (testPaperEmptyNotice) testPaperEmptyNotice.classList.remove('hidden');
+  }
+}
+
+async function openTestPaperModal() {
+  unlockAudioContext();
+  if (!testPaperModal) return;
+
+  testPaperModal.classList.remove('hidden');
+  if (testPaperConfigView) testPaperConfigView.classList.remove('hidden');
+  if (testPaperPreviewView) testPaperPreviewView.classList.add('hidden');
+
+  if (testPaperSchoolInput) {
+    const saved = localStorage.getItem('studybuddy_worksheet_school');
+    if (saved) testPaperSchoolInput.value = saved;
+  }
+
+  // Reset to auto mode
+  switchTestPaperMode('auto');
+
+  // Load chapters for multi-select
+  await loadMultiChaptersList();
+
+  await loadTestPaperQuestions();
+}
+
+// Mode Switcher (Auto vs Manual)
+function switchTestPaperMode(mode) {
+  testPaperCurrentMode = mode;
+  if (mode === 'auto') {
+    if (tpModeAutoTab) tpModeAutoTab.classList.add('active');
+    if (tpModeManualTab) tpModeManualTab.classList.remove('active');
+    if (tpAutoViewContainer) tpAutoViewContainer.classList.remove('hidden');
+    if (tpManualViewContainer) tpManualViewContainer.classList.add('hidden');
+    updateAutoDistributionPreview();
+  } else {
+    if (tpModeAutoTab) tpModeAutoTab.classList.remove('active');
+    if (tpModeManualTab) tpModeManualTab.classList.add('active');
+    if (tpAutoViewContainer) tpAutoViewContainer.classList.add('hidden');
+    if (tpManualViewContainer) tpManualViewContainer.classList.remove('hidden');
+    renderManualQuestionsList();
+  }
+}
+
+if (tpModeAutoTab) tpModeAutoTab.addEventListener('click', () => switchTestPaperMode('auto'));
+if (tpModeManualTab) tpModeManualTab.addEventListener('click', () => switchTestPaperMode('manual'));
+
+if (testPaperScopeSelect) {
+  testPaperScopeSelect.addEventListener('change', () => {
+    const scope = testPaperScopeSelect.value;
+    if (scope === 'custom') {
+      if (tpMultiChapterContainer) tpMultiChapterContainer.classList.remove('hidden');
+    } else {
+      if (tpMultiChapterContainer) tpMultiChapterContainer.classList.add('hidden');
+    }
+    loadTestPaperQuestions();
+  });
+}
+
+if (testPaperMarksChips) {
+  testPaperMarksChips.addEventListener('click', (e) => {
+    const btn = e.target.closest('.preset-chip');
+    if (!btn) return;
+    testPaperMarksChips.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    targetMaxMarks = parseInt(btn.dataset.marks, 10) || 20;
+    updateAutoDistributionPreview();
+  });
+}
+
+// Search & Filter event listeners for Manual Mode
+if (tpManualSearchInput) {
+  tpManualSearchInput.addEventListener('input', (e) => {
+    manualSearchKeyword = (e.target.value || '').toLowerCase().trim();
+    if (tpManualClearSearch) {
+      tpManualClearSearch.classList.toggle('hidden', !manualSearchKeyword);
+    }
+    renderManualQuestionsList();
+  });
+}
+
+if (tpManualClearSearch) {
+  tpManualClearSearch.addEventListener('click', () => {
+    if (tpManualSearchInput) tpManualSearchInput.value = '';
+    manualSearchKeyword = '';
+    tpManualClearSearch.classList.add('hidden');
+    renderManualQuestionsList();
+  });
+}
+
+if (tpFilterTypeChips) {
+  tpFilterTypeChips.addEventListener('click', (e) => {
+    const chip = e.target.closest('.tp-filter-chip');
+    if (!chip) return;
+    tpFilterTypeChips.querySelectorAll('.tp-filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    manualTypeFilter = chip.dataset.type || 'all';
+    renderManualQuestionsList();
+  });
+}
+
+// Inline Custom Question Creator
+if (tpOpenAddCustomBtn) {
+  tpOpenAddCustomBtn.addEventListener('click', () => {
+    if (tpCustomQCard) {
+      tpCustomQCard.classList.toggle('hidden');
+      if (!tpCustomQCard.classList.contains('hidden') && tpCustomQInput) {
+        tpCustomQInput.focus();
+      }
+    }
+  });
+}
+
+if (tpCancelCustomQBtn) {
+  tpCancelCustomQBtn.addEventListener('click', () => {
+    if (tpCustomQCard) tpCustomQCard.classList.add('hidden');
+    if (tpCustomQInput) tpCustomQInput.value = '';
+    if (tpCustomAnsInput) tpCustomAnsInput.value = '';
+  });
+}
+
+if (tpSaveCustomQBtn) {
+  tpSaveCustomQBtn.addEventListener('click', () => {
+    const qText = tpCustomQInput ? tpCustomQInput.value.trim() : '';
+    if (!qText) {
+      alert('Please enter your question text.');
+      return;
+    }
+    const sec = tpCustomSectionSelect ? tpCustomSectionSelect.value : 'A';
+    const mrk = parseInt(tpCustomMarksInput ? tpCustomMarksInput.value : '2', 10) || 2;
+    const ansText = tpCustomAnsInput ? tpCustomAnsInput.value.trim() : '';
+
+    const customId = `custom_${Date.now()}`;
+    const customQ = {
+      _id: customId,
+      question: qText,
+      answer: ansText || 'Student own response / custom answer key.',
+      chapterName: 'Custom Teacher Question',
+      assignedMark: mrk,
+      isCustom: true
+    };
+
+    allTestPoolQuestions.unshift(customQ);
+    manualQuestionConfigs.set(customId, {
+      selected: true,
+      section: sec,
+      marks: mrk,
+      question: customQ
+    });
+
+    if (tpCustomQCard) tpCustomQCard.classList.add('hidden');
+    if (tpCustomQInput) tpCustomQInput.value = '';
+    if (tpCustomAnsInput) tpCustomAnsInput.value = '';
+
+    renderManualQuestionsList();
+  });
+}
+
+// Auto Distribution Preview Calculation
+function updateAutoDistributionPreview() {
+  if (!tpAutoDistributionPreview || allTestPoolQuestions.length === 0) return;
+
+  const totalAvailable = allTestPoolQuestions.length;
+  const diagrams = allTestPoolQuestions.filter(q => q.imageUrl && q.imageUrl.trim());
+
+  let cCount = Math.min(diagrams.length, targetMaxMarks >= 50 ? 3 : (targetMaxMarks >= 30 ? 2 : 1));
+  if (totalAvailable <= 2) cCount = Math.min(diagrams.length, 1);
+
+  const remainingCount = totalAvailable - cCount;
+  let bCount = Math.max(0, Math.floor(remainingCount / 2));
+  if (totalAvailable <= 4 && remainingCount > 0) bCount = 1;
+  let aCount = Math.max(0, remainingCount - bCount);
+
+  const bMark = targetMaxMarks >= 30 ? 3 : 2;
+  const estMarks = (aCount * 1) + (bCount * bMark) + (cCount * 5);
+
+  let noteHtml = '';
+  if (totalAvailable < 6 && targetMaxMarks >= 25) {
+    noteHtml = `<div style="margin-top:0.35rem; color:#b45309; font-size:0.8rem;">💡 Tip: Current selection has ${totalAvailable} questions. To create a full ${targetMaxMarks}+ mark paper, select "Select Specific Chapters 📚" or "Entire Book" above.</div>`;
+  }
+
+  tpAutoDistributionPreview.innerHTML = `
+    <strong>📋 Auto Distribution Plan (100% Unique Questions):</strong><br>
+    Section A: <strong>${aCount} Qs (1M each)</strong> | Section B: <strong>${bCount} Qs (${bMark}M each)</strong> | Section C: <strong>${cCount} Qs (5M diagram)</strong><br>
+    Estimated Marks: <strong>${estMarks} Marks</strong> (${totalAvailable} unique questions used, zero duplicates!)
+    ${noteHtml}
+  `;
+}
+
+// Auto Mode: Distribute Questions strictly without ANY duplicates
+function distributeAutoTestPaperQuestions() {
+  if (allTestPoolQuestions.length === 0) return;
+
+  const pool = [...allTestPoolQuestions].sort(() => 0.5 - Math.random());
+  const diagrams = pool.filter(q => q.imageUrl && q.imageUrl.trim());
+
+  testPaperSectionA = [];
+  testPaperSectionB = [];
+  testPaperSectionC = [];
+  testPaperSectionD = [];
+
+  let cCount = Math.min(diagrams.length, targetMaxMarks >= 50 ? 3 : (targetMaxMarks >= 30 ? 2 : 1));
+  if (pool.length <= 2) cCount = Math.min(diagrams.length, 1);
+
+  const secC = diagrams.slice(0, cCount);
+  const usedIds = new Set(secC.map(q => q._id || q.question));
+  const remaining = pool.filter(q => !usedIds.has(q._id || q.question));
+
+  const bMark = (targetMaxMarks >= 30) ? 3 : 2;
+  let bCount = Math.floor(remaining.length / 2);
+  if (pool.length <= 4 && remaining.length > 0) bCount = 1;
+
+  const secB = remaining.slice(0, bCount);
+  const usedBIds = new Set([...usedIds, ...secB.map(q => q._id || q.question)]);
+  const secA = pool.filter(q => !usedBIds.has(q._id || q.question));
+
+  testPaperSectionC = secC.map(q => ({ ...q, assignedMark: 5 }));
+  testPaperSectionB = secB.map(q => ({ ...q, assignedMark: bMark }));
+  testPaperSectionA = secA.map(q => ({ ...q, assignedMark: 1 }));
+}
+
+// Manual Mode: Render question cards with Search & Filter, Checkbox, Section & Custom Marks
+function renderManualQuestionsList() {
+  if (!tpManualQuestionsList) return;
+  tpManualQuestionsList.innerHTML = '';
+
+  if (allTestPoolQuestions.length === 0) {
+    tpManualQuestionsList.innerHTML = '<div style="padding:1rem; text-align:center; color:#888;">No questions available.</div>';
+    updateManualSummary();
+    return;
+  }
+
+  // Filter based on search query and type chip
+  const filtered = allTestPoolQuestions.filter(q => {
+    const textMatch = !manualSearchKeyword || (q.question && q.question.toLowerCase().includes(manualSearchKeyword)) || (q.answer && q.answer.toLowerCase().includes(manualSearchKeyword));
+    if (!textMatch) return false;
+
+    const hasImg = Boolean(q.imageUrl && q.imageUrl.trim());
+    if (manualTypeFilter === 'diagram' && !hasImg) return false;
+    if (manualTypeFilter === 'text' && hasImg) return false;
+
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tpManualQuestionsList.innerHTML = '<div style="padding:1rem; text-align:center; color:#888;">No questions match your search or filter.</div>';
+    updateManualSummary();
+    return;
+  }
+
+  filtered.forEach((q, idx) => {
+    const qId = q._id || String(idx);
+    const conf = manualQuestionConfigs.get(qId) || { selected: true, section: 'A', marks: 1, question: q };
+
+    const item = document.createElement('div');
+    item.className = `tp-manual-item ${conf.selected ? 'selected' : ''}`;
+    item.dataset.qid = qId;
+
+    const hasImg = Boolean(q.imageUrl && q.imageUrl.trim());
+    const isCustom = Boolean(q.isCustom);
+
+    item.innerHTML = `
+      <input type="checkbox" class="tp-manual-chk" ${conf.selected ? 'checked' : ''} />
+      <div class="tp-manual-q-info">
+        <div class="tp-manual-q-text">${idx + 1}. ${formatText(q.question)}</div>
+        <div class="tp-manual-q-meta">
+          ${hasImg ? '<span class="tp-manual-diagram-tag">🖼️ Diagram Question</span>' : ''}
+          ${isCustom ? '<span class="tp-manual-diagram-tag" style="background:#fef3c7; color:#b45309;">⭐ Custom Question</span>' : ''}
+          <span>Chapter: ${q.chapterName || currentChapter || 'Chapter 1'}</span>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.35rem; flex-shrink:0;">
+        <select class="tp-manual-section-select" title="Assign Section">
+          <option value="A" ${conf.section === 'A' ? 'selected' : ''}>Sec A</option>
+          <option value="B" ${conf.section === 'B' ? 'selected' : ''}>Sec B</option>
+          <option value="C" ${conf.section === 'C' ? 'selected' : ''}>Sec C</option>
+          <option value="D" ${conf.section === 'D' ? 'selected' : ''}>Sec D</option>
+        </select>
+        <div style="display:flex; align-items:center; gap:2px;">
+          <input type="number" class="testpaper-text-input tp-manual-mark-input" min="1" max="20" value="${conf.marks || 1}" style="width:48px; padding:0.25rem 0.35rem; font-weight:700; text-align:center;" title="Marks for this question" />
+          <span style="font-size:0.75rem; font-weight:700; color:#ea580c;">M</span>
+        </div>
+      </div>
+    `;
+
+    const chk = item.querySelector('.tp-manual-chk');
+    const secSelect = item.querySelector('.tp-manual-section-select');
+    const markInput = item.querySelector('.tp-manual-mark-input');
+
+    chk.addEventListener('change', () => {
+      conf.selected = chk.checked;
+      item.classList.toggle('selected', chk.checked);
+      manualQuestionConfigs.set(qId, conf);
+      updateManualSummary();
+    });
+
+    secSelect.addEventListener('change', () => {
+      conf.section = secSelect.value;
+      manualQuestionConfigs.set(qId, conf);
+      updateManualSummary();
+    });
+
+    markInput.addEventListener('input', () => {
+      conf.marks = Math.max(1, parseInt(markInput.value, 10) || 1);
+      manualQuestionConfigs.set(qId, conf);
+      updateManualSummary();
+    });
+
+    tpManualQuestionsList.appendChild(item);
+  });
+
+  updateManualSummary();
+}
+
+function updateManualSummary() {
+  let selectedCount = 0;
+  let totalMarks = 0;
+
+  manualQuestionConfigs.forEach((conf) => {
+    if (conf.selected) {
+      selectedCount++;
+      totalMarks += (conf.marks || 1);
+    }
+  });
+
+  if (manualSelectedCount) manualSelectedCount.textContent = selectedCount;
+  if (manualTotalMarks) manualTotalMarks.textContent = totalMarks;
+}
+
+if (manualSelectAllBtn) {
+  manualSelectAllBtn.addEventListener('click', () => {
+    manualQuestionConfigs.forEach(conf => { conf.selected = true; });
+    renderManualQuestionsList();
+  });
+}
+
+if (manualDeselectAllBtn) {
+  manualDeselectAllBtn.addEventListener('click', () => {
+    manualQuestionConfigs.forEach(conf => { conf.selected = false; });
+    renderManualQuestionsList();
+  });
+}
+
+// Build sections from Manual Selection
+function buildManualSections() {
+  testPaperSectionA = [];
+  testPaperSectionB = [];
+  testPaperSectionC = [];
+  testPaperSectionD = [];
+
+  manualQuestionConfigs.forEach((conf) => {
+    if (conf.selected && conf.question) {
+      const qObj = { ...conf.question, assignedMark: conf.marks || 1 };
+      if (conf.section === 'A') {
+        testPaperSectionA.push(qObj);
+      } else if (conf.section === 'B') {
+        testPaperSectionB.push(qObj);
+      } else if (conf.section === 'C') {
+        testPaperSectionC.push(qObj);
+      } else {
+        testPaperSectionD.push(qObj);
+      }
+    }
+  });
+}
+
+// Render dynamic examination sheet with in-place editing, reordering, and layout format
+function renderTestPaperSheet() {
+  if (!printableTestPaper) return;
+
+  const school = (testPaperSchoolInput ? testPaperSchoolInput.value.trim() : '') || 'ST. XAVIER\'S CONVENT SENIOR SECONDARY SCHOOL';
+  const examTitle = (testPaperExamTitleInput ? testPaperExamTitleInput.value.trim() : '') || 'PERIODIC ASSESSMENT - I';
+  const timeAllowed = testPaperTimeSelect ? testPaperTimeSelect.value : '1 Hour';
+  const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const scope = testPaperScopeSelect ? testPaperScopeSelect.value : 'chapter';
+
+  let chap = 'All Chapters';
+  if (scope === 'book') {
+    chap = 'Entire Book (Comprehensive)';
+  } else if (scope === 'custom') {
+    chap = Array.from(selectedMultiChapters).join(', ') || 'Selected Chapters';
+  } else {
+    chap = (currentChapter && currentChapter !== 'All Chapters') ? currentChapter : 'All Chapters';
+  }
+
+  // Set layout class on printable container
+  printableTestPaper.className = `testpaper-sheet ${testPaperLayoutMode === 'paper' ? 'tp-layout-paper' : 'tp-layout-booklet'}`;
+
+  let runningQIndex = 1;
+
+  // Helper to build Section Block with Hover Tools (Move Up, Move Down, Delete)
+  function buildSectionBlock(sectionLetter, sectionTitle, questionsList, defaultMark) {
+    if (!questionsList || questionsList.length === 0) return '';
+
+    const secTotal = questionsList.reduce((s, q) => s + (q.assignedMark || defaultMark), 0);
+    let html = `
+      <div class="tp-section-header">
+        <span class="tp-editable" contenteditable="true" spellcheck="false">${sectionTitle}</span>
+        <span class="tp-section-marks">[ ${secTotal} Marks ]</span>
+      </div>
+    `;
+
+    questionsList.forEach((q, idx) => {
+      const mark = q.assignedMark || defaultMark;
+      
+      // Calculate lines count based on mark
+      const lineCount = mark <= 1 ? 2 : (mark <= 3 ? 4 : 6);
+      let linesDotted = '';
+      for (let i = 0; i < lineCount; i++) {
+        linesDotted += (i === 0 ? 'Answer: ' : '') + '.......................................................................................................................................................<br>';
+      }
+
+      html += `
+        <div class="tp-q-item" data-sec="${sectionLetter}" data-idx="${idx}">
+          <div class="tp-q-hover-tools no-print">
+            ${idx > 0 ? `<button type="button" class="tp-tool-mini-btn" onclick="window.reorderTestQuestion('${sectionLetter}', ${idx}, -1)" title="Move Up">⬆️</button>` : ''}
+            ${idx < questionsList.length - 1 ? `<button type="button" class="tp-tool-mini-btn" onclick="window.reorderTestQuestion('${sectionLetter}', ${idx}, 1)" title="Move Down">⬇️</button>` : ''}
+            <button type="button" class="tp-tool-mini-btn delete-btn" onclick="window.deleteTestQuestion('${sectionLetter}', ${idx})" title="Remove Question">🗑️</button>
+          </div>
+          <div class="tp-q-head">
+            <div class="tp-q-text">
+              <span class="tp-q-num">Q${runningQIndex++}.</span>
+              <span class="tp-q-text-content tp-editable" contenteditable="true" spellcheck="false">${formatText(q.question)}</span>
+            </div>
+            <div class="tp-q-mark tp-editable" contenteditable="true" spellcheck="false">[${mark}]</div>
+          </div>
+          ${q.imageUrl ? `<div class="tp-q-diagram"><img src="${q.imageUrl}" alt="Diagram" /></div>` : ''}
+          <div class="tp-answer-lines">${linesDotted}</div>
+          ${testPaperAnswerKeyState ? `<div class="tp-answer-box"><strong>Model Answer:</strong> <span class="tp-editable" contenteditable="true" spellcheck="false">${formatText(q.answer)}</span></div>` : ''}
+        </div>
+      `;
+    });
+
+    return html;
+  }
+
+  const secAHtml = buildSectionBlock('A', 'SECTION A: VERY SHORT ANSWER QUESTIONS (1 Mark Each)', testPaperSectionA, 1);
+  const secBHtml = buildSectionBlock('B', 'SECTION B: SHORT ANSWER & CONCEPTUAL QUESTIONS (2-3 Marks Each)', testPaperSectionB, 2);
+  const secCHtml = buildSectionBlock('C', 'SECTION C: LONG ANSWER & DIAGRAM QUESTIONS (5 Marks Each)', testPaperSectionC, 5);
+  const secDHtml = buildSectionBlock('D', 'SECTION D: CASE-BASED & APPLICATION QUESTIONS', testPaperSectionD, 4);
+
+  // Dynamic Total Marks
+  const calculatedTotalMarks = [...testPaperSectionA, ...testPaperSectionB, ...testPaperSectionC, ...testPaperSectionD]
+    .reduce((sum, q) => sum + (q.assignedMark || 1), 0);
+
+  // Marking Scheme Key Page
+  let markingSchemeHtml = '';
+  if (testPaperAnswerKeyState) {
+    let keyIdx = 1;
+    const allOrdered = [...testPaperSectionA, ...testPaperSectionB, ...testPaperSectionC, ...testPaperSectionD];
+    let keyItemsHtml = '';
+    allOrdered.forEach(q => {
+      keyItemsHtml += `
+        <div style="margin-bottom:0.75rem; border-bottom:1px dotted #ccc; padding-bottom:0.4rem;">
+          <div style="font-weight:700; color:#111;">Q${keyIdx++}. ${formatText(q.question)} <span style="float:right; color:#ea580c;">[${q.assignedMark} Mark(s)]</span></div>
+          <div style="font-size:0.9rem; color:#065f46; margin-top:0.2rem;"><strong>Answer:</strong> ${formatText(q.answer)}</div>
+        </div>
+      `;
+    });
+
+    markingSchemeHtml = `
+      <div class="tp-marking-scheme">
+        <div class="tp-marking-title">📋 Teacher's Marking Scheme & Answer Key (SET - ${testPaperCurrentSet})</div>
+        <div style="text-align:center; font-size:0.85rem; color:#666; margin-bottom:1rem;">
+          ${school} • ${examTitle} • Class ${currentClass || '3'} (${currentBook || 'Ripples'}) • Total Marks: ${calculatedTotalMarks}
+        </div>
+        ${keyItemsHtml}
+      </div>
+    `;
+  }
+
+  printableTestPaper.innerHTML = `
+    <div class="tp-school-header">
+      <h1 class="tp-school-name tp-editable" contenteditable="true" spellcheck="false">${school}</h1>
+      <h2 class="tp-exam-title tp-editable" contenteditable="true" spellcheck="false">${examTitle} • SET - ${testPaperCurrentSet}</h2>
+      <h3 class="tp-exam-sub">CLASS: ${currentClass || 'Class 3'} | SUBJECT: ${currentBook || 'Ripples'} | CHAPTER: ${chap}</h3>
+    </div>
+
+    <table class="tp-meta-table">
+      <tr>
+        <td><span class="tp-meta-label">Student Name:</span> _______________________________</td>
+        <td><span class="tp-meta-label">Time Allowed:</span> ${timeAllowed}</td>
+      </tr>
+      <tr>
+        <td><span class="tp-meta-label">Roll Number:</span> _________________ <span class="tp-meta-label" style="margin-left:1rem;">Section:</span> _____</td>
+        <td><span class="tp-meta-label">Maximum Marks:</span> ${calculatedTotalMarks} Marks</td>
+      </tr>
+      <tr>
+        <td><span class="tp-meta-label">Date:</span> ${today}</td>
+        <td><span class="tp-meta-label">Marks Obtained:</span> _______ / ${calculatedTotalMarks}</td>
+      </tr>
+    </table>
+
+    <div class="tp-instructions tp-editable" contenteditable="true" spellcheck="false">
+      <strong>General Instructions:</strong>
+      1. All questions are compulsory.<br>
+      2. Write your answers neatly in clean handwriting.<br>
+      3. Section marks and individual question marks are indicated on the right hand side.
+    </div>
+
+    ${secAHtml}
+    ${secBHtml}
+    ${secCHtml}
+    ${secDHtml}
+
+    <div style="text-align:center; margin-top:2rem; font-weight:700; font-size:0.85rem; color:#555;">
+      *** ALL THE BEST ***
+    </div>
+
+    ${markingSchemeHtml}
+  `;
+}
+
+// Global functions for inline question reordering and deletion
+window.reorderTestQuestion = function(secLetter, idx, dir) {
+  let targetArr = null;
+  if (secLetter === 'A') targetArr = testPaperSectionA;
+  else if (secLetter === 'B') targetArr = testPaperSectionB;
+  else if (secLetter === 'C') targetArr = testPaperSectionC;
+  else targetArr = testPaperSectionD;
+
+  const targetIdx = idx + dir;
+  if (targetIdx < 0 || targetIdx >= targetArr.length) return;
+
+  const temp = targetArr[idx];
+  targetArr[idx] = targetArr[targetIdx];
+  targetArr[targetIdx] = temp;
+
+  renderTestPaperSheet();
+};
+
+window.deleteTestQuestion = function(secLetter, idx) {
+  let targetArr = null;
+  if (secLetter === 'A') targetArr = testPaperSectionA;
+  else if (secLetter === 'B') targetArr = testPaperSectionB;
+  else if (secLetter === 'C') targetArr = testPaperSectionC;
+  else targetArr = testPaperSectionD;
+
+  if (confirm('Are you sure you want to remove this question from the exam paper?')) {
+    targetArr.splice(idx, 1);
+    renderTestPaperSheet();
+  }
+};
+
+// Exam Sets Switcher (Set A, Set B, Set C)
+function switchExamSet(newSet) {
+  testPaperCurrentSet = newSet;
+  [tpSetABtn, tpSetBBtn, tpSetCBtn].forEach(btn => {
+    if (btn) btn.classList.toggle('active', btn.dataset.set === newSet);
+  });
+
+  // Shuffle order inside each section for Set B and Set C
+  if (newSet !== 'A') {
+    testPaperSectionA = [...testPaperSectionA].sort(() => 0.5 - Math.random());
+    testPaperSectionB = [...testPaperSectionB].sort(() => 0.5 - Math.random());
+    testPaperSectionC = [...testPaperSectionC].sort(() => 0.5 - Math.random());
+    testPaperSectionD = [...testPaperSectionD].sort(() => 0.5 - Math.random());
+  }
+
+  renderTestPaperSheet();
+}
+
+if (tpSetABtn) tpSetABtn.addEventListener('click', () => switchExamSet('A'));
+if (tpSetBBtn) tpSetBBtn.addEventListener('click', () => switchExamSet('B'));
+if (tpSetCBtn) tpSetCBtn.addEventListener('click', () => switchExamSet('C'));
+
+// Toggle layout format (Question Paper vs Ruled Answer Lines)
+function toggleTestPaperLayout() {
+  testPaperLayoutMode = (testPaperLayoutMode === 'paper') ? 'booklet' : 'paper';
+  if (testPaperLayoutSelect) testPaperLayoutSelect.value = testPaperLayoutMode;
+  if (testPaperToggleLayoutBtn) {
+    testPaperToggleLayoutBtn.innerHTML = (testPaperLayoutMode === 'paper') ? '✍️ Toggle Lines' : '📄 Clean Paper';
+  }
+  renderTestPaperSheet();
+}
+
+if (testPaperToggleLayoutBtn) {
+  testPaperToggleLayoutBtn.addEventListener('click', toggleTestPaperLayout);
+}
+
+// Export Exam Paper to Microsoft Word (.doc)
+function exportTestPaperToWord() {
+  if (!printableTestPaper) return;
+
+  const school = (testPaperSchoolInput ? testPaperSchoolInput.value.trim() : '') || 'School_Exam';
+  const examTitle = (testPaperExamTitleInput ? testPaperExamTitleInput.value.trim() : '') || 'Assessment';
+  const filename = `${school.replace(/[^a-zA-Z0-9_-]/g, '_')}_${examTitle.replace(/[^a-zA-Z0-9_-]/g, '_')}_Set_${testPaperCurrentSet}.doc`;
+
+  // Clone document and strip hover action buttons for clean export
+  const clone = printableTestPaper.cloneNode(true);
+  clone.querySelectorAll('.tp-q-hover-tools, .no-print').forEach(el => el.remove());
+
+  const wordHtml = `
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head>
+      <meta charset='utf-8'>
+      <title>${examTitle}</title>
+      <style>
+        body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: #000; line-height: 1.4; padding: 2cm; }
+        .tp-school-name { font-size: 16pt; font-weight: bold; text-align: center; text-transform: uppercase; margin-bottom: 2pt; }
+        .tp-exam-title { font-size: 13pt; font-weight: bold; text-align: center; text-transform: uppercase; margin-bottom: 2pt; }
+        .tp-exam-sub { font-size: 10pt; font-weight: bold; text-align: center; margin-bottom: 8pt; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; }
+        td { border: 1pt solid #000; padding: 4pt 6pt; font-size: 10pt; }
+        .tp-instructions { background: #f8fafc; border: 1pt solid #ccc; padding: 6pt; margin-bottom: 10pt; font-size: 9.5pt; font-family: Arial, sans-serif; }
+        .tp-section-header { font-size: 11pt; font-weight: bold; text-transform: uppercase; background: #eee; padding: 4pt; border-left: 3pt solid #ea580c; margin-top: 10pt; margin-bottom: 6pt; }
+        .tp-q-item { margin-bottom: 8pt; }
+        .tp-q-head { font-size: 10.5pt; font-weight: bold; margin-bottom: 2pt; }
+        .tp-answer-lines { color: #888; font-family: monospace; font-size: 9pt; }
+        .tp-marking-scheme { page-break-before: always; border-top: 2pt dashed #000; padding-top: 12pt; margin-top: 14pt; }
+        .tp-marking-title { font-size: 14pt; font-weight: bold; text-align: center; margin-bottom: 8pt; }
+      </style>
+    </head>
+    <body>
+      ${clone.innerHTML}
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob(['\ufeff', wordHtml], { type: 'application/msword' });
+  const downloadLink = document.createElement('a');
+  downloadLink.href = URL.createObjectURL(blob);
+  downloadLink.download = filename;
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  document.body.removeChild(downloadLink);
+}
+
+if (testPaperExportWordBtn) {
+  testPaperExportWordBtn.addEventListener('click', exportTestPaperToWord);
+}
+
+// Generate in Auto Mode
+function generateAutoTestPaper() {
+  if (testPaperSchoolInput) {
+    localStorage.setItem('studybuddy_worksheet_school', testPaperSchoolInput.value.trim());
+  }
+  testPaperAnswerKeyState = testPaperIncludeAnswers ? testPaperIncludeAnswers.checked : false;
+  testPaperLayoutMode = testPaperLayoutSelect ? testPaperLayoutSelect.value : 'paper';
+
+  distributeAutoTestPaperQuestions();
+  renderTestPaperSheet();
+
+  if (testPaperConfigView) testPaperConfigView.classList.add('hidden');
+  if (testPaperPreviewView) testPaperPreviewView.classList.remove('hidden');
+}
+
+// Generate in Manual Selection Mode
+function generateManualTestPaper() {
+  let selectedCount = 0;
+  manualQuestionConfigs.forEach(conf => { if (conf.selected) selectedCount++; });
+
+  if (selectedCount === 0) {
+    alert('Please select at least one question for your exam paper!');
+    return;
+  }
+
+  if (testPaperSchoolInput) {
+    localStorage.setItem('studybuddy_worksheet_school', testPaperSchoolInput.value.trim());
+  }
+  testPaperAnswerKeyState = testPaperIncludeAnswers ? testPaperIncludeAnswers.checked : false;
+  testPaperLayoutMode = testPaperLayoutSelect ? testPaperLayoutSelect.value : 'paper';
+
+  buildManualSections();
+  renderTestPaperSheet();
+
+  if (testPaperConfigView) testPaperConfigView.classList.add('hidden');
+  if (testPaperPreviewView) testPaperPreviewView.classList.remove('hidden');
+}
+
+if (testPaperBtn) testPaperBtn.addEventListener('click', openTestPaperModal);
+if (closeTestPaperConfigBtn) closeTestPaperConfigBtn.addEventListener('click', closeTestPaperModal);
+if (closeTestPaperPreviewBtn) closeTestPaperPreviewBtn.addEventListener('click', closeTestPaperModal);
+if (generateTestPaperBtn) generateTestPaperBtn.addEventListener('click', generateAutoTestPaper);
+if (generateManualTestPaperBtn) generateManualTestPaperBtn.addEventListener('click', generateManualTestPaper);
+
+if (testPaperBackBtn) {
+  testPaperBackBtn.addEventListener('click', () => {
+    if (testPaperPreviewView) testPaperPreviewView.classList.add('hidden');
+    if (testPaperConfigView) testPaperConfigView.classList.remove('hidden');
+  });
+}
+if (testPaperShuffleBtn) {
+  testPaperShuffleBtn.addEventListener('click', () => {
+    if (testPaperCurrentMode === 'auto') {
+      distributeAutoTestPaperQuestions();
+    } else {
+      testPaperSectionA = [...testPaperSectionA].sort(() => 0.5 - Math.random());
+      testPaperSectionB = [...testPaperSectionB].sort(() => 0.5 - Math.random());
+      testPaperSectionC = [...testPaperSectionC].sort(() => 0.5 - Math.random());
+      testPaperSectionD = [...testPaperSectionD].sort(() => 0.5 - Math.random());
+    }
+    renderTestPaperSheet();
+  });
+}
+if (testPaperToggleKeyBtn) {
+  testPaperToggleKeyBtn.addEventListener('click', () => {
+    testPaperAnswerKeyState = !testPaperAnswerKeyState;
+    renderTestPaperSheet();
+  });
+}
+if (testPaperPrintBtn) {
+  testPaperPrintBtn.addEventListener('click', () => {
+    window.print();
+  });
+}
+if (testPaperModal) {
+  testPaperModal.addEventListener('click', (e) => {
+    if (e.target === testPaperModal) closeTestPaperModal();
+  });
+}
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && testPaperModal && !testPaperModal.classList.contains('hidden')) {
+    closeTestPaperModal();
+  }
+});
+
+// ==========================================================================
+// Smart Pedagogical Lesson Plan Generator Engine
+// ==========================================================================
+const lessonPlanBtn = document.getElementById('lessonPlanBtn');
+const lessonPlanModal = document.getElementById('lessonPlanModal');
+const lessonPlanConfigView = document.getElementById('lessonPlanConfigView');
+const lessonPlanPreviewView = document.getElementById('lessonPlanPreviewView');
+const closeLessonPlanConfigBtn = document.getElementById('closeLessonPlanConfigBtn');
+const closeLessonPlanPreviewBtn = document.getElementById('closeLessonPlanPreviewBtn');
+const lessonPlanContextDisplay = document.getElementById('lessonPlanContextDisplay');
+const lessonPlanLoadingSpinner = document.getElementById('lessonPlanLoadingSpinner');
+const lessonPlanActiveOptions = document.getElementById('lessonPlanActiveOptions');
+const lessonPlanEmptyNotice = document.getElementById('lessonPlanEmptyNotice');
+const lessonPlanSchoolInput = document.getElementById('lessonPlanSchoolInput');
+const lessonPlanTeacherInput = document.getElementById('lessonPlanTeacherInput');
+const lessonPlanDurationSelect = document.getElementById('lessonPlanDurationSelect');
+const lessonPlanFocusSelect = document.getElementById('lessonPlanFocusSelect');
+const generateLessonPlanBtn = document.getElementById('generateLessonPlanBtn');
+const lessonPlanBackBtn = document.getElementById('lessonPlanBackBtn');
+const lessonPlanShuffleBtn = document.getElementById('lessonPlanShuffleBtn');
+const lessonPlanPrintBtn = document.getElementById('lessonPlanPrintBtn');
+const printableLessonPlan = document.getElementById('printableLessonPlan');
+
+let allLessonPoolQuestions = [];
+let activeDbPedagogy = null;
+let activeDbMindMap = null;
+
+function closeLessonPlanModal() {
+  if (lessonPlanModal) lessonPlanModal.classList.add('hidden');
+}
+
+async function openLessonPlanModal() {
+  unlockAudioContext();
+  if (!lessonPlanModal) return;
+
+  lessonPlanModal.classList.remove('hidden');
+  if (lessonPlanConfigView) lessonPlanConfigView.classList.remove('hidden');
+  if (lessonPlanPreviewView) lessonPlanPreviewView.classList.add('hidden');
+  if (lessonPlanLoadingSpinner) lessonPlanLoadingSpinner.classList.remove('hidden');
+  if (lessonPlanActiveOptions) lessonPlanActiveOptions.classList.add('hidden');
+  if (lessonPlanEmptyNotice) lessonPlanEmptyNotice.classList.add('hidden');
+
+  const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? ` • Chapter: ${currentChapter}` : '';
+  if (lessonPlanContextDisplay) {
+    lessonPlanContextDisplay.textContent = `${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}`;
+  }
+
+  if (lessonPlanSchoolInput) {
+    const saved = localStorage.getItem('studybuddy_worksheet_school');
+    if (saved) lessonPlanSchoolInput.value = saved;
+  }
+  if (lessonPlanTeacherInput) {
+    const savedT = localStorage.getItem('studybuddy_teacher_name');
+    if (savedT) lessonPlanTeacherInput.value = savedT;
+  }
+
+  try {
+    // 1. Check if DB has curated/AI Lesson Plan saved for this chapter
+    try {
+      const pedUrl = `${PEDAGOGY_API_URL}?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
+      const pedRes = await fetch(pedUrl);
+      const pedData = await pedRes.json();
+      activeDbPedagogy = (pedData.exists && pedData.data) ? pedData.data : null;
+    } catch (pedErr) {
+      activeDbPedagogy = null;
+    }
+
+    // 2. Load chapter questions for fallback and context
+    const url = `${API_URL}/worksheet-questions?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (lessonPlanLoadingSpinner) lessonPlanLoadingSpinner.classList.add('hidden');
+
+    allLessonPoolQuestions = data.questions || [];
+    if (allLessonPoolQuestions.length === 0 && !activeDbPedagogy) {
+      if (lessonPlanEmptyNotice) lessonPlanEmptyNotice.classList.remove('hidden');
+      if (lessonPlanActiveOptions) lessonPlanActiveOptions.classList.add('hidden');
+    } else {
+      if (lessonPlanEmptyNotice) lessonPlanEmptyNotice.classList.add('hidden');
+      if (lessonPlanActiveOptions) lessonPlanActiveOptions.classList.remove('hidden');
+    }
+  } catch (e) {
+    console.warn('Failed to load lesson plan data:', e);
+    if (lessonPlanLoadingSpinner) lessonPlanLoadingSpinner.classList.add('hidden');
+    if (lessonPlanEmptyNotice) lessonPlanEmptyNotice.classList.remove('hidden');
+  }
+}
+
+function renderLessonPlanDocument() {
+  if (!printableLessonPlan) return;
+
+  const school = (lessonPlanSchoolInput ? lessonPlanSchoolInput.value.trim() : '') || 'ST. XAVIER\'S CONVENT SENIOR SECONDARY SCHOOL';
+  const teacher = (lessonPlanTeacherInput ? lessonPlanTeacherInput.value.trim() : '') || 'Mrs. Anjali Sharma (Subject Teacher)';
+  const duration = lessonPlanDurationSelect ? lessonPlanDurationSelect.value : '40 Minutes (1 Period)';
+  const focus = lessonPlanFocusSelect ? lessonPlanFocusSelect.value : 'Interactive Discussion & Visual Learning';
+  const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  const chap = (currentChapter && currentChapter !== 'All Chapters') ? currentChapter : 'All Chapters';
+
+  // If saved authentic CBSE Lesson Plan exists in MongoDB, render it!
+  if (activeDbPedagogy && activeDbPedagogy.lessonPlan && activeDbPedagogy.lessonPlan.unitTitle) {
+    const lp = activeDbPedagogy.lessonPlan;
+    printableLessonPlan.innerHTML = `
+      <div class="lp-school-header">
+        <h1 class="lp-school-name">${school}</h1>
+        <h2 class="lp-plan-title">SMART PEDAGOGICAL LESSON PLAN (CBSE &amp; NEP 2020)</h2>
+        <div style="margin-top:0.35rem;"><span style="background:#e0e7ff; color:#3730a3; font-size:0.78rem; font-weight:700; padding:0.25rem 0.75rem; border-radius:999px;">✔ Curated &amp; Database-Grounded Curriculum</span></div>
+      </div>
+
+      <div class="lp-meta-grid">
+        <div class="lp-meta-item"><strong>Unit Title:</strong> <span>${escapeHtml(lp.unitTitle)}</span></div>
+        <div class="lp-meta-item"><strong>Class / Subject:</strong> <span>${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}</span></div>
+        <div class="lp-meta-item"><strong>Chapter:</strong> <span>${chap}</span></div>
+        <div class="lp-meta-item"><strong>Teacher:</strong> <span>${teacher}</span></div>
+        <div class="lp-meta-item"><strong>Duration:</strong> <span>${lp.periodsCount || 4} Periods (${duration})</span></div>
+        <div class="lp-meta-item"><strong>Date:</strong> <span>${today}</span></div>
+        <div class="lp-meta-item" style="grid-column: span 3;"><strong>Teaching Approach / Methodology:</strong> <span>${escapeHtml(lp.pedagogicalMethodology || focus)}</span></div>
+      </div>
+
+      <!-- 1. Learning Objectives -->
+      <div class="lp-block">
+        <div class="lp-block-header">1. Specific Learning Objectives (Bloom's Taxonomy)</div>
+        <div class="lp-block-body">
+          <ul class="lp-list">
+            ${(lp.learningObjectives || []).map(obj => `<li>${escapeHtml(obj)}</li>`).join('')}
+          </ul>
+          <div style="margin-top:0.5rem; font-size:0.84rem; color:#4338ca;">
+            <strong>Target Bloom's Levels:</strong> ${(lp.bloomTaxonomy || []).join(', ')}
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Detailed 4-Period Breakdown -->
+      <div class="lp-block">
+        <div class="lp-block-header">2. Detailed Pedagogical Execution Plan (Period-by-Period)</div>
+        <div class="lp-block-body" style="padding:0;">
+          <table class="lp-phase-table">
+            <thead>
+              <tr>
+                <th style="width:14%;">Period</th>
+                <th style="width:23%;">Teacher Activity &amp; Inquiry</th>
+                <th style="width:23%;">Student Learning Activity</th>
+                <th style="width:20%;">Teaching Aids / TLM</th>
+                <th style="width:20%;">Formative Check</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(lp.periods || []).map(p => `
+                <tr>
+                  <td><strong>Period ${p.periodNumber}</strong><br><span style="font-size:0.8rem; color:#4f46e5; font-weight:700;">${escapeHtml(p.title)}</span></td>
+                  <td>${escapeHtml(p.teacherActivity || 'Interactive concept explanation.')}</td>
+                  <td>${escapeHtml(p.studentActivity || 'Active listening, peer discussion.')}</td>
+                  <td>${escapeHtml(p.teachingAids || 'Blackboard, textbook illustrations.')}</td>
+                  <td><em>${escapeHtml(p.assessmentQuestion || 'Formative oral check.')}</em></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 3. Classroom Activity & Homework -->
+      <div class="lp-block">
+        <div class="lp-block-header">3. Experiential Classroom Activity &amp; Homework</div>
+        <div class="lp-block-body">
+          <p><strong>Classroom Group Activity / Demonstration:</strong> ${escapeHtml(lp.classroomActivity || 'Class discussion and visual concept exploration.')}</p>
+          <p style="margin-top:0.5rem;"><strong>Homework &amp; Extension Task:</strong> ${escapeHtml(lp.homeworkAssignment || 'Solve exercise questions and draw concept diagram in notebook.')}</p>
+        </div>
+      </div>
+
+      <!-- 4. Teacher Reflection -->
+      <div class="lp-block">
+        <div class="lp-block-header">4. Teacher's Self-Reflection &amp; Learning Outcome Status</div>
+        <div class="lp-block-body">
+          <div style="display:flex; gap:1.5rem; margin-bottom:0.5rem;">
+            <span>Learning Objectives Achieved: <strong>[ ] Yes  [ ] Partially  [ ] Needs Revision</strong></span>
+            <span>Student Engagement Level: <strong>[ ] High  [ ] Average  [ ] Low</strong></span>
+          </div>
+          <div>Remarks: ..........................................................................................................................................................................</div>
+        </div>
+      </div>
+
+      <div class="lp-signature-row">
+        <div>Teacher's Signature: __________________________</div>
+        <div>Principal / Academic Coordinator: __________________________</div>
+      </div>
+    `;
+    return;
+  }
+
+
+
+  const questionsSample = [...allLessonPoolQuestions].sort(() => 0.5 - Math.random());
+  const diagramQ = questionsSample.find(q => q.imageUrl && q.imageUrl.trim());
+  const warmUpQ = questionsSample[0] ? questionsSample[0].question : 'What do you already know about this topic?';
+  const homeworkQs = questionsSample.slice(0, 3);
+
+  printableLessonPlan.innerHTML = `
+    <div class="lp-school-header">
+      <h1 class="lp-school-name">${school}</h1>
+      <h2 class="lp-plan-title">SMART PEDAGOGICAL LESSON PLAN (NEP 2020 & 5E MODEL)</h2>
+    </div>
+
+    <div class="lp-meta-grid">
+      <div class="lp-meta-item"><strong>Class / Grade:</strong> <span>${currentClass || 'Class 3'}</span></div>
+      <div class="lp-meta-item"><strong>Subject:</strong> <span>${currentBook || 'Ripples'}</span></div>
+      <div class="lp-meta-item"><strong>Chapter:</strong> <span>${chap}</span></div>
+      <div class="lp-meta-item"><strong>Teacher:</strong> <span>${teacher}</span></div>
+      <div class="lp-meta-item"><strong>Duration:</strong> <span>${duration}</span></div>
+      <div class="lp-meta-item"><strong>Date:</strong> <span>${today}</span></div>
+      <div class="lp-meta-item" style="grid-column: span 3;"><strong>Teaching Approach:</strong> <span>${focus}</span></div>
+    </div>
+
+    <!-- 1. Learning Objectives -->
+    <div class="lp-block">
+      <div class="lp-block-header">1. Specific Learning Objectives (Bloom's Taxonomy)</div>
+      <div class="lp-block-body">
+        <ul class="lp-list">
+          <li><strong>Cognitive (Knowledge):</strong> Students will be able to define, recall, and list fundamental terms and concepts of <em>${chap}</em>.</li>
+          <li><strong>Affective (Understanding):</strong> Students will be able to explain the core processes and summarize them in their own words.</li>
+          <li><strong>Psychomotor (Application & Skill):</strong> Students will observe diagrams, interpret visual illustrations, and relate concepts to real-life daily experiences.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 2. Teaching Aids / TLM -->
+    <div class="lp-block">
+      <div class="lp-block-header">2. Teaching Aids & Learning Materials (TLM)</div>
+      <div class="lp-block-body">
+        <ul class="lp-list">
+          <li>Textbook (<em>${currentBook || 'Ripples'}</em>, ${chap}), Whiteboard / Chalkboard.</li>
+          <li>Smartboard Interactive Mascot & Digital Diagrams ${diagramQ ? `(e.g., <strong>${formatText(diagramQ.question)}</strong>)` : ''}.</li>
+          <li>Student Revision Notes & Practice Worksheets.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 3. Prerequisite Knowledge & Hook -->
+    <div class="lp-block">
+      <div class="lp-block-header">3. Prerequisite Knowledge & Warm-Up Hook (Engage - 5 Mins)</div>
+      <div class="lp-block-body">
+        <p><strong>Warm-Up Inquiry Question:</strong> "${formatText(warmUpQ)}"</p>
+        <p><em>Teacher Strategy:</em> Prompt students with a real-life observation to activate prior knowledge and stimulate natural curiosity before diving into formal definitions.</p>
+      </div>
+    </div>
+
+    <!-- 4. 5E Instructional Plan -->
+    <div class="lp-block">
+      <div class="lp-block-header">4. 5E Instructional Execution Plan</div>
+      <div class="lp-block-body" style="padding:0;">
+        <table class="lp-phase-table">
+          <thead>
+            <tr>
+              <th style="width:18%;">Phase (5E)</th>
+              <th style="width:14%;">Time</th>
+              <th style="width:34%;">Teacher Activity</th>
+              <th style="width:34%;">Student Learning Activity</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>1. Engage</strong></td>
+              <td>5 mins</td>
+              <td>Asks motivating starter questions and shows real-world examples.</td>
+              <td>Share daily observations and brainstorm ideas in pairs.</td>
+            </tr>
+            <tr>
+              <td><strong>2. Explore</strong></td>
+              <td>10 mins</td>
+              <td>Directs students to analyze textbook diagrams and textbook illustrations.</td>
+              <td>Examine visual details, identify labels, and discuss observations.</td>
+            </tr>
+            <tr>
+              <td><strong>3. Explain</strong></td>
+              <td>12 mins</td>
+              <td>Explains core scientific principles, breaks down technical terms, and guides note-taking.</td>
+              <td>Note down key definitions, ask questions, and repeat key terms.</td>
+            </tr>
+            <tr>
+              <td><strong>4. Elaborate</strong></td>
+              <td>8 mins</td>
+              <td>Connects the chapter concepts with broader environmental and practical examples.</td>
+              <td>Solve a quick challenge or draw a simple conceptual sketch in notebooks.</td>
+            </tr>
+            <tr>
+              <td><strong>5. Evaluate</strong></td>
+              <td>5 mins</td>
+              <td>Conducts formative oral review check using 2 rapid-fire questions from chapter database.</td>
+              <td>Respond orally to check immediate understanding and retention.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 5. Formative Assessment & Homework -->
+    <div class="lp-block">
+      <div class="lp-block-header">5. Homework & Formative Assessment (Selected Questions)</div>
+      <div class="lp-block-body">
+        <ol style="margin:0; padding-left:1.2rem;">
+          ${homeworkQs.map(q => `
+            <li style="margin-bottom:0.5rem;">
+              <strong>${formatText(q.question)}</strong><br>
+              <span style="font-size:0.84rem; color:#065f46;"><em>Answer Guide:</em> ${formatText(q.answer)}</span>
+            </li>
+          `).join('')}
+        </ol>
+      </div>
+    </div>
+
+    <!-- 6. Teacher Reflection -->
+    <div class="lp-block">
+      <div class="lp-block-header">6. Teacher's Self-Reflection & Learning Outcome Status</div>
+      <div class="lp-block-body">
+        <div style="display:flex; gap:1.5rem; margin-bottom:0.5rem;">
+          <span>Learning Objectives Achieved: <strong>[ ] Yes  [ ] Partially  [ ] Needs Revision</strong></span>
+          <span>Student Engagement Level: <strong>[ ] High  [ ] Average  [ ] Low</strong></span>
+        </div>
+        <div>Remarks: ..........................................................................................................................................................................</div>
+      </div>
+    </div>
+
+    <div class="lp-signature-row">
+      <div>Teacher's Signature: __________________________</div>
+      <div>Principal / Academic Coordinator: __________________________</div>
+    </div>
+  `;
+}
+
+function generateLessonPlan() {
+  if (lessonPlanSchoolInput) {
+    localStorage.setItem('studybuddy_worksheet_school', lessonPlanSchoolInput.value.trim());
+  }
+  if (lessonPlanTeacherInput) {
+    localStorage.setItem('studybuddy_teacher_name', lessonPlanTeacherInput.value.trim());
+  }
+
+  renderLessonPlanDocument();
+
+  if (lessonPlanConfigView) lessonPlanConfigView.classList.add('hidden');
+  if (lessonPlanPreviewView) lessonPlanPreviewView.classList.remove('hidden');
+}
+
+if (lessonPlanBtn) lessonPlanBtn.addEventListener('click', openLessonPlanModal);
+if (closeLessonPlanConfigBtn) closeLessonPlanConfigBtn.addEventListener('click', closeLessonPlanModal);
+if (closeLessonPlanPreviewBtn) closeLessonPlanPreviewBtn.addEventListener('click', closeLessonPlanModal);
+if (generateLessonPlanBtn) generateLessonPlanBtn.addEventListener('click', generateLessonPlan);
+if (lessonPlanBackBtn) {
+  lessonPlanBackBtn.addEventListener('click', () => {
+    if (lessonPlanPreviewView) lessonPlanPreviewView.classList.add('hidden');
+    if (lessonPlanConfigView) lessonPlanConfigView.classList.remove('hidden');
+  });
+}
+if (lessonPlanShuffleBtn) {
+  lessonPlanShuffleBtn.addEventListener('click', () => {
+    renderLessonPlanDocument();
+  });
+}
+if (lessonPlanPrintBtn) {
+  lessonPlanPrintBtn.addEventListener('click', () => {
+    window.print();
+  });
+}
+if (lessonPlanModal) {
+  lessonPlanModal.addEventListener('click', (e) => {
+    if (e.target === lessonPlanModal) closeLessonPlanModal();
+  });
+}
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && lessonPlanModal && !lessonPlanModal.classList.contains('hidden')) {
+    closeLessonPlanModal();
+  }
+});
+
+// ==========================================================================
 // Speech-to-Text Voice Input (Mic) Engine
 // ==========================================================================
 const micBtn = document.getElementById('micBtn');
@@ -2028,5 +3383,1236 @@ if (initialQuestion && initialQuestion.trim()) {
     sendQuestion(initialQuestion.trim());
   }, 700);
 }
+
+/* ==========================================================================
+   Main Chat Voice Microphone Recognition Handler
+   ========================================================================== */
+const mainChatMicBtn = document.getElementById('micBtn');
+const mainChatInput = document.getElementById('chatInput');
+let mainChatRecognition = null;
+let isMainChatListening = false;
+
+if (mainChatMicBtn && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  mainChatRecognition = new SpeechRec();
+  mainChatRecognition.continuous = false;
+  mainChatRecognition.interimResults = true;
+
+  mainChatRecognition.onstart = () => {
+    isMainChatListening = true;
+    mainChatMicBtn.classList.add('listening');
+    if (mainChatInput) mainChatInput.placeholder = 'Listening... बोलिए...';
+  };
+
+  mainChatRecognition.onresult = (event) => {
+    let transcript = '';
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      transcript += event.results[i][0].transcript;
+    }
+    if (mainChatInput && transcript) {
+      mainChatInput.value = transcript;
+    }
+  };
+
+  mainChatRecognition.onerror = (err) => {
+    console.warn('Speech recognition error:', err);
+    isMainChatListening = false;
+    mainChatMicBtn.classList.remove('listening');
+    if (mainChatInput) mainChatInput.placeholder = 'Type or click mic to speak...';
+  };
+
+  mainChatRecognition.onend = () => {
+    isMainChatListening = false;
+    mainChatMicBtn.classList.remove('listening');
+    if (mainChatInput) mainChatInput.placeholder = 'Type or click mic to speak...';
+  };
+
+  mainChatMicBtn.addEventListener('click', () => {
+    unlockAudioContext();
+    if (isMainChatListening) {
+      mainChatRecognition.stop();
+    } else {
+      const lang = (voiceSelect && voiceSelect.value === 'hindi') ? 'hi-IN' : 'en-IN';
+      mainChatRecognition.lang = lang;
+      try {
+        mainChatRecognition.start();
+      } catch (e) {
+        console.warn('Recognition start error:', e);
+      }
+    }
+  });
+}
+
+/* ==========================================================================
+   Oral Test / Interactive Voice Viva Implementation
+   ========================================================================== */
+const oralTestBtn = document.getElementById('oralTestBtn');
+const oralTestModal = document.getElementById('oralTestModal');
+const oralTestConfigView = document.getElementById('oralTestConfigView');
+const closeOralTestConfigBtn = document.getElementById('closeOralTestConfigBtn');
+const oralTestContextDisplay = document.getElementById('oralTestContextDisplay');
+const oralTestLoadingSpinner = document.getElementById('oralTestLoadingSpinner');
+const oralTestActiveOptions = document.getElementById('oralTestActiveOptions');
+const oralTestTotalCount = document.getElementById('oralTestTotalCount');
+const oralTestCountSelect = document.getElementById('oralTestCountSelect');
+const oralTestLangSelect = document.getElementById('oralTestLangSelect');
+const startOralTestBtn = document.getElementById('startOralTestBtn');
+
+const oralTestActiveView = document.getElementById('oralTestActiveView');
+const oralTestQuestionCounter = document.getElementById('oralTestQuestionCounter');
+const oralTestScoreBadge = document.getElementById('oralTestScoreBadge');
+const closeOralTestActiveBtn = document.getElementById('closeOralTestActiveBtn');
+const oralTestProgressBar = document.getElementById('oralTestProgressBar');
+const oralMascotHead = document.getElementById('oralMascotHead');
+const oralQuestionText = document.getElementById('oralQuestionText');
+const oralReplayAudioBtn = document.getElementById('oralReplayAudioBtn');
+const oralDiagramWrap = document.getElementById('oralDiagramWrap');
+const oralDiagramImg = document.getElementById('oralDiagramImg');
+
+const oralMicBtn = document.getElementById('oralMicBtn');
+const oralMicStatus = document.getElementById('oralMicStatus');
+const oralTranscriptInput = document.getElementById('oralTranscriptInput');
+const oralClearTranscriptBtn = document.getElementById('oralClearTranscriptBtn');
+const oralSkipQuestionBtn = document.getElementById('oralSkipQuestionBtn');
+const oralSubmitAnswerBtn = document.getElementById('oralSubmitAnswerBtn');
+
+const oralFeedbackCard = document.getElementById('oralFeedbackCard');
+const oralFeedbackScoreBadge = document.getElementById('oralFeedbackScoreBadge');
+const oralFeedbackVerdict = document.getElementById('oralFeedbackVerdict');
+const oralFeedbackSpeechMsg = document.getElementById('oralFeedbackSpeechMsg');
+const oralKeywordsMatchedList = document.getElementById('oralKeywordsMatchedList');
+const oralModelAnswerText = document.getElementById('oralModelAnswerText');
+const oralNextQuestionBtn = document.getElementById('oralNextQuestionBtn');
+
+const oralTestResultView = document.getElementById('oralTestResultView');
+const oralResultTitle = document.getElementById('oralResultTitle');
+const oralResultSubtitle = document.getElementById('oralResultSubtitle');
+const oralFinalScoreVal = document.getElementById('oralFinalScoreVal');
+const oralAwardBadge = document.getElementById('oralAwardBadge');
+const oralAwardDescription = document.getElementById('oralAwardDescription');
+const oralMetricTotal = document.getElementById('oralMetricTotal');
+const oralMetricPerfect = document.getElementById('oralMetricPerfect');
+const oralMetricAccuracy = document.getElementById('oralMetricAccuracy');
+const oralBreakdownList = document.getElementById('oralBreakdownList');
+const oralPrintScorecardBtn = document.getElementById('oralPrintScorecardBtn');
+const oralRetakeBtn = document.getElementById('oralRetakeBtn');
+const oralCloseResultBtn = document.getElementById('oralCloseResultBtn');
+
+let allOralPool = [];
+let activeOralQuestions = [];
+let currentOralIdx = 0;
+let oralTotalScore = 0;
+let oralMaxPossibleScore = 0;
+let oralUserAnswersRecord = [];
+let oralRecognition = null;
+let isOralListening = false;
+
+function closeOralTestModal() {
+  if (oralRecognition && isOralListening) {
+    try { oralRecognition.stop(); } catch(e){}
+    isOralListening = false;
+  }
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+  if (oralMascotHead) oralMascotHead.classList.remove('speaking');
+  if (oralTestModal) oralTestModal.classList.add('hidden');
+}
+
+async function openOralTestModal() {
+  unlockAudioContext();
+  if (!oralTestModal) return;
+
+  oralTestModal.classList.remove('hidden');
+  if (oralTestConfigView) oralTestConfigView.classList.remove('hidden');
+  if (oralTestActiveView) oralTestActiveView.classList.add('hidden');
+  if (oralTestResultView) oralTestResultView.classList.add('hidden');
+  if (oralTestLoadingSpinner) oralTestLoadingSpinner.classList.remove('hidden');
+  if (oralTestActiveOptions) oralTestActiveOptions.classList.add('hidden');
+
+  const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? ` • Chapter: ${currentChapter}` : '';
+  if (oralTestContextDisplay) {
+    oralTestContextDisplay.textContent = `${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}`;
+  }
+
+  try {
+    const url = `${API_URL}/worksheet-questions?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (oralTestLoadingSpinner) oralTestLoadingSpinner.classList.add('hidden');
+    allOralPool = data.questions || [];
+    const count = allOralPool.length;
+    if (oralTestTotalCount) oralTestTotalCount.textContent = count;
+
+    if (count > 0 && oralTestActiveOptions) {
+      oralTestActiveOptions.classList.remove('hidden');
+    }
+  } catch (err) {
+    console.warn('Failed to load questions for oral test:', err);
+    if (oralTestLoadingSpinner) oralTestLoadingSpinner.classList.add('hidden');
+    if (oralTestActiveOptions) oralTestActiveOptions.classList.remove('hidden');
+  }
+}
+
+// Mascot TTS Speech Function
+function speakMascotVoice(text, lang = 'indian_english', onDone = null) {
+  if (!window.speechSynthesis) {
+    if (onDone) onDone();
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 0.95;
+  utterance.pitch = 1.05;
+
+  if (lang === 'hindi') {
+    utterance.lang = 'hi-IN';
+  } else {
+    utterance.lang = 'en-IN';
+  }
+
+  if (oralMascotHead) oralMascotHead.classList.add('speaking');
+
+  utterance.onend = () => {
+    if (oralMascotHead) oralMascotHead.classList.remove('speaking');
+    if (onDone) onDone();
+  };
+
+  utterance.onerror = () => {
+    if (oralMascotHead) oralMascotHead.classList.remove('speaking');
+    if (onDone) onDone();
+  };
+
+  window.speechSynthesis.speak(utterance);
+}
+
+// Start Viva Run
+function startOralTestSession() {
+  if (!allOralPool || allOralPool.length === 0) {
+    alert('No questions available in this chapter for Oral Test.');
+    return;
+  }
+
+  const requestedCount = parseInt(oralTestCountSelect ? oralTestCountSelect.value : '5', 10) || 5;
+  const shuffled = [...allOralPool].sort(() => 0.5 - Math.random());
+  activeOralQuestions = shuffled.slice(0, Math.min(requestedCount, shuffled.length));
+
+  currentOralIdx = 0;
+  oralTotalScore = 0;
+  oralMaxPossibleScore = activeOralQuestions.length * 2;
+  oralUserAnswersRecord = [];
+
+  if (oralTestConfigView) oralTestConfigView.classList.add('hidden');
+  if (oralTestResultView) oralTestResultView.classList.add('hidden');
+  if (oralTestActiveView) oralTestActiveView.classList.remove('hidden');
+
+  renderCurrentOralQuestion();
+}
+
+function renderCurrentOralQuestion() {
+  if (currentOralIdx >= activeOralQuestions.length) {
+    showOralTestResults();
+    return;
+  }
+
+  const q = activeOralQuestions[currentOralIdx];
+  const qNum = currentOralIdx + 1;
+  const total = activeOralQuestions.length;
+
+  // Header & progress
+  if (oralTestQuestionCounter) oralTestQuestionCounter.textContent = `Question ${qNum} of ${total}`;
+  if (oralTestScoreBadge) oralTestScoreBadge.textContent = `Score: ${oralTotalScore} / ${oralMaxPossibleScore}`;
+  if (oralTestProgressBar) {
+    const pct = Math.round((qNum / total) * 100);
+    oralTestProgressBar.style.width = `${pct}%`;
+  }
+
+  // Question stage
+  if (oralQuestionText) oralQuestionText.textContent = q.question || 'Explain the concept.';
+
+  // Diagram handling
+  if (oralDiagramWrap && oralDiagramImg) {
+    if (q.imageUrl && q.imageUrl.trim()) {
+      oralDiagramImg.src = q.imageUrl.trim();
+      oralDiagramWrap.classList.remove('hidden');
+      oralDiagramImg.onclick = () => {
+        if (typeof openLightbox === 'function') openLightbox(q.imageUrl.trim());
+      };
+    } else {
+      oralDiagramWrap.classList.add('hidden');
+      oralDiagramImg.src = '';
+    }
+  }
+
+  // Reset student inputs
+  if (oralTranscriptInput) oralTranscriptInput.value = '';
+  if (oralMicStatus) {
+    oralMicStatus.textContent = 'Tap microphone and speak your answer';
+    oralMicStatus.classList.remove('active');
+  }
+  if (oralMicBtn) oralMicBtn.classList.remove('listening');
+  if (oralFeedbackCard) oralFeedbackCard.classList.add('hidden');
+  if (oralSubmitAnswerBtn) oralSubmitAnswerBtn.disabled = false;
+  if (oralSkipQuestionBtn) oralSkipQuestionBtn.disabled = false;
+
+  // Speak question
+  const selectedLang = oralTestLangSelect ? oralTestLangSelect.value : 'indian_english';
+  speakMascotVoice(`Question ${qNum}. ${q.question}`, selectedLang);
+}
+
+// Oral Speech Recognition Toggle
+function setupOralSpeechRecognition() {
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    if (oralMicStatus) oralMicStatus.textContent = 'Speech recognition not supported. You can type your answer below.';
+    return;
+  }
+
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  oralRecognition = new SpeechRec();
+  oralRecognition.continuous = false;
+  oralRecognition.interimResults = true;
+
+  oralRecognition.onstart = () => {
+    isOralListening = true;
+    if (oralMicBtn) oralMicBtn.classList.add('listening');
+    if (oralMicStatus) {
+      oralMicStatus.textContent = 'Listening to you... बोलिए 🎙️';
+      oralMicStatus.classList.add('active');
+    }
+  };
+
+  oralRecognition.onresult = (e) => {
+    let transcript = '';
+    for (let i = e.resultIndex; i < e.results.length; ++i) {
+      transcript += e.results[i][0].transcript;
+    }
+    if (oralTranscriptInput && transcript) {
+      oralTranscriptInput.value = transcript;
+    }
+  };
+
+  oralRecognition.onerror = (e) => {
+    console.warn('Oral recognition error:', e);
+    isOralListening = false;
+    if (oralMicBtn) oralMicBtn.classList.remove('listening');
+    if (oralMicStatus) {
+      oralMicStatus.textContent = 'Tap microphone to speak again';
+      oralMicStatus.classList.remove('active');
+    }
+  };
+
+  oralRecognition.onend = () => {
+    isOralListening = false;
+    if (oralMicBtn) oralMicBtn.classList.remove('listening');
+    if (oralMicStatus) {
+      oralMicStatus.textContent = 'Voice captured! Tap Submit or speak more.';
+      oralMicStatus.classList.remove('active');
+    }
+  };
+}
+
+function toggleOralListening() {
+  unlockAudioContext();
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (oralMascotHead) oralMascotHead.classList.remove('speaking');
+
+  if (!oralRecognition) {
+    setupOralSpeechRecognition();
+  }
+
+  if (!oralRecognition) {
+    if (oralTranscriptInput) oralTranscriptInput.focus();
+    return;
+  }
+
+  if (isOralListening) {
+    try { oralRecognition.stop(); } catch(e){}
+    isOralListening = false;
+  } else {
+    const selectedLang = oralTestLangSelect ? oralTestLangSelect.value : 'indian_english';
+    oralRecognition.lang = (selectedLang === 'hindi') ? 'hi-IN' : 'en-IN';
+    try {
+      oralRecognition.start();
+    } catch(err) {
+      console.warn('Recognition start retry:', err);
+    }
+  }
+}
+
+// Stopwords set for keyword extraction
+const STOP_WORDS = new Set([
+  'the', 'is', 'are', 'was', 'were', 'and', 'that', 'this', 'with', 'from',
+  'have', 'has', 'had', 'what', 'when', 'where', 'which', 'who', 'whom',
+  'their', 'there', 'they', 'them', 'about', 'into', 'some', 'any', 'each',
+  'more', 'most', 'very', 'been', 'being', 'also', 'because', 'does', 'did',
+  'than', 'then', 'will', 'would', 'could', 'should', 'called', 'known'
+]);
+
+function extractKeywords(text) {
+  if (!text) return [];
+  const words = text.toLowerCase()
+    .replace(/[^a-z0-9\u0900-\u097F\s]/gi, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !STOP_WORDS.has(w));
+  return Array.from(new Set(words));
+}
+
+// Evaluate Student Spoken Answer
+function evaluateOralAnswer(isSkip = false) {
+  if (isOralListening && oralRecognition) {
+    try { oralRecognition.stop(); } catch(e){}
+  }
+
+  const q = activeOralQuestions[currentOralIdx];
+  const studentText = (oralTranscriptInput ? oralTranscriptInput.value : '').trim();
+  const expectedAnswer = q.answer || '';
+  const expectedKeywords = extractKeywords(expectedAnswer);
+
+  let questionScore = 0;
+  let verdict = 'Needs Revision';
+  let speechMsg = '';
+  let matchedKeywords = [];
+  let missingKeywords = [];
+
+  if (isSkip || !studentText) {
+    questionScore = 0;
+    verdict = isSkip ? 'Question Skipped' : 'No Answer Provided';
+    speechMsg = "No worries! Let's examine the textbook answer so you can master it.";
+    missingKeywords = expectedKeywords.slice(0, 4);
+  } else {
+    const studentWords = new Set(
+      studentText.toLowerCase()
+        .replace(/[^a-z0-9\u0900-\u097F\s]/gi, ' ')
+        .split(/\s+/)
+    );
+
+    matchedKeywords = expectedKeywords.filter(kw => studentWords.has(kw));
+    missingKeywords = expectedKeywords.filter(kw => !studentWords.has(kw));
+
+    const matchRatio = expectedKeywords.length > 0 ? (matchedKeywords.length / expectedKeywords.length) : 0.5;
+
+    if (matchRatio >= 0.4 || matchedKeywords.length >= 3) {
+      questionScore = 2;
+      verdict = '⭐⭐ Outstanding Answer!';
+      speechMsg = 'Brilliant! You captured the fundamental concepts and explained them clearly.';
+    } else if (matchRatio >= 0.15 || matchedKeywords.length >= 1 || studentText.split(/\s+/).length >= 5) {
+      questionScore = 1;
+      verdict = '⭐ Good Effort!';
+      speechMsg = 'Good attempt! You mentioned key points. Review the textbook answer to get full marks next time.';
+    } else {
+      questionScore = 0;
+      verdict = 'Needs Revision';
+      speechMsg = "Keep practicing! Review the model answer below to strengthen your understanding.";
+    }
+  }
+
+  oralTotalScore += questionScore;
+  if (oralTestScoreBadge) oralTestScoreBadge.textContent = `Score: ${oralTotalScore} / ${oralMaxPossibleScore}`;
+
+  // Save record
+  oralUserAnswersRecord.push({
+    question: q.question,
+    expectedAnswer: expectedAnswer,
+    studentAnswer: studentText || '(Skipped / No answer spoken)',
+    score: questionScore,
+    maxScore: 2,
+    verdict: verdict,
+    matchedKeywords: matchedKeywords,
+    missingKeywords: missingKeywords.slice(0, 4)
+  });
+
+  // Display Feedback Card
+  if (oralFeedbackCard) {
+    oralFeedbackCard.classList.remove('hidden');
+    if (oralFeedbackScoreBadge) oralFeedbackScoreBadge.textContent = `Score: ${questionScore} / 2 Marks`;
+    if (oralFeedbackVerdict) oralFeedbackVerdict.textContent = verdict;
+    if (oralFeedbackSpeechMsg) oralFeedbackSpeechMsg.textContent = speechMsg;
+
+    if (oralKeywordsMatchedList) {
+      oralKeywordsMatchedList.innerHTML = '';
+      if (matchedKeywords.length > 0) {
+        matchedKeywords.forEach(kw => {
+          const tag = document.createElement('span');
+          tag.className = 'kw-tag';
+          tag.innerHTML = `✓ ${kw}`;
+          oralKeywordsMatchedList.appendChild(tag);
+        });
+      }
+      if (missingKeywords.length > 0) {
+        missingKeywords.slice(0, 3).forEach(kw => {
+          const tag = document.createElement('span');
+          tag.className = 'kw-tag missing';
+          tag.innerHTML = `✗ ${kw}`;
+          oralKeywordsMatchedList.appendChild(tag);
+        });
+      }
+      if (matchedKeywords.length === 0 && missingKeywords.length === 0) {
+        oralKeywordsMatchedList.innerHTML = '<span style="font-size: 0.8rem; color: #888;">General conceptual response</span>';
+      }
+    }
+
+    if (oralModelAnswerText) {
+      oralModelAnswerText.textContent = expectedAnswer || 'Refer to chapter textbook notes.';
+    }
+  }
+
+  if (oralSubmitAnswerBtn) oralSubmitAnswerBtn.disabled = true;
+  if (oralSkipQuestionBtn) oralSkipQuestionBtn.disabled = true;
+
+  // Speak short feedback
+  const selectedLang = oralTestLangSelect ? oralTestLangSelect.value : 'indian_english';
+  speakMascotVoice(speechMsg, selectedLang);
+}
+
+// Show Final Viva Results & Scorecard
+function showOralTestResults() {
+  if (oralTestActiveView) oralTestActiveView.classList.add('hidden');
+  if (oralTestResultView) oralTestResultView.classList.remove('hidden');
+
+  const totalPossible = oralMaxPossibleScore || (activeOralQuestions.length * 2);
+  const percentage = totalPossible > 0 ? Math.round((oralTotalScore / totalPossible) * 100) : 0;
+  const perfectCount = oralUserAnswersRecord.filter(r => r.score === 2).length;
+
+  if (oralFinalScoreVal) oralFinalScoreVal.textContent = `${oralTotalScore} / ${totalPossible}`;
+  if (oralMetricTotal) oralMetricTotal.textContent = activeOralQuestions.length;
+  if (oralMetricPerfect) oralMetricPerfect.textContent = perfectCount;
+  if (oralMetricAccuracy) oralMetricAccuracy.textContent = `${percentage}%`;
+
+  let badgeTitle = '🌟 Concept Master (A+ Grade)';
+  let badgeDesc = 'Exceptional conceptual clarity, vocabulary, and speaking confidence!';
+  let cheerAudio = "Outstanding performance in your Viva! You know your chapter inside out.";
+
+  if (percentage < 50) {
+    badgeTitle = '🌱 Budding Scholar (Needs Revision)';
+    badgeDesc = 'Good start! Revisit the key chapter definitions and practice speaking them aloud.';
+    cheerAudio = "Good effort! Practice makes perfect. Review your notes and try again!";
+  } else if (percentage < 75) {
+    badgeTitle = '🎯 Rising Achiever (B Grade)';
+    badgeDesc = 'Strong grasp of basic concepts. A little more revision will make you unbeatable!';
+    cheerAudio = "Well done! You have a good grasp of the concepts.";
+  }
+
+  if (oralAwardBadge) oralAwardBadge.textContent = badgeTitle;
+  if (oralAwardDescription) oralAwardDescription.textContent = badgeDesc;
+
+  // Render question breakdown list
+  if (oralBreakdownList) {
+    oralBreakdownList.innerHTML = '';
+    oralUserAnswersRecord.forEach((rec, idx) => {
+      const row = document.createElement('div');
+      row.className = 'breakdown-row';
+
+      let markClass = 'zero';
+      if (rec.score === 2) markClass = 'perfect';
+      else if (rec.score === 1) markClass = 'partial';
+
+      row.innerHTML = `
+        <div class="breakdown-top">
+          <span class="breakdown-q">${idx + 1}. ${rec.question}</span>
+          <span class="breakdown-marks ${markClass}">${rec.score} / ${rec.maxScore} Marks</span>
+        </div>
+        <div class="breakdown-spoken"><strong>Your Response:</strong> "${rec.studentAnswer}"</div>
+        <div class="breakdown-model"><strong>Reference:</strong> ${rec.expectedAnswer}</div>
+      `;
+      oralBreakdownList.appendChild(row);
+    });
+  }
+
+  const selectedLang = oralTestLangSelect ? oralTestLangSelect.value : 'indian_english';
+  speakMascotVoice(cheerAudio, selectedLang);
+}
+
+// Print Viva Report Sheet
+function printOralScorecard() {
+  const studentName = prompt('Enter Student Name for Viva Report:', 'Student Scholar') || 'Student Scholar';
+  const schoolName = localStorage.getItem('studybuddy_worksheet_school') || '';
+  const now = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? currentChapter : 'All Chapters';
+  const totalPossible = oralMaxPossibleScore || (activeOralQuestions.length * 2);
+  const percentage = totalPossible > 0 ? Math.round((oralTotalScore / totalPossible) * 100) : 0;
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Please allow popups to print/save your Viva report!');
+    return;
+  }
+
+  let rowsHtml = '';
+  oralUserAnswersRecord.forEach((rec, idx) => {
+    rowsHtml += `
+      <div style="margin-bottom: 1rem; padding-bottom: 0.8rem; border-bottom: 1px solid #ddd;">
+        <div style="font-weight: 700; font-size: 1rem; color: #1e1938;">Q${idx + 1}: ${rec.question} <span style="float: right; color: ${rec.score === 2 ? '#15803d' : '#b45309'};">[Marks: ${rec.score}/${rec.maxScore}]</span></div>
+        <div style="font-size: 0.9rem; color: #444; margin-top: 0.3rem;"><strong>Student's Spoken Answer:</strong> "${rec.studentAnswer}"</div>
+        <div style="font-size: 0.85rem; color: #047857; margin-top: 0.2rem; background: #f0fdf4; padding: 0.3rem 0.5rem; border-radius: 4px;"><strong>Textbook Key Concept:</strong> ${rec.expectedAnswer}</div>
+      </div>
+    `;
+  });
+
+  printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Oral Assessment (Voice Viva) Report - ${studentName}</title>
+  <style>
+    @page { size: portrait; margin: 1.5cm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Baloo 2", Arial, sans-serif; margin: 0; padding: 1.5rem; color: #222; }
+    .header { text-align: center; border-bottom: 2px solid #2b3a8c; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .school { font-size: 1.4rem; font-weight: 800; color: #1a237e; text-transform: uppercase; }
+    .title { font-size: 1.2rem; font-weight: 700; color: #4f46e5; margin: 0.3rem 0; }
+    .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; background: #f8fafc; border-radius: 8px; overflow: hidden; }
+    .meta-table td { padding: 0.5rem 1rem; border: 1px solid #e2e8f0; font-size: 0.9rem; }
+    .score-banner { background: #eef2ff; border: 1.5px solid #c7d2fe; border-radius: 10px; padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    .score-val { font-size: 1.6rem; font-weight: 800; color: #4338ca; }
+    .sign-row { display: flex; justify-content: space-between; margin-top: 3rem; }
+    .sign-box { text-align: center; width: 180px; border-top: 1.5px solid #333; padding-top: 0.3rem; font-size: 0.85rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    ${schoolName ? `<div class="school">${schoolName}</div>` : ''}
+    <div class="title">STUDENT ORAL ASSESSMENT / VOICE VIVA REPORT</div>
+    <div style="font-size: 0.88rem; color: #64748b;">Conducted via Study Buddy AI Interactive Voice Suite</div>
+  </div>
+
+  <table class="meta-table">
+    <tr>
+      <td><strong>Student Name:</strong> ${studentName}</td>
+      <td><strong>Date:</strong> ${now}</td>
+    </tr>
+    <tr>
+      <td><strong>Class & Subject:</strong> ${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}</td>
+      <td><strong>Chapter:</strong> ${chapLabel}</td>
+    </tr>
+  </table>
+
+  <div class="score-banner">
+    <div>
+      <div style="font-size: 0.8rem; text-transform: uppercase; color: #6366f1; font-weight: 700;">Overall Viva Performance</div>
+      <div style="font-size: 1.1rem; font-weight: 700; color: #1e1b4b;">${oralAwardBadge ? oralAwardBadge.textContent : 'Concept Master'}</div>
+    </div>
+    <div class="score-val">${oralTotalScore} / ${totalPossible} (${percentage}%)</div>
+  </div>
+
+  <h3 style="color: #1e1b4b; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.4rem; font-size: 1.05rem;">Detailed Question Evaluation</h3>
+  <div>${rowsHtml}</div>
+
+  <div class="sign-row">
+    <div class="sign-box">Student Signature</div>
+    <div class="sign-box">Examiner / Teacher Signature</div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() { window.print(); }, 250);
+    };
+  <\/script>
+</body>
+</html>`);
+  printWindow.document.close();
+}
+
+// Bind Oral Test Event Listeners
+if (oralTestBtn) oralTestBtn.addEventListener('click', openOralTestModal);
+if (closeOralTestConfigBtn) closeOralTestConfigBtn.addEventListener('click', closeOralTestModal);
+if (closeOralTestActiveBtn) closeOralTestActiveBtn.addEventListener('click', closeOralTestModal);
+if (oralCloseResultBtn) oralCloseResultBtn.addEventListener('click', closeOralTestModal);
+if (startOralTestBtn) startOralTestBtn.addEventListener('click', startOralTestSession);
+if (oralMicBtn) oralMicBtn.addEventListener('click', toggleOralListening);
+if (oralClearTranscriptBtn) oralClearTranscriptBtn.addEventListener('click', () => {
+  if (oralTranscriptInput) oralTranscriptInput.value = '';
+});
+if (oralSkipQuestionBtn) oralSkipQuestionBtn.addEventListener('click', () => evaluateOralAnswer(true));
+if (oralSubmitAnswerBtn) oralSubmitAnswerBtn.addEventListener('click', () => evaluateOralAnswer(false));
+if (oralReplayAudioBtn) oralReplayAudioBtn.addEventListener('click', () => {
+  const q = activeOralQuestions[currentOralIdx];
+  if (q) {
+    const selectedLang = oralTestLangSelect ? oralTestLangSelect.value : 'indian_english';
+    speakMascotVoice(`Question ${currentOralIdx + 1}. ${q.question}`, selectedLang);
+  }
+});
+if (oralNextQuestionBtn) oralNextQuestionBtn.addEventListener('click', () => {
+  currentOralIdx++;
+  renderCurrentOralQuestion();
+});
+if (oralRetakeBtn) oralRetakeBtn.addEventListener('click', startOralTestSession);
+if (oralPrintScorecardBtn) oralPrintScorecardBtn.addEventListener('click', printOralScorecard);
+
+// Close on Escape or Backdrop click
+if (oralTestModal) {
+  oralTestModal.addEventListener('click', (e) => {
+    if (e.target === oralTestModal) closeOralTestModal();
+  });
+}
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && oralTestModal && !oralTestModal.classList.contains('hidden')) {
+    closeOralTestModal();
+  }
+});
+
+/* ==========================================================================
+   Interactive Concept Mind Map Engine Implementation
+   ========================================================================== */
+const mindMapBtn = document.getElementById('mindMapBtn');
+const mindMapModal = document.getElementById('mindMapModal');
+const closeMindMapBtn = document.getElementById('closeMindMapBtn');
+const mindMapSubtitle = document.getElementById('mindMapSubtitle');
+const mindMapZoomInBtn = document.getElementById('mindMapZoomInBtn');
+const mindMapZoomOutBtn = document.getElementById('mindMapZoomOutBtn');
+const mindMapResetZoomBtn = document.getElementById('mindMapResetZoomBtn');
+const mindMapPrintPosterBtn = document.getElementById('mindMapPrintPosterBtn');
+
+const mindMapViewport = document.getElementById('mindMapViewport');
+const mindMapLoading = document.getElementById('mindMapLoading');
+const mindMapCanvasWrap = document.getElementById('mindMapCanvasWrap');
+const mindMapSvg = document.getElementById('mindMapSvg');
+const mindMapLinksGroup = document.getElementById('mindMapLinksGroup');
+const mindMapNodesGroup = document.getElementById('mindMapNodesGroup');
+
+const conceptSpotlightDrawer = document.getElementById('conceptSpotlightDrawer');
+const spotlightCategory = document.getElementById('spotlightCategory');
+const spotlightTitle = document.getElementById('spotlightTitle');
+const spotlightContent = document.getElementById('spotlightContent');
+const spotlightDiagramWrap = document.getElementById('spotlightDiagramWrap');
+const spotlightImg = document.getElementById('spotlightImg');
+const closeSpotlightBtn = document.getElementById('closeSpotlightBtn');
+
+let mindMapCurrentZoom = 1;
+let allMindMapQuestions = [];
+
+function closeMindMapModal() {
+  if (mindMapModal) mindMapModal.classList.add('hidden');
+  if (conceptSpotlightDrawer) conceptSpotlightDrawer.classList.add('hidden');
+}
+
+function updateMindMapZoom(newZoom) {
+  mindMapCurrentZoom = Math.min(Math.max(newZoom, 0.5), 2.2);
+  if (mindMapCanvasWrap) {
+    mindMapCanvasWrap.style.transform = `scale(${mindMapCurrentZoom})`;
+  }
+}
+
+async function openMindMapModal() {
+  unlockAudioContext();
+  if (!mindMapModal) return;
+
+  mindMapModal.classList.remove('hidden');
+  if (conceptSpotlightDrawer) conceptSpotlightDrawer.classList.add('hidden');
+  if (mindMapLoading) mindMapLoading.classList.remove('hidden');
+  updateMindMapZoom(1);
+
+  const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? ` • Chapter: ${currentChapter}` : '';
+  if (mindMapSubtitle) {
+    mindMapSubtitle.textContent = `${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}`;
+  }
+
+  try {
+    // 1. Check if DB has curated/AI Mind Map saved for this chapter
+    try {
+      const pedUrl = `${PEDAGOGY_API_URL}?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
+      const pedRes = await fetch(pedUrl);
+      const pedData = await pedRes.json();
+      activeDbMindMap = (pedData.exists && pedData.data && pedData.data.mindMap && pedData.data.mindMap.centralTopic) ? pedData.data.mindMap : null;
+    } catch (pedErr) {
+      activeDbMindMap = null;
+    }
+
+    const url = `${API_URL}/worksheet-questions?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    allMindMapQuestions = data.questions || [];
+
+    if (mindMapLoading) mindMapLoading.classList.add('hidden');
+    renderConceptMindMap();
+  } catch (err) {
+    console.warn('Failed to load questions for mind map:', err);
+    if (mindMapLoading) mindMapLoading.classList.add('hidden');
+    renderConceptMindMap();
+  }
+}
+
+function categorizeMindMapData(questions) {
+  const categories = [
+    {
+      id: 'fundamentals',
+      name: 'Core Definitions & Concepts',
+      color: '#6366f1',
+      items: []
+    },
+    {
+      id: 'processes',
+      name: 'Processes & Mechanisms',
+      color: '#059669',
+      items: []
+    },
+    {
+      id: 'structures',
+      name: 'Structures, Organs & Roles',
+      color: '#d97706',
+      items: []
+    },
+    {
+      id: 'diagrams',
+      name: 'Visual Models & Diagrams',
+      color: '#0284c7',
+      items: []
+    },
+    {
+      id: 'facts',
+      name: 'Key Facts & Applications',
+      color: '#db2777',
+      items: []
+    }
+  ];
+
+  if (!questions || questions.length === 0) {
+    // Fallback template
+    categories[0].items.push({
+      shortTitle: 'Water Cycle',
+      question: 'What is the water cycle?',
+      answer: "The continuous movement of water from the earth's surface to the atmosphere and back."
+    });
+    categories[1].items.push({
+      shortTitle: 'Evaporation',
+      question: 'What is evaporation?',
+      answer: 'The process of turning liquid water into vapor through heat.'
+    });
+    categories[2].items.push({
+      shortTitle: 'Heart Function',
+      question: 'Which organ pumps blood throughout the body?',
+      answer: 'The heart pumps blood through arteries and veins to all organs.'
+    });
+    return categories;
+  }
+
+  questions.forEach((q) => {
+    const text = (q.question || '').toLowerCase();
+    const ans = (q.answer || '').toLowerCase();
+    const hasImg = Boolean(q.imageUrl && q.imageUrl.trim());
+
+    // Clean title for leaf node (max 30 chars)
+    let short = q.question.replace(/^(what is|explain|define|how does|which|name the|why do)\s+/i, '');
+    short = short.replace(/[?.!:]+$/, '').trim();
+    if (short.length > 24) short = short.substring(0, 24) + '...';
+    if (!short) short = 'Concept Fact';
+
+    const itemObj = {
+      shortTitle: short,
+      question: q.question,
+      answer: q.answer,
+      imageUrl: q.imageUrl
+    };
+
+    if (hasImg) {
+      categories[3].items.push(itemObj);
+    } else if (/how|process|cycle|movement|flow|steps|condensation|evaporation/i.test(text + ' ' + ans)) {
+      categories[1].items.push(itemObj);
+    } else if (/organ|pump|blood|body|function|muscle|structure|brain|heart|lungs/i.test(text + ' ' + ans)) {
+      categories[2].items.push(itemObj);
+    } else if (/define|definition|what is|meaning|called|term/i.test(text)) {
+      categories[0].items.push(itemObj);
+    } else {
+      categories[4].items.push(itemObj);
+    }
+  });
+
+  // Filter out completely empty branches and limit leaves to 4 per branch
+  return categories.filter(c => c.items.length > 0).map(c => ({
+    ...c,
+    items: c.items.slice(0, 4)
+  }));
+}
+
+function renderConceptMindMap() {
+  if (!mindMapSvg || !mindMapLinksGroup || !mindMapNodesGroup) return;
+
+  mindMapLinksGroup.innerHTML = '';
+  mindMapNodesGroup.innerHTML = '';
+
+  let categories = [];
+  if (activeDbMindMap && activeDbMindMap.branches && activeDbMindMap.branches.length > 0) {
+    categories = activeDbMindMap.branches.map(b => ({
+      id: b.id || 'branch',
+      name: b.title,
+      color: b.color || '#6366f1',
+      items: (b.subtopics || []).map(s => ({
+        shortTitle: s.name,
+        question: s.name,
+        answer: s.detail || s.name,
+        imageUrl: ''
+      }))
+    }));
+  } else {
+    categories = categorizeMindMapData(allMindMapQuestions);
+  }
+
+  // 1. Distribute Branches (Left & Right)
+  const leftBranches = [];
+  const rightBranches = [];
+
+  categories.forEach((cat, idx) => {
+    if (idx % 2 === 0) {
+      rightBranches.push(cat);
+    } else {
+      leftBranches.push(cat);
+    }
+  });
+
+  const maxSideBranches = Math.max(leftBranches.length, rightBranches.length, 1);
+  const svgWidth = 1180;
+  // Calculate dynamic height so 1 or 2 branches don't get squashed or lost in a huge empty box
+  const svgHeight = maxSideBranches === 1 ? 400 : (maxSideBranches === 2 ? 540 : 700);
+  const cx = svgWidth / 2;
+  const cy = svgHeight / 2;
+
+  // Set SVG viewbox
+  mindMapSvg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+
+  // 2. Render Center Root Node
+  const rootTitle = (activeDbMindMap && activeDbMindMap.centralTopic)
+    ? activeDbMindMap.centralTopic
+    : ((currentChapter && currentChapter !== 'All Chapters') ? currentChapter : (currentBook || 'Study Buddy'));
+  const rootG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  rootG.setAttribute('class', 'node-root');
+  rootG.setAttribute('transform', `translate(${cx}, ${cy})`);
+
+  const rootRectW = Math.max(180, rootTitle.length * 9.5 + 40);
+  const rootRectH = 50;
+
+  const rootRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rootRect.setAttribute('x', -rootRectW / 2);
+  rootRect.setAttribute('y', -rootRectH / 2);
+  rootRect.setAttribute('width', rootRectW);
+  rootRect.setAttribute('height', rootRectH);
+  rootRect.setAttribute('fill', '#4338ca');
+  rootRect.setAttribute('stroke', '#312e81');
+  rootRect.setAttribute('stroke-width', '2');
+  rootRect.setAttribute('rx', '18');
+  rootRect.setAttribute('ry', '18');
+
+  const rootText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  rootText.textContent = `📖 ${rootTitle}`;
+  rootText.setAttribute('fill', '#ffffff');
+  rootText.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Baloo 2", sans-serif');
+  rootText.setAttribute('font-weight', '700');
+  rootText.setAttribute('font-size', '15px');
+  rootText.setAttribute('text-anchor', 'middle');
+  rootText.setAttribute('dominant-baseline', 'central');
+
+  rootG.appendChild(rootRect);
+  rootG.appendChild(rootText);
+  rootG.addEventListener('click', () => {
+    openSpotlight({
+      category: 'Chapter Overview',
+      question: rootTitle,
+      answer: `Central theme covering all concepts, definitions, diagrams, and processes in ${currentBook || 'this book'}.`
+    });
+  });
+
+  // Helper to draw smooth bezier link
+  function drawCurvedLink(x1, y1, x2, y2, color = '#cbd5e1') {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    const dx = Math.abs(x2 - x1) * 0.55;
+    const d = `M ${x1} ${y1} C ${x1 + (x2 > x1 ? dx : -dx)} ${y1}, ${x2 - (x2 > x1 ? dx : -dx)} ${y2}, ${x2} ${y2}`;
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'mindmap-link');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width', '2.5');
+    path.setAttribute('stroke-linecap', 'round');
+    mindMapLinksGroup.appendChild(path);
+    return path;
+  }
+
+  // Helper to render branch side
+  function renderSideBranches(branches, isRight) {
+    const count = branches.length;
+    if (count === 0) return;
+
+    const startY = count === 1 ? cy : 120;
+    const availableH = svgHeight - 240;
+    const branchSpacing = count > 1 ? availableH / (count - 1) : 0;
+
+    branches.forEach((branch, bIdx) => {
+      const bx = isRight ? (cx + 250) : (cx - 250);
+      const by = count === 1 ? cy : (startY + bIdx * branchSpacing);
+
+      // Link Root -> Branch
+      const rootEdgeX = isRight ? (cx + rootRectW / 2) : (cx - rootRectW / 2);
+      drawCurvedLink(rootEdgeX, cy, isRight ? (bx - 90) : (bx + 90), by, branch.color);
+
+      // Branch Group
+      const branchG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      branchG.setAttribute('class', 'node-branch');
+      branchG.setAttribute('transform', `translate(${bx}, ${by})`);
+
+      const bRectW = 190;
+      const bRectH = 40;
+      const bRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bRect.setAttribute('x', -bRectW / 2);
+      bRect.setAttribute('y', -bRectH / 2);
+      bRect.setAttribute('width', bRectW);
+      bRect.setAttribute('height', bRectH);
+      bRect.setAttribute('fill', branch.color);
+      bRect.setAttribute('rx', '12');
+      bRect.setAttribute('ry', '12');
+
+      const bText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      bText.textContent = branch.name.length > 22 ? (branch.name.substring(0, 20) + '..') : branch.name;
+      bText.setAttribute('fill', '#ffffff');
+      bText.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+      bText.setAttribute('font-weight', '700');
+      bText.setAttribute('font-size', '13px');
+      bText.setAttribute('text-anchor', 'middle');
+      bText.setAttribute('dominant-baseline', 'central');
+
+      branchG.appendChild(bRect);
+      branchG.appendChild(bText);
+      branchG.addEventListener('click', () => {
+        openSpotlight({
+          category: 'Topic Theme',
+          question: branch.name,
+          answer: `Contains ${branch.items.length} critical concepts and questions from this section.`
+        });
+      });
+      mindMapNodesGroup.appendChild(branchG);
+
+      // Render Leaves for this branch
+      const leafCount = branch.items.length;
+      if (leafCount > 0) {
+        const leafSpread = Math.min(leafCount * 54, count === 1 ? 220 : 140);
+        const leafStartY = by - (leafSpread / 2);
+        const leafStep = leafCount > 1 ? leafSpread / (leafCount - 1) : 0;
+
+        branch.items.forEach((item, lIdx) => {
+          const lx = isRight ? (bx + 210) : (bx - 210);
+          const ly = leafCount === 1 ? by : (leafStartY + lIdx * leafStep);
+
+          // Link Branch -> Leaf
+          const bEdgeX = isRight ? (bx + bRectW / 2) : (bx - bRectW / 2);
+          drawCurvedLink(bEdgeX, by, isRight ? (lx - 85) : (lx + 85), ly, branch.color);
+
+          // Leaf Group
+          const leafG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          leafG.setAttribute('class', 'node-leaf');
+          leafG.setAttribute('transform', `translate(${lx}, ${ly})`);
+
+          const lRectW = Math.max(160, Math.min(220, item.shortTitle.length * 8.5 + 24));
+          const lRectH = 32;
+          const lRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          lRect.setAttribute('x', -lRectW / 2);
+          lRect.setAttribute('y', -lRectH / 2);
+          lRect.setAttribute('width', lRectW);
+          lRect.setAttribute('height', lRectH);
+          lRect.setAttribute('fill', '#ffffff');
+          lRect.setAttribute('stroke', branch.color || '#6366f1');
+          lRect.setAttribute('stroke-width', '1.8');
+          lRect.setAttribute('rx', '8');
+          lRect.setAttribute('ry', '8');
+
+          const lText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          lText.textContent = item.shortTitle;
+          lText.setAttribute('fill', '#0f172a');
+          lText.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif');
+          lText.setAttribute('font-weight', '600');
+          lText.setAttribute('font-size', '12px');
+          lText.setAttribute('text-anchor', 'middle');
+          lText.setAttribute('dominant-baseline', 'central');
+
+          leafG.appendChild(lRect);
+          leafG.appendChild(lText);
+          leafG.addEventListener('click', () => {
+            openSpotlight({
+              category: branch.name,
+              question: item.question,
+              answer: item.answer,
+              imageUrl: item.imageUrl
+            });
+          });
+          mindMapNodesGroup.appendChild(leafG);
+        });
+      }
+    });
+  }
+
+  renderSideBranches(rightBranches, true);
+  renderSideBranches(leftBranches, false);
+
+  // Append central root at top z-index
+  mindMapNodesGroup.appendChild(rootG);
+}
+
+// Concept Spotlight Drawer Popup
+function openSpotlight(item) {
+  if (!conceptSpotlightDrawer) return;
+
+  if (spotlightCategory) spotlightCategory.textContent = item.category || 'Concept Spotlight';
+  if (spotlightTitle) spotlightTitle.textContent = item.question || item.title || 'Core Idea';
+  if (spotlightContent) spotlightContent.textContent = item.answer || 'Detailed chapter notes.';
+
+  if (spotlightDiagramWrap && spotlightImg) {
+    if (item.imageUrl && item.imageUrl.trim()) {
+      spotlightImg.src = item.imageUrl.trim();
+      spotlightDiagramWrap.classList.remove('hidden');
+      spotlightImg.onclick = () => {
+        if (typeof openLightbox === 'function') openLightbox(item.imageUrl.trim());
+      };
+    } else {
+      spotlightDiagramWrap.classList.add('hidden');
+      spotlightImg.src = '';
+    }
+  }
+
+  conceptSpotlightDrawer.classList.remove('hidden');
+}
+
+if (closeSpotlightBtn) {
+  closeSpotlightBtn.addEventListener('click', () => {
+    if (conceptSpotlightDrawer) conceptSpotlightDrawer.classList.add('hidden');
+  });
+}
+
+// Zoom and Pan Controls
+if (mindMapZoomInBtn) mindMapZoomInBtn.addEventListener('click', () => updateMindMapZoom(mindMapCurrentZoom + 0.15));
+if (mindMapZoomOutBtn) mindMapZoomOutBtn.addEventListener('click', () => updateMindMapZoom(mindMapCurrentZoom - 0.15));
+if (mindMapResetZoomBtn) mindMapResetZoomBtn.addEventListener('click', () => updateMindMapZoom(1));
+
+// Print Mind Map Landscape Poster
+function printMindMapPoster() {
+  const schoolName = localStorage.getItem('studybuddy_worksheet_school') || '';
+  const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? currentChapter : 'All Chapters';
+  const now = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const svgContent = mindMapSvg ? mindMapSvg.outerHTML : '';
+
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Please allow popups to print/save your Mind Map poster!');
+    return;
+  }
+
+  printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Chapter Concept Mind Map - ${chapLabel}</title>
+  <style>
+    @page { size: landscape; margin: 0.8cm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Baloo 2", Arial, sans-serif;
+      margin: 0;
+      padding: 0.8rem;
+      color: #1e293b;
+      background: #ffffff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .poster-header {
+      text-align: center;
+      border-bottom: 2.5px solid #4338ca;
+      padding-bottom: 0.5rem;
+      margin-bottom: 0.8rem;
+    }
+    .school {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #1e1b4b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .title {
+      font-size: 1.45rem;
+      font-weight: 900;
+      color: #4338ca;
+      margin: 0.15rem 0;
+      letter-spacing: 0.5px;
+    }
+    .sub {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #475569;
+    }
+    .svg-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    svg {
+      width: 100%;
+      height: auto;
+      max-height: 76vh;
+    }
+    /* Explicit Vector Print Styles - Guarantees zero black boxes */
+    .node-root rect { fill: #4338ca !important; rx: 18px; }
+    .node-root text { fill: #ffffff !important; font-weight: 700; font-size: 15px; }
+    .node-branch rect { rx: 12px; }
+    .node-branch text { fill: #ffffff !important; font-weight: 700; font-size: 13px; }
+    .node-leaf rect { fill: #ffffff !important; stroke-width: 1.8px !important; rx: 8px; }
+    .node-leaf text { fill: #0f172a !important; font-weight: 600; font-size: 12px; }
+    .mindmap-link { fill: none !important; stroke-linecap: round; }
+    .poster-footer {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.8rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #64748b;
+      border-top: 1px dashed #cbd5e1;
+      padding-top: 0.4rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="poster-header">
+    ${schoolName ? `<div class="school">${schoolName}</div>` : ''}
+    <div class="title">VISUAL CHAPTER CONCEPT MIND MAP</div>
+    <div class="sub">${currentClass || 'Class 3'} • ${currentBook || 'Ripples'} • ${chapLabel}</div>
+  </div>
+
+  <div class="svg-container">
+    ${svgContent}
+  </div>
+
+  <div class="poster-footer">
+    <div>Generated via Study Buddy AI Concept Learning Suite</div>
+    <div>Date: ${now}</div>
+  </div>
+
+  <script>
+    window.onload = function() {
+      setTimeout(function() { window.print(); }, 250);
+    };
+  <\/script>
+</body>
+</html>`);
+  printWindow.document.close();
+}
+
+if (mindMapPrintPosterBtn) mindMapPrintPosterBtn.addEventListener('click', printMindMapPoster);
+
+// Bind Open and Close Mind Map
+if (mindMapBtn) mindMapBtn.addEventListener('click', openMindMapModal);
+if (closeMindMapBtn) closeMindMapBtn.addEventListener('click', closeMindMapModal);
+
+if (mindMapModal) {
+  mindMapModal.addEventListener('click', (e) => {
+    if (e.target === mindMapModal) closeMindMapModal();
+  });
+}
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && mindMapModal && !mindMapModal.classList.contains('hidden')) {
+    closeMindMapModal();
+  }
+});
+
+
 
 

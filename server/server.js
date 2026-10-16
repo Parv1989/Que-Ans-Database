@@ -10,6 +10,7 @@ const qaAdminRoutes = require('./routes/qaAdmin');
 const synonymAdminRoutes = require('./routes/synonymAdmin');
 const analyticsAdminRoutes = require('./routes/analyticsAdmin');
 const ttsRoutes = require('./routes/tts');
+const pedagogyRoutes = require('./routes/pedagogy');
 
 const rateLimit = require('express-rate-limit');
 
@@ -42,6 +43,7 @@ app.use('/widget', express.static(path.join(__dirname, '..', 'public', 'widget')
 app.use('/api/ask', askLimiter, askRoute);
 app.use('/api/tts', ttsRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/pedagogy', pedagogyRoutes);
 app.use('/api/admin/qa', qaAdminRoutes);
 app.use('/api/admin/synonyms', synonymAdminRoutes);
 app.use('/api/admin/analytics', analyticsAdminRoutes);

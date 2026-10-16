@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Book Help Chat</title>
-  <link rel="stylesheet" href="chatbot.css" />
+  <link rel="stylesheet" href="chatbot.css?v=2.3" />
 </head>
 
 <body>
@@ -39,10 +39,20 @@
         <span id="currentSelectionBadge" class="context-text">Select Class & Book</span>
       </div>
       <div class="context-bar-actions">
-        <button id="quizBtn" class="quiz-btn" type="button" title="Interactive Chapter Quiz">🎯 Quiz</button>
-        <button id="worksheetBtn" class="worksheet-btn" type="button" title="Generate printable worksheet">📝 Worksheet</button>
-        <button id="exportNotesBtn" class="notes-btn" type="button" title="Print or Save Study Notes">📄 Notes</button>
         <button id="changeContextBtn" class="change-context-btn" type="button">Change ⚙️</button>
+      </div>
+    </div>
+
+    <!-- Smart Academic Suite Quick Bar -->
+    <div class="academic-tools-strip">
+      <div class="tools-scroll">
+        <button id="testPaperBtn" class="tool-chip test-chip" type="button" title="Formal School Examination Paper">📑 Test Paper</button>
+        <button id="lessonPlanBtn" class="tool-chip lesson-chip" type="button" title="Smart Pedagogical Lesson Plan">📋 Lesson Plan</button>
+        <button id="oralTestBtn" class="tool-chip oral-chip" type="button" title="Voice Viva / Oral Test with Robot">🎙️ Oral Test</button>
+        <button id="mindMapBtn" class="tool-chip map-chip" type="button" title="Visual Concept Mind Map">🗺️ Mind Map</button>
+        <button id="worksheetBtn" class="tool-chip worksheet-chip" type="button" title="Printable Practice Worksheet">📝 Worksheet</button>
+        <button id="quizBtn" class="tool-chip quiz-chip" type="button" title="Interactive Chapter Quiz">🎯 Quiz</button>
+        <button id="exportNotesBtn" class="tool-chip notes-chip" type="button" title="Print / Export Study Notes">📄 Notes</button>
       </div>
     </div>
 
@@ -346,6 +356,602 @@
     </div>
   </div>
 
+  <!-- Formal School Test Paper Generator & Preview Modal Overlay -->
+  <div id="testPaperModal" class="testpaper-modal-overlay hidden" aria-modal="true" role="dialog">
+    <div class="testpaper-modal-card">
+      <!-- Step 1: Pre-generation Options Screen -->
+      <div id="testPaperConfigView" class="testpaper-config-card">
+        <div class="testpaper-modal-header">
+          <div class="testpaper-modal-icon">📑</div>
+          <h3>Test Paper Generator</h3>
+          <p>Generate formal school examination papers with Auto & Manual Question Selection modes!</p>
+          <button id="closeTestPaperConfigBtn" class="testpaper-close-btn" type="button" aria-label="Close test paper generator">&times;</button>
+        </div>
+
+        <div class="testpaper-config-body">
+          <!-- Mode Tabs: Auto vs Manual -->
+          <div class="tp-mode-nav">
+            <button id="tpModeAutoTab" class="tp-mode-tab active" type="button">
+              <span>🚀 Auto Generate Mode</span>
+            </button>
+            <button id="tpModeManualTab" class="tp-mode-tab" type="button">
+              <span>✏️ Manual Question Selection</span>
+            </button>
+          </div>
+
+          <div class="testpaper-context-badge">
+            <div class="context-left-box">
+              <span class="context-label">Context:</span>
+              <strong id="testPaperContextDisplay" class="context-val">Class 3 • Ripples</strong>
+            </div>
+            <div class="scope-toggle-wrap">
+              <label for="testPaperScopeSelect" class="scope-label">Questions Pool:</label>
+              <select id="testPaperScopeSelect" class="tp-scope-select">
+                <option value="chapter" selected>Current Chapter Only</option>
+                <option value="custom">Select Specific Chapters 📚</option>
+                <option value="book">Entire Book (All Chapters)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Multi-Chapter Selection Container (Appears when 'custom' is selected) -->
+          <div id="tpMultiChapterContainer" class="tp-multichapter-box hidden">
+            <div class="tp-multichapter-header">
+              <span>Select Chapters to include in Exam Paper:</span>
+              <button type="button" id="tpSelectAllChaptersBtn" class="tp-link-btn">Select All Chapters</button>
+            </div>
+            <div id="tpChapterPillsList" class="tp-chapter-pills-list">
+              <!-- Dynamically populated chapter checkboxes -->
+            </div>
+          </div>
+
+          <div id="testPaperLoadingSpinner" class="testpaper-loading hidden">
+            <div class="spinner-dot"></div>
+            <span>Fetching exam questions pool...</span>
+          </div>
+
+          <div id="testPaperActiveOptions">
+            <div class="form-row-2col">
+              <div class="form-group">
+                <label for="testPaperSchoolInput">School / Institute Name:</label>
+                <input id="testPaperSchoolInput" type="text" class="testpaper-text-input" placeholder="e.g. St. Xavier's Senior Secondary School" />
+              </div>
+              <div class="form-group">
+                <label for="testPaperExamTitleInput">Examination Title:</label>
+                <input id="testPaperExamTitleInput" type="text" class="testpaper-text-input" value="Periodic Assessment - I" placeholder="e.g. Unit Test / Term Exam" />
+              </div>
+            </div>
+
+            <div class="form-row-2col">
+              <div class="form-group">
+                <label for="testPaperTimeSelect">Time Allowed:</label>
+                <select id="testPaperTimeSelect" class="testpaper-select">
+                  <option value="30 Minutes">30 Minutes</option>
+                  <option value="45 Minutes">45 Minutes</option>
+                  <option value="1 Hour" selected>1 Hour</option>
+                  <option value="1.5 Hours">1.5 Hours</option>
+                  <option value="2 Hours">2 Hours</option>
+                  <option value="2.5 Hours">2.5 Hours</option>
+                  <option value="3 Hours">3 Hours</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="testPaperLayoutSelect">Paper Format & Layout:</label>
+                <select id="testPaperLayoutSelect" class="testpaper-select">
+                  <option value="paper" selected>📄 Question Paper Only (Standard Exam Sheet)</option>
+                  <option value="booklet">✍️ Test Booklet with Ruled Answer Lines</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group testpaper-toggle-group">
+              <label class="toggle-switch">
+                <input type="checkbox" id="testPaperIncludeAnswers" />
+                <span class="slider"></span>
+              </label>
+              <label for="testPaperIncludeAnswers" class="toggle-text">Teacher Marking Scheme & Model Answer Key</label>
+            </div>
+
+            <!-- VIEW A: Automatic Mode View -->
+            <div id="tpAutoViewContainer" class="tp-view-container">
+              <div class="testpaper-stat-badge">
+                <span class="stat-count" id="testPaperTotalCount">0</span>
+                <span class="stat-text" id="testPaperTotalLabel">Questions available in this selection</span>
+              </div>
+
+              <div class="form-group">
+                <label>Target Maximum Marks Preset:</label>
+                <div class="testpaper-marks-chips" id="testPaperMarksChips">
+                  <button type="button" class="preset-chip" data-marks="10">10 Marks</button>
+                  <button type="button" class="preset-chip active" data-marks="20">20 Marks</button>
+                  <button type="button" class="preset-chip" data-marks="25">25 Marks</button>
+                  <button type="button" class="preset-chip" data-marks="30">30 Marks</button>
+                  <button type="button" class="preset-chip" data-marks="50">50 Marks</button>
+                  <button type="button" class="preset-chip" data-marks="80">80 Marks</button>
+                </div>
+              </div>
+
+              <div id="tpAutoDistributionPreview" class="tp-dist-preview">
+                <!-- Auto distribution preview badge -->
+              </div>
+
+              <button id="generateTestPaperBtn" type="button" class="generate-testpaper-btn">
+                Generate Exam Paper (Auto) 🚀
+              </button>
+            </div>
+
+            <!-- VIEW B: Manual Selection Mode View -->
+            <div id="tpManualViewContainer" class="tp-view-container hidden">
+              <!-- Live Search & Filter Bar -->
+              <div class="tp-filter-bar">
+                <div class="tp-search-wrap">
+                  <span class="tp-search-icon">🔍</span>
+                  <input type="text" id="tpManualSearchInput" class="tp-search-input" placeholder="Search questions by keyword or topic..." />
+                  <button type="button" id="tpManualClearSearch" class="tp-search-clear hidden" aria-label="Clear search">&times;</button>
+                </div>
+                <div class="tp-type-chips" id="tpFilterTypeChips">
+                  <button type="button" class="tp-filter-chip active" data-type="all">All</button>
+                  <button type="button" class="tp-filter-chip" data-type="diagram">🖼️ Diagrams</button>
+                  <button type="button" class="tp-filter-chip" data-type="text">📝 Text Only</button>
+                </div>
+              </div>
+
+              <div class="manual-picker-header">
+                <div class="manual-summary-badge">
+                  <span id="manualSelectedCount">0</span> Selected | Total: <strong id="manualTotalMarks">0</strong> Marks
+                </div>
+                <div class="manual-quick-actions">
+                  <button type="button" id="manualSelectAllBtn" class="manual-action-btn">Select All</button>
+                  <button type="button" id="manualDeselectAllBtn" class="manual-action-btn">Deselect All</button>
+                  <button type="button" id="tpOpenAddCustomBtn" class="manual-action-btn add-q-btn">➕ Add Question</button>
+                </div>
+              </div>
+
+              <!-- Inline Add Custom Question Card (collapsible) -->
+              <div id="tpCustomQCard" class="tp-custom-q-card hidden">
+                <div class="custom-card-title">➕ Add Your Custom Question</div>
+                <div class="form-group">
+                  <label for="tpCustomQInput">Question Text:</label>
+                  <textarea id="tpCustomQInput" class="tp-custom-textarea" rows="2" placeholder="Write question here..."></textarea>
+                </div>
+                <div class="form-row-2col">
+                  <div class="form-group">
+                    <label for="tpCustomSectionSelect">Assign Section:</label>
+                    <select id="tpCustomSectionSelect" class="testpaper-select">
+                      <option value="A">Section A (Very Short Answer)</option>
+                      <option value="B">Section B (Short Answer)</option>
+                      <option value="C">Section C (Long / Diagram)</option>
+                      <option value="D">Section D (Case-Based / HOTS)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="tpCustomMarksInput">Marks:</label>
+                    <input type="number" id="tpCustomMarksInput" class="testpaper-text-input" min="1" max="20" value="2" />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="tpCustomAnsInput">Model Answer / Teacher Key (Optional):</label>
+                  <textarea id="tpCustomAnsInput" class="tp-custom-textarea" rows="2" placeholder="Teacher answer key..."></textarea>
+                </div>
+                <div class="custom-card-actions">
+                  <button type="button" id="tpCancelCustomQBtn" class="manual-action-btn">Cancel</button>
+                  <button type="button" id="tpSaveCustomQBtn" class="manual-action-btn save-btn">Add to Exam Paper ✓</button>
+                </div>
+              </div>
+
+              <div id="tpManualQuestionsList" class="tp-manual-questions-list">
+                <!-- Dynamically populated question cards with checkbox & section/marks selector -->
+              </div>
+
+              <button id="generateManualTestPaperBtn" type="button" class="generate-testpaper-btn manual-gen-btn">
+                Generate Custom Exam Paper 🚀
+              </button>
+            </div>
+          </div>
+
+          <div id="testPaperEmptyNotice" class="testpaper-empty-notice hidden">
+            <div class="notice-icon">⚠️</div>
+            <p><strong>No questions found for this selection.</strong></p>
+            <p>Please select another Class/Book using "Change ⚙️".</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Generated Printable Test Paper Preview View -->
+      <div id="testPaperPreviewView" class="testpaper-preview-container hidden">
+        <div class="testpaper-toolbar no-print">
+          <div class="toolbar-left">
+            <button id="testPaperBackBtn" type="button" class="tool-btn secondary" title="Back to settings">⬅️ Settings</button>
+            
+            <!-- Multiple Sets Switcher -->
+            <div class="tp-sets-group">
+              <span class="tp-sets-label">Exam Set:</span>
+              <button type="button" id="tpSetABtn" class="tp-set-chip active" data-set="A">Set A</button>
+              <button type="button" id="tpSetBBtn" class="tp-set-chip" data-set="B">Set B</button>
+              <button type="button" id="tpSetCBtn" class="tp-set-chip" data-set="C">Set C</button>
+            </div>
+
+            <button id="testPaperShuffleBtn" type="button" class="tool-btn secondary" title="Shuffle questions">🔀 Shuffle</button>
+            <button id="testPaperToggleLayoutBtn" type="button" class="tool-btn secondary" title="Toggle Question Paper vs Ruled Answer Lines">✍️ Toggle Lines</button>
+            <button id="testPaperToggleKeyBtn" type="button" class="tool-btn secondary" title="Toggle Answer Key">👁️ Toggle Answer Key</button>
+          </div>
+          <div class="toolbar-right">
+            <button id="testPaperExportWordBtn" type="button" class="tool-btn word-btn" title="Download editable Word document (.doc)">📥 Word (.doc)</button>
+            <button id="testPaperPrintBtn" type="button" class="tool-btn primary" title="Print or save as PDF">🖨️ Print Exam Paper</button>
+            <button id="closeTestPaperPreviewBtn" class="tool-btn close" type="button" aria-label="Close">&times;</button>
+          </div>
+        </div>
+
+        <div class="tp-edit-hint-banner no-print">
+          <span>💡 <strong>Live Interactive Paper:</strong> You can click directly on any title, question, or marks in the paper below to edit text before printing/exporting! Use ⬆️ ⬇️ to reorder, or 🗑️ to remove questions.</span>
+        </div>
+
+        <div class="testpaper-scroll-wrap">
+          <div id="printableTestPaper" class="testpaper-sheet">
+            <!-- Dynamic Exam Paper Rendered Here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Smart Pedagogical Lesson Plan Generator & Preview Modal Overlay -->
+  <div id="lessonPlanModal" class="lessonplan-modal-overlay hidden" aria-modal="true" role="dialog">
+    <div class="lessonplan-modal-card">
+      <!-- Step 1: Pre-generation Options Screen -->
+      <div id="lessonPlanConfigView" class="lessonplan-config-card">
+        <div class="lessonplan-modal-header">
+          <div class="lessonplan-modal-icon">📋</div>
+          <h3>Smart Lesson Plan Generator</h3>
+          <p>Generate a structured, curriculum-aligned pedagogical lesson plan for teachers in a single click!</p>
+          <button id="closeLessonPlanConfigBtn" class="lessonplan-close-btn" type="button" aria-label="Close lesson plan generator">&times;</button>
+        </div>
+
+        <div class="lessonplan-config-body">
+          <div class="lessonplan-context-badge">
+            <span class="context-label">Selected Chapter:</span>
+            <strong id="lessonPlanContextDisplay" class="context-val">Class 3 • Ripples</strong>
+          </div>
+
+          <div id="lessonPlanLoadingSpinner" class="lessonplan-loading hidden">
+            <div class="spinner-dot"></div>
+            <span>Analyzing chapter objectives & questions...</span>
+          </div>
+
+          <div id="lessonPlanActiveOptions">
+            <div class="form-row-2col">
+              <div class="form-group">
+                <label for="lessonPlanSchoolInput">School / Institution Name:</label>
+                <input id="lessonPlanSchoolInput" type="text" class="lessonplan-text-input" placeholder="e.g. St. Xavier's Senior Secondary School" />
+              </div>
+              <div class="form-group">
+                <label for="lessonPlanTeacherInput">Teacher Name:</label>
+                <input id="lessonPlanTeacherInput" type="text" class="lessonplan-text-input" placeholder="e.g. Mrs. Anjali Sharma" />
+              </div>
+            </div>
+
+            <div class="form-row-2col">
+              <div class="form-group">
+                <label for="lessonPlanDurationSelect">Period Duration:</label>
+                <select id="lessonPlanDurationSelect" class="lessonplan-select">
+                  <option value="35 Minutes">35 Minutes</option>
+                  <option value="40 Minutes (1 Period)" selected>40 Minutes (1 Period)</option>
+                  <option value="45 Minutes">45 Minutes</option>
+                  <option value="80 Minutes (Double Period)">80 Minutes (Double Period)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="lessonPlanFocusSelect">Teaching Approach:</label>
+                <select id="lessonPlanFocusSelect" class="lessonplan-select">
+                  <option value="Interactive Discussion & Visual Learning" selected>Interactive & Visual Learning</option>
+                  <option value="Concept Mastery & Theory">Concept Mastery & Theory</option>
+                  <option value="Exam Preparation & Question Practice">Exam Prep & Question Practice</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Pedagogical Alignment:</label>
+              <div class="framework-pills">
+                <span class="framework-pill">✨ Bloom's Taxonomy</span>
+                <span class="framework-pill">🎯 NEP 2020 Aligned</span>
+                <span class="framework-pill">🎨 5E Instructional Model</span>
+              </div>
+            </div>
+
+            <button id="generateLessonPlanBtn" type="button" class="generate-lessonplan-btn">
+              Generate Smart Lesson Plan 🚀
+            </button>
+          </div>
+
+          <div id="lessonPlanEmptyNotice" class="lessonplan-empty-notice hidden">
+            <div class="notice-icon">⚠️</div>
+            <p><strong>No chapter questions found for this selection.</strong></p>
+            <p>Please select another Class/Book using "Change ⚙️".</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Generated Printable Lesson Plan Preview View -->
+      <div id="lessonPlanPreviewView" class="lessonplan-preview-container hidden">
+        <div class="lessonplan-toolbar no-print">
+          <div class="toolbar-left">
+            <button id="lessonPlanBackBtn" type="button" class="tool-btn secondary" title="Back to settings">⬅️ Settings</button>
+            <button id="lessonPlanShuffleBtn" type="button" class="tool-btn secondary" title="Regenerate activities">🔀 Regenerate</button>
+          </div>
+          <div class="toolbar-right">
+            <button id="lessonPlanPrintBtn" type="button" class="tool-btn primary" title="Print or save as PDF">🖨️ Print Lesson Plan</button>
+            <button id="closeLessonPlanPreviewBtn" class="tool-btn close" type="button" aria-label="Close">&times;</button>
+          </div>
+        </div>
+
+        <div class="lessonplan-scroll-wrap">
+          <div id="printableLessonPlan" class="lessonplan-sheet">
+            <!-- Dynamic Lesson Plan Rendered Here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Oral Test (Voice Viva) Modal Overlay -->
+  <div id="oralTestModal" class="oraltest-modal-overlay hidden" aria-modal="true" role="dialog">
+    <div class="oraltest-modal-card">
+      <!-- 1. Start Screen -->
+      <div id="oralTestConfigView" class="oraltest-config-card">
+        <div class="oraltest-modal-header">
+          <div class="oraltest-modal-icon">🎙️</div>
+          <h3>Oral Test / Voice Viva</h3>
+          <p>Practice speaking your answers aloud! The AI Mascot will ask questions and evaluate your spoken concepts.</p>
+          <button id="closeOralTestConfigBtn" class="oraltest-close-btn" type="button" aria-label="Close oral test">&times;</button>
+        </div>
+
+        <div class="oraltest-config-body">
+          <div class="oraltest-context-badge">
+            <span class="context-label">Selected Context:</span>
+            <strong id="oralTestContextDisplay" class="context-val">Class 3 • Ripples</strong>
+          </div>
+
+          <div id="oralTestLoadingSpinner" class="oraltest-loading hidden">
+            <div class="spinner-dot"></div>
+            <span>Preparing Viva questions...</span>
+          </div>
+
+          <div id="oralTestActiveOptions">
+            <div class="oraltest-stat-badge">
+              <span class="stat-count" id="oralTestTotalCount">0</span>
+              <span class="stat-text">Viva questions ready from this chapter</span>
+            </div>
+
+            <div class="form-group">
+              <label for="oralTestCountSelect">Number of Viva Questions:</label>
+              <select id="oralTestCountSelect" class="oraltest-select">
+                <option value="3">3 Questions (Quick Express Viva)</option>
+                <option value="5" selected>5 Questions (Standard Viva)</option>
+                <option value="8">8 Questions (Comprehensive Viva)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="oralTestLangSelect">Question Voice Language:</label>
+              <select id="oralTestLangSelect" class="oraltest-select">
+                <option value="indian_english" selected>🇮🇳 Indian English (Clear & Friendly)</option>
+                <option value="hindi">🇮🇳 Hindi (हिन्दी उच्चारण)</option>
+              </select>
+            </div>
+
+            <div class="oraltest-tips-box">
+              <div class="tip-title">💡 How to Ace the Viva:</div>
+              <ul>
+                <li>The robot will speak the question aloud. Click 🔊 to replay anytime.</li>
+                <li>Tap the big microphone button and speak clearly into your mic.</li>
+                <li>Mention key scientific and factual words to score full marks!</li>
+              </ul>
+            </div>
+
+            <button id="startOralTestBtn" class="generate-oraltest-btn" type="button">Start Viva Now 🎙️</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Active Viva Screen -->
+      <div id="oralTestActiveView" class="oraltest-active-card hidden">
+        <div class="oraltest-active-header">
+          <div class="viva-header-meta">
+            <span class="viva-badge">🎙️ Voice Viva Arena</span>
+            <span id="oralTestQuestionCounter" class="viva-counter">Question 1 of 5</span>
+          </div>
+          <div class="viva-header-right">
+            <span id="oralTestScoreBadge" class="viva-score-badge">Score: 0 / 0</span>
+            <button id="closeOralTestActiveBtn" class="oraltest-close-btn" type="button" aria-label="Exit Viva">&times;</button>
+          </div>
+        </div>
+
+        <div class="oraltest-progress-bar-wrap">
+          <div id="oralTestProgressBar" class="oraltest-progress-bar" style="width: 20%;"></div>
+        </div>
+
+        <div class="oraltest-arena-body">
+          <!-- Mascot & Question Stage -->
+          <div class="oral-question-card">
+            <div class="oral-mascot-avatar-row">
+              <div id="oralMascotHead" class="oral-mascot-avatar">
+                🤖
+              </div>
+              <div class="oral-q-bubble">
+                <span class="bubble-tag">Question</span>
+                <h4 id="oralQuestionText" class="oral-question-text">Question loading...</h4>
+              </div>
+            </div>
+
+            <div class="oral-q-controls">
+              <button id="oralReplayAudioBtn" type="button" class="oral-replay-btn" title="Listen to question again">
+                🔊 Listen Again
+              </button>
+              <div id="oralDiagramWrap" class="oral-diagram-wrap hidden">
+                <img id="oralDiagramImg" src="" alt="Viva Diagram" />
+                <span class="diagram-hint">Click image to zoom</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Student Voice Response Area -->
+          <div class="oral-response-section">
+            <div class="oral-mic-center">
+              <button id="oralMicBtn" type="button" class="oral-big-mic-btn" aria-label="Click to speak your answer" title="Click to speak your answer">
+                <div class="oral-mic-pulse"></div>
+                <svg class="oral-mic-icon" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+              </button>
+              <div id="oralMicStatus" class="oral-mic-status">Tap microphone and speak your answer</div>
+            </div>
+
+            <!-- Real-time Spoken Answer Transcript -->
+            <div class="oral-transcript-wrap">
+              <label for="oralTranscriptInput" class="transcript-label">Your Spoken Answer (Editable):</label>
+              <textarea id="oralTranscriptInput" class="oral-transcript-input" rows="3" placeholder="Speak your answer, or type here if microphone is unavailable..."></textarea>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="oral-action-row">
+              <button id="oralClearTranscriptBtn" type="button" class="oral-btn secondary">Clear 🔄</button>
+              <button id="oralSkipQuestionBtn" type="button" class="oral-btn secondary">Skip ⏭️</button>
+              <button id="oralSubmitAnswerBtn" type="button" class="oral-btn primary">Submit Answer 🚀</button>
+            </div>
+
+            <!-- Immediate AI Evaluation Feedback Card -->
+            <div id="oralFeedbackCard" class="oral-feedback-card hidden">
+              <div class="feedback-badge-row">
+                <span id="oralFeedbackScoreBadge" class="oral-score-tag">⭐ 2 / 2 Marks</span>
+                <span id="oralFeedbackVerdict" class="oral-verdict-tag">Outstanding Answer!</span>
+              </div>
+              <p id="oralFeedbackSpeechMsg" class="oral-feedback-speech-msg"></p>
+
+              <!-- Matched Key Concepts Tag Bar -->
+              <div class="oral-keywords-matched-box">
+                <span class="kw-label">Key Concepts Identified:</span>
+                <div id="oralKeywordsMatchedList" class="kw-tags-list"></div>
+              </div>
+
+              <!-- Model Book Answer Drawer -->
+              <details class="oral-model-answer-drawer">
+                <summary>📖 View Textbook Reference Answer</summary>
+                <div id="oralModelAnswerText" class="model-answer-content"></div>
+              </details>
+
+              <button id="oralNextQuestionBtn" type="button" class="oral-btn next-q-btn">Next Viva Question ➡️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Final Viva Scorecard & Report View -->
+      <div id="oralTestResultView" class="oraltest-result-card hidden">
+        <div class="oral-result-header">
+          <div class="trophy-icon">🏆</div>
+          <h3 id="oralResultTitle">Viva Completed!</h3>
+          <p id="oralResultSubtitle">Here is your official Oral Assessment report.</p>
+        </div>
+
+        <div class="oral-score-summary-card">
+          <div class="summary-score-circle">
+            <span id="oralFinalScoreVal" class="score-large">8 / 10</span>
+            <span class="score-sub">Total Marks</span>
+          </div>
+          <div class="summary-details">
+            <h4 id="oralAwardBadge" class="award-title">🌟 Concept Master (A+ Grade)</h4>
+            <p id="oralAwardDescription" class="award-desc">Excellent conceptual clarity and speaking confidence!</p>
+            <div class="summary-metrics">
+              <div class="metric-item">
+                <span class="metric-label">Questions Evaluated</span>
+                <strong id="oralMetricTotal">5</strong>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Perfect Answers</span>
+                <strong id="oralMetricPerfect">4</strong>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Accuracy Rate</span>
+                <strong id="oralMetricAccuracy">80%</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Question-by-Question Breakdown -->
+        <div class="oral-breakdown-section">
+          <h4>Detailed Question Review</h4>
+          <div id="oralBreakdownList" class="oral-breakdown-list"></div>
+        </div>
+
+        <!-- Bottom Action Buttons -->
+        <div class="oral-result-actions">
+          <button id="oralPrintScorecardBtn" type="button" class="oral-btn secondary">Print Viva Sheet 🖨️</button>
+          <button id="oralRetakeBtn" type="button" class="oral-btn primary">Retake Viva 🔄</button>
+          <button id="oralCloseResultBtn" type="button" class="oral-btn secondary">Back to Chat 💬</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Visual Concept Mind Map Modal Overlay -->
+  <div id="mindMapModal" class="mindmap-modal-overlay hidden" aria-modal="true" role="dialog">
+    <div class="mindmap-modal-card">
+      <div class="mindmap-modal-header">
+        <div class="mindmap-header-left">
+          <span class="mindmap-badge-icon">🗺️</span>
+          <div>
+            <h3 class="mindmap-title">Chapter Concept Mind Map</h3>
+            <span id="mindMapSubtitle" class="mindmap-subtitle">Class 3 • Ripples</span>
+          </div>
+        </div>
+
+        <div class="mindmap-header-controls">
+          <button id="mindMapZoomInBtn" class="mindmap-ctrl-btn" type="button" title="Zoom In">➕</button>
+          <button id="mindMapZoomOutBtn" class="mindmap-ctrl-btn" type="button" title="Zoom Out">➖</button>
+          <button id="mindMapResetZoomBtn" class="mindmap-ctrl-btn" type="button" title="Fit to Screen">🎯</button>
+          <button id="mindMapPrintPosterBtn" class="mindmap-print-btn" type="button" title="Print Revision Poster">🖨️ Print Poster</button>
+          <button id="closeMindMapBtn" class="mindmap-close-btn" type="button" aria-label="Close Mind Map">&times;</button>
+        </div>
+      </div>
+
+      <!-- Mind Map Viewport / Interactive Canvas -->
+      <div id="mindMapViewport" class="mindmap-viewport">
+        <div id="mindMapLoading" class="mindmap-loading hidden">
+          <div class="spinner-dot"></div>
+          <span>Building Chapter Mind Map...</span>
+        </div>
+
+        <div id="mindMapCanvasWrap" class="mindmap-canvas-wrap">
+          <svg id="mindMapSvg" class="mindmap-svg" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter id="nodeGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="rgba(99, 102, 241, 0.25)" />
+              </filter>
+            </defs>
+            <g id="mindMapLinksGroup" class="mindmap-links"></g>
+            <g id="mindMapNodesGroup" class="mindmap-nodes"></g>
+          </svg>
+        </div>
+
+        <!-- Concept Spotlight Drawer (shows when clicking a node) -->
+        <div id="conceptSpotlightDrawer" class="concept-spotlight-drawer hidden">
+          <div class="spotlight-header">
+            <div class="spotlight-tag" id="spotlightCategory">Core Definition</div>
+            <button id="closeSpotlightBtn" class="spotlight-close" type="button">&times;</button>
+          </div>
+          <h4 id="spotlightTitle" class="spotlight-title">Concept Title</h4>
+          <p id="spotlightContent" class="spotlight-content">Concept detail description...</p>
+          <div id="spotlightDiagramWrap" class="spotlight-diagram hidden">
+            <img id="spotlightImg" src="" alt="Concept Diagram" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Interactive Practice Quiz Modal Overlay -->
   <div id="quizModal" class="quiz-modal-overlay hidden" aria-modal="true" role="dialog">
     <div class="quiz-modal-card">
@@ -447,7 +1053,7 @@
     </div>
   </div>
 
-  <script src="chatbot.js"></script>
+  <script src="chatbot.js?v=2.3"></script>
 </body>
 
 </html>

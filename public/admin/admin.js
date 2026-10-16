@@ -79,6 +79,8 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
       loadAnalyticsData();
     } else if (tabName === 'qa') {
       loadQAList(document.getElementById('qaSearch').value);
+    } else if (tabName === 'pedagogy') {
+      loadPedagogyChaptersList();
     }
   });
 });
@@ -755,4 +757,411 @@ const refreshAnalyticsBtn = document.getElementById('refreshAnalyticsBtn');
 if (refreshAnalyticsBtn) {
   refreshAnalyticsBtn.addEventListener('click', () => loadAnalyticsData());
 }
+
+// =========================================================================
+// ---------- SMART PEDAGOGY: LESSON PLANS & MIND MAPS ADMIN ----------
+// =========================================================================
+
+let currentPedagogyData = null;
+let currentPedagogyChapters = [];
+
+const pedagogyChapterSelect = document.getElementById('pedagogyChapterSelect');
+const pedagogyStatusBadge = document.getElementById('pedagogyStatusBadge');
+const pedagogyAiLoadingBanner = document.getElementById('pedagogyAiLoadingBanner');
+const pedagogyRefreshBtn = document.getElementById('pedagogyRefreshBtn');
+const pedagogyGenerateAIBtn = document.getElementById('pedagogyGenerateAIBtn');
+const pedagogySaveBtn = document.getElementById('pedagogySaveBtn');
+const mmBranchesContainer = document.getElementById('mmBranchesContainer');
+
+// Sub-tabs switching
+document.querySelectorAll('.pedagogy-subtab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.pedagogy-subtab').forEach((t) => t.classList.remove('active'));
+    document.querySelectorAll('.pedagogy-subpanel').forEach((p) => p.classList.add('hidden'));
+    tab.classList.add('active');
+    const sub = tab.dataset.sub;
+    const targetPanel = document.getElementById(`subpanel-${sub}`);
+    if (targetPanel) targetPanel.classList.remove('hidden');
+  });
+});
+
+async function loadPedagogyChaptersList() {
+  if (!pedagogyChapterSelect) return;
+  pedagogyChapterSelect.innerHTML = '<option value="">Loading chapters...</option>';
+
+  try {
+    const res = await authedFetch(`${API_BASE}/pedagogy/admin/chapters`);
+    const data = await res.json();
+    currentPedagogyChapters = data.chapters || [];
+
+    if (currentPedagogyChapters.length === 0) {
+      pedagogyChapterSelect.innerHTML = '<option value="">No chapters found in questions database</option>';
+      return;
+    }
+
+    pedagogyChapterSelect.innerHTML = currentPedagogyChapters
+      .map((ch) => {
+        const key = `${ch.className}:::${ch.bookName}:::${ch.chapterName}`;
+        const statusIcon = ch.hasLessonPlan ? '🟢' : '⚪';
+        return `<option value="${key}">${statusIcon} ${ch.className} • ${ch.bookName} • ${ch.chapterName} (${ch.questionCount} Qs)</option>`;
+      })
+      .join('');
+
+    onPedagogyChapterChange();
+  } catch (err) {
+    console.error('Failed to load pedagogy chapters:', err);
+    pedagogyChapterSelect.innerHTML = '<option value="">Error loading chapters</option>';
+  }
+}
+
+if (pedagogyRefreshBtn) {
+  pedagogyRefreshBtn.addEventListener('click', loadPedagogyChaptersList);
+}
+
+if (pedagogyChapterSelect) {
+  pedagogyChapterSelect.addEventListener('change', onPedagogyChapterChange);
+}
+
+function getSelectedChapterObj() {
+  if (!pedagogyChapterSelect || !pedagogyChapterSelect.value) return null;
+  const [className, bookName, chapterName] = pedagogyChapterSelect.value.split(':::');
+  return { className, bookName, chapterName };
+}
+
+async function onPedagogyChapterChange() {
+  const ch = getSelectedChapterObj();
+  if (!ch) return;
+
+  if (pedagogyStatusBadge) {
+    pedagogyStatusBadge.className = 'pedagogy-status-badge';
+    pedagogyStatusBadge.textContent = 'Checking database...';
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/pedagogy?className=${encodeURIComponent(ch.className)}&bookName=${encodeURIComponent(ch.bookName)}&chapterName=${encodeURIComponent(ch.chapterName)}`);
+    const result = await res.json();
+
+    if (result.exists && result.data) {
+      currentPedagogyData = result.data;
+      fillPedagogyForms(currentPedagogyData);
+      updatePedagogyStatusBadge(currentPedagogyData);
+    } else {
+      currentPedagogyData = null;
+      clearPedagogyForms(ch);
+      if (pedagogyStatusBadge) {
+        pedagogyStatusBadge.className = 'pedagogy-status-badge status-empty';
+        pedagogyStatusBadge.textContent = '⚪ Not in Database (Click "Auto-Generate with AI")';
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching chapter pedagogy:', err);
+  }
+}
+
+function updatePedagogyStatusBadge(doc) {
+  if (!pedagogyStatusBadge || !doc) return;
+  const isAI = doc.lessonPlan && doc.lessonPlan.isAIGenerated;
+  const dateStr = doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString() : '';
+
+  if (isAI) {
+    pedagogyStatusBadge.className = 'pedagogy-status-badge status-ai';
+    pedagogyStatusBadge.innerHTML = `🟣 AI Generated &amp; Saved in MongoDB (${dateStr})`;
+  } else {
+    pedagogyStatusBadge.className = 'pedagogy-status-badge status-saved';
+    pedagogyStatusBadge.innerHTML = `🟢 Saved &amp; Customized in MongoDB (${dateStr})`;
+  }
+}
+
+function clearPedagogyForms(ch) {
+  const lpUnitTitle = document.getElementById('lpUnitTitle');
+  const lpMethodology = document.getElementById('lpMethodology');
+  const lpLearningObjectives = document.getElementById('lpLearningObjectives');
+  const lpBloomTaxonomy = document.getElementById('lpBloomTaxonomy');
+  const lpClassroomActivity = document.getElementById('lpClassroomActivity');
+  const lpHomeworkAssignment = document.getElementById('lpHomeworkAssignment');
+
+  if (lpUnitTitle) lpUnitTitle.value = `${ch.chapterName || 'Chapter'} Core Study`;
+  if (lpMethodology) lpMethodology.value = '5E Inquiry Model, Visual Learning & Interactive Discussion';
+  if (lpLearningObjectives) lpLearningObjectives.value = '';
+  if (lpBloomTaxonomy) lpBloomTaxonomy.value = 'Remembering, Understanding, Applying';
+  if (lpClassroomActivity) lpClassroomActivity.value = '';
+  if (lpHomeworkAssignment) lpHomeworkAssignment.value = '';
+
+  for (let i = 1; i <= 4; i++) {
+    const t = document.getElementById(`p${i}Title`);
+    const te = document.getElementById(`p${i}Teacher`);
+    const st = document.getElementById(`p${i}Student`);
+    const ai = document.getElementById(`p${i}Aids`);
+    const as = document.getElementById(`p${i}Assessment`);
+    if (t) t.value = `Period ${i}`;
+    if (te) te.value = '';
+    if (st) st.value = '';
+    if (ai) ai.value = 'Blackboard, Textbook';
+    if (as) as.value = '';
+  }
+
+  const mmCentralTopic = document.getElementById('mmCentralTopic');
+  if (mmCentralTopic) mmCentralTopic.value = ch.chapterName || 'Chapter Topic';
+
+  renderDefaultBranches(ch.chapterName);
+}
+
+function fillPedagogyForms(doc) {
+  const lp = doc.lessonPlan || {};
+  const mm = doc.mindMap || {};
+
+  const lpUnitTitle = document.getElementById('lpUnitTitle');
+  const lpMethodology = document.getElementById('lpMethodology');
+  const lpLearningObjectives = document.getElementById('lpLearningObjectives');
+  const lpBloomTaxonomy = document.getElementById('lpBloomTaxonomy');
+  const lpClassroomActivity = document.getElementById('lpClassroomActivity');
+  const lpHomeworkAssignment = document.getElementById('lpHomeworkAssignment');
+
+  if (lpUnitTitle) lpUnitTitle.value = lp.unitTitle || '';
+  if (lpMethodology) lpMethodology.value = lp.pedagogicalMethodology || '';
+  if (lpLearningObjectives) lpLearningObjectives.value = (lp.learningObjectives || []).join('\n');
+  if (lpBloomTaxonomy) lpBloomTaxonomy.value = (lp.bloomTaxonomy || []).join(', ');
+  if (lpClassroomActivity) lpClassroomActivity.value = lp.classroomActivity || '';
+  if (lpHomeworkAssignment) lpHomeworkAssignment.value = lp.homeworkAssignment || '';
+
+  const periods = lp.periods || [];
+  for (let i = 1; i <= 4; i++) {
+    const p = periods.find((x) => x.periodNumber === i) || periods[i - 1] || {};
+    const t = document.getElementById(`p${i}Title`);
+    const te = document.getElementById(`p${i}Teacher`);
+    const st = document.getElementById(`p${i}Student`);
+    const ai = document.getElementById(`p${i}Aids`);
+    const as = document.getElementById(`p${i}Assessment`);
+    if (t) t.value = p.title || `Period ${i}`;
+    if (te) te.value = p.teacherActivity || '';
+    if (st) st.value = p.studentActivity || '';
+    if (ai) ai.value = p.teachingAids || '';
+    if (as) as.value = p.assessmentQuestion || '';
+  }
+
+  const mmCentralTopic = document.getElementById('mmCentralTopic');
+  if (mmCentralTopic) mmCentralTopic.value = mm.centralTopic || doc.chapterName || '';
+
+  renderMindMapBranches(mm.branches || []);
+}
+
+function renderDefaultBranches(chapterName) {
+  const defaultBranches = [
+    {
+      id: 'branch-1',
+      title: 'Core Fundamentals & Definitions',
+      color: '#6366f1',
+      subtopics: [{ name: 'Key Concept', detail: 'Basic definition and role', keywords: ['concept'] }]
+    },
+    {
+      id: 'branch-2',
+      title: 'Processes & Mechanisms',
+      color: '#059669',
+      subtopics: [{ name: 'How It Works', detail: 'Step-by-step mechanism', keywords: ['process'] }]
+    },
+    {
+      id: 'branch-3',
+      title: 'Structures & Components',
+      color: '#d97706',
+      subtopics: [{ name: 'Main Parts', detail: 'Functions and roles', keywords: ['structure'] }]
+    },
+    {
+      id: 'branch-4',
+      title: 'Real-Life Applications & Significance',
+      color: '#8b5cf6',
+      subtopics: [{ name: 'Everyday Example', detail: 'Application in daily life', keywords: ['example'] }]
+    }
+  ];
+  renderMindMapBranches(defaultBranches);
+}
+
+function renderMindMapBranches(branches) {
+  if (!mmBranchesContainer) return;
+  if (!branches || branches.length === 0) {
+    renderDefaultBranches('');
+    return;
+  }
+
+  mmBranchesContainer.innerHTML = branches
+    .map((b, bIdx) => {
+      const subsHtml = (b.subtopics || [])
+        .map(
+          (s, sIdx) => `
+        <div class="subtopic-item-row" data-sub-idx="${sIdx}">
+          <input type="text" class="subtopic-name-input" value="${escapeHtml(s.name || '')}" placeholder="Subtopic Name (e.g. Evaporation)" />
+          <textarea class="subtopic-detail-input" rows="2" placeholder="Explanation or concept detail...">${escapeHtml(s.detail || '')}</textarea>
+        </div>
+      `
+        )
+        .join('');
+
+      return `
+      <div class="branch-card" data-branch-idx="${bIdx}">
+        <div class="branch-card-head">
+          <span class="branch-color-indicator" style="background: ${b.color || '#6366f1'};"></span>
+          <input type="text" class="branch-title-input" value="${escapeHtml(b.title || '')}" placeholder="Branch Title" />
+          <input type="color" class="branch-color-picker" value="${b.color || '#6366f1'}" style="width:28px;height:28px;padding:0;border:none;background:none;cursor:pointer;" />
+        </div>
+        <div class="branch-subtopics-list">
+          ${subsHtml}
+        </div>
+      </div>
+    `;
+    })
+    .join('');
+
+  // Wire color pickers to indicators
+  mmBranchesContainer.querySelectorAll('.branch-card').forEach((card) => {
+    const picker = card.querySelector('.branch-color-picker');
+    const indicator = card.querySelector('.branch-color-indicator');
+    if (picker && indicator) {
+      picker.addEventListener('input', () => {
+        indicator.style.background = picker.value;
+      });
+    }
+  });
+}
+
+// Auto-generate with AI button
+if (pedagogyGenerateAIBtn) {
+  pedagogyGenerateAIBtn.addEventListener('click', async () => {
+    const ch = getSelectedChapterObj();
+    if (!ch) {
+      alert('Please select a Class & Chapter first!');
+      return;
+    }
+
+    if (
+      currentPedagogyData &&
+      !confirm('This chapter already has saved pedagogy data. Do you want to re-generate it with AI? (Existing custom edits will be replaced)')
+    ) {
+      return;
+    }
+
+    if (pedagogyAiLoadingBanner) pedagogyAiLoadingBanner.classList.remove('hidden');
+    pedagogyGenerateAIBtn.disabled = true;
+
+    try {
+      const res = await authedFetch(`${API_BASE}/pedagogy/admin/generate-ai`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ch)
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'AI generation failed');
+      }
+
+      currentPedagogyData = data.data;
+      fillPedagogyForms(currentPedagogyData);
+      updatePedagogyStatusBadge(currentPedagogyData);
+
+      // Refresh option icon in dropdown
+      loadPedagogyChaptersList();
+
+      alert('✨ Authentic CBSE Lesson Plan & Mind Map generated with AI and permanently saved to MongoDB!');
+    } catch (err) {
+      console.error('AI generation error:', err);
+      alert('Error during AI generation: ' + err.message);
+    } finally {
+      if (pedagogyAiLoadingBanner) pedagogyAiLoadingBanner.classList.add('hidden');
+      pedagogyGenerateAIBtn.disabled = false;
+    }
+  });
+}
+
+// Save Changes button
+if (pedagogySaveBtn) {
+  pedagogySaveBtn.addEventListener('click', async () => {
+    const ch = getSelectedChapterObj();
+    if (!ch) {
+      alert('Please select a Class & Chapter first!');
+      return;
+    }
+
+    const lpUnitTitle = (document.getElementById('lpUnitTitle')?.value || '').trim();
+    const lpMethodology = (document.getElementById('lpMethodology')?.value || '').trim();
+    const lpLearningObjectives = (document.getElementById('lpLearningObjectives')?.value || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const lpBloomTaxonomy = (document.getElementById('lpBloomTaxonomy')?.value || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const lpClassroomActivity = (document.getElementById('lpClassroomActivity')?.value || '').trim();
+    const lpHomeworkAssignment = (document.getElementById('lpHomeworkAssignment')?.value || '').trim();
+
+    const periods = [];
+    for (let i = 1; i <= 4; i++) {
+      periods.push({
+        periodNumber: i,
+        title: (document.getElementById(`p${i}Title`)?.value || `Period ${i}`).trim(),
+        teacherActivity: (document.getElementById(`p${i}Teacher`)?.value || '').trim(),
+        studentActivity: (document.getElementById(`p${i}Student`)?.value || '').trim(),
+        teachingAids: (document.getElementById(`p${i}Aids`)?.value || '').trim(),
+        assessmentQuestion: (document.getElementById(`p${i}Assessment`)?.value || '').trim()
+      });
+    }
+
+    const lessonPlan = {
+      unitTitle: lpUnitTitle || `${ch.chapterName} Comprehensive Study`,
+      pedagogicalMethodology: lpMethodology,
+      learningObjectives: lpLearningObjectives,
+      bloomTaxonomy: lpBloomTaxonomy,
+      periodsCount: 4,
+      periods,
+      classroomActivity: lpClassroomActivity,
+      homeworkAssignment: lpHomeworkAssignment
+    };
+
+    const mmCentralTopic = (document.getElementById('mmCentralTopic')?.value || ch.chapterName || '').trim();
+    const branches = [];
+    if (mmBranchesContainer) {
+      mmBranchesContainer.querySelectorAll('.branch-card').forEach((card, bIdx) => {
+        const title = (card.querySelector('.branch-title-input')?.value || `Branch ${bIdx + 1}`).trim();
+        const color = card.querySelector('.branch-color-picker')?.value || '#6366f1';
+        const subtopics = [];
+        card.querySelectorAll('.subtopic-item-row').forEach((row) => {
+          const name = (row.querySelector('.subtopic-name-input')?.value || '').trim();
+          const detail = (row.querySelector('.subtopic-detail-input')?.value || '').trim();
+          if (name) {
+            subtopics.push({ name, detail, keywords: [name.toLowerCase()] });
+          }
+        });
+        branches.push({ id: `branch-${bIdx + 1}`, title, color, subtopics });
+      });
+    }
+
+    const mindMap = {
+      centralTopic: mmCentralTopic,
+      branches
+    };
+
+    try {
+      const res = await authedFetch(`${API_BASE}/pedagogy/admin/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          className: ch.className,
+          bookName: ch.bookName,
+          chapterName: ch.chapterName,
+          lessonPlan,
+          mindMap
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save');
+
+      currentPedagogyData = data.data;
+      updatePedagogyStatusBadge(currentPedagogyData);
+      alert('💾 Changes successfully saved to Database!');
+    } catch (err) {
+      console.error('Save error:', err);
+      alert('Error saving pedagogy data: ' + err.message);
+    }
+  });
+}
+
 
