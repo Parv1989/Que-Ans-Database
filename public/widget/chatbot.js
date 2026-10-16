@@ -18,6 +18,7 @@ const selectClass = document.getElementById('selectClass');
 const selectBook = document.getElementById('selectBook');
 const selectChapter = document.getElementById('selectChapter');
 const saveContextBtn = document.getElementById('saveContextBtn');
+const closeContextModalBtn = document.getElementById('closeContextModalBtn');
 
 // Image lightbox elements
 const imageLightbox = document.getElementById('imageLightbox');
@@ -858,6 +859,26 @@ if (changeContextBtn) {
     if (contextModal) contextModal.classList.remove('hidden');
   });
 }
+
+if (closeContextModalBtn) {
+  closeContextModalBtn.addEventListener('click', () => {
+    if (contextModal) contextModal.classList.add('hidden');
+  });
+}
+
+if (contextModal) {
+  contextModal.addEventListener('click', (e) => {
+    if (e.target === contextModal) {
+      contextModal.classList.add('hidden');
+    }
+  });
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && contextModal && !contextModal.classList.contains('hidden')) {
+    contextModal.classList.add('hidden');
+  }
+});
 
 if (saveContextBtn) {
   saveContextBtn.addEventListener('click', () => {

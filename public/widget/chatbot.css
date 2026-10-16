@@ -432,6 +432,7 @@ html, body {
   pointer-events: none;
 }
 .context-modal-card {
+  position: relative;
   background: #ffffff;
   border-radius: 20px;
   width: 100%;
@@ -439,6 +440,31 @@ html, body {
   padding: 1.4rem;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.22);
   animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.context-modal-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f3f1fa;
+  color: var(--ink-soft);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: 5;
+}
+.context-modal-close-btn:hover {
+  background: #e8e4f6;
+  color: var(--ink);
+  transform: scale(1.1);
+}
+.context-modal-close-btn:active {
+  transform: scale(0.95);
 }
 @keyframes modalPop {
   0% { transform: scale(0.85); opacity: 0; }
