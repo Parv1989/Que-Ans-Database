@@ -81,7 +81,7 @@ let preloadedGreetingAudios = null;
 let preloadGreetingPromise = null;
 
 function preloadGreetingTTS() {
-  preloadGreetingPromise = fetch(`${TTS_API_URL}?text=${encodeURIComponent(INITIAL_GREETING)}&lang=en`)
+  preloadGreetingPromise = fetch(`${TTS_API_URL}?text=${encodeURIComponent(INITIAL_GREETING)}&lang=in`)
     .then((res) => res.json())
     .then((data) => {
       if (data.audios && data.audios.length > 0) {
@@ -161,8 +161,8 @@ async function speakServerTTS(speechText, lang = 'hi') {
       audio.onerror = (err) => {
         console.warn('Base64 Audio play error, falling back to speech synthesis:', err);
         setTalking(false);
-        if (lang === 'uk' || lang === 'en') {
-          speakUKEnglishFallback(speechText);
+        if (lang === 'in' || lang === 'en-in' || lang === 'uk' || lang === 'en') {
+          speakIndianEnglishFallback(speechText);
         } else {
           speakHindiFallback(speechText);
         }
@@ -171,8 +171,8 @@ async function speakServerTTS(speechText, lang = 'hi') {
       audio.play().catch((err) => {
         console.warn('Audio play blocked/failed, falling back to speech synthesis:', err);
         setTalking(false);
-        if (lang === 'uk' || lang === 'en') {
-          speakUKEnglishFallback(speechText);
+        if (lang === 'in' || lang === 'en-in' || lang === 'uk' || lang === 'en') {
+          speakIndianEnglishFallback(speechText);
         } else {
           speakHindiFallback(speechText);
         }
@@ -183,8 +183,8 @@ async function speakServerTTS(speechText, lang = 'hi') {
   } catch (err) {
     console.warn('Server TTS unavailable, falling back to speech synthesis:', err);
     setTalking(false);
-    if (lang === 'uk' || lang === 'en') {
-      speakUKEnglishFallback(speechText);
+    if (lang === 'in' || lang === 'en-in' || lang === 'uk' || lang === 'en') {
+      speakIndianEnglishFallback(speechText);
     } else {
       speakHindiFallback(speechText);
     }
@@ -215,8 +215,8 @@ function getHindiVoice() {
   return null;
 }
 
-// Find the best available UK English voice (Google UK, Apple Daniel/Serena/Oliver, en-GB)
-function getUKEnglishVoice() {
+// Find the best available Indian English voice (Google en-IN, Edge Natural Indian, Apple Rishi/Veena/Sangeeta, etc.)
+function getIndianEnglishVoice() {
   if (!window.speechSynthesis) return null;
   const allVoices = window.speechSynthesis.getVoices() || [];
 
@@ -224,48 +224,63 @@ function getUKEnglishVoice() {
     const n = (v.name || '').toLowerCase();
     const u = (v.voiceURI || '').toLowerCase();
     return !((n.includes('microsoft') || u.includes('microsoft')) &&
+      !n.includes('natural') && !n.includes('online') &&
       (n.includes('david') || n.includes('zira') || n.includes('mark') || n.includes('ravi') || n.includes('heera')));
   });
 
-  // 1. Google UK English Female / Male
-  const googleUK = nonLegacy.find((v) => {
+  // 1. Google Indian English
+  const googleIN = nonLegacy.find((v) => {
     const n = (v.name || '').toLowerCase();
     const l = (v.lang || '').toLowerCase().replace('_', '-');
-    return n.includes('google') && (l === 'en-gb' || n.includes('uk english') || n.includes('united kingdom'));
+    return n.includes('google') && (l === 'en-in' || n.includes('india'));
   });
-  if (googleUK) return googleUK;
+  if (googleIN) return googleIN;
 
-  // 2. Apple / System UK English (Daniel, Serena, Oliver, Kate, Arthur, Martha, Stephanie)
-  const appleUK = nonLegacy.find((v) => {
+  // 2. Microsoft Natural / Online Indian English (Edge)
+  const edgeNaturalIN = nonLegacy.find((v) => {
     const n = (v.name || '').toLowerCase();
     const l = (v.lang || '').toLowerCase().replace('_', '-');
-    return l === 'en-gb' || n.includes('uk english') || n.includes('united kingdom') || n.includes('british');
+    return (n.includes('natural') || n.includes('online')) && (l === 'en-in' || n.includes('india'));
   });
-  if (appleUK) return appleUK;
+  if (edgeNaturalIN) return edgeNaturalIN;
 
-  // 3. Any en-GB voice
-  const anyGB = allVoices.find((v) => {
+  // 3. Apple Indian English (Rishi, Veena, Sangeeta, Isha, etc.)
+  const appleIN = nonLegacy.find((v) => {
+    const n = (v.name || '').toLowerCase();
+    const l = (v.lang || '').toLowerCase().replace('_', '-');
+    return l === 'en-in' || n.includes('india') || n.includes('rishi') || n.includes('veena') || n.includes('sangeeta') || n.includes('isha');
+  });
+  if (appleIN) return appleIN;
+
+  // 4. Any en-IN voice
+  const anyIN = allVoices.find((v) => {
     const l = (v.lang || '').toLowerCase().replace('_', '-');
     const n = (v.name || '').toLowerCase();
-    return l === 'en-gb' || n.includes('united kingdom') || n.includes('uk english');
+    return l === 'en-in' || n.includes('india');
   });
-  if (anyGB) return anyGB;
+  if (anyIN) return anyIN;
 
-  // 4. Fallback: Google English or any clean English voice
+  // 5. Fallback: Any clean English voice
   return nonLegacy.find((v) => (v.lang || '').toLowerCase().startsWith('en')) || null;
 }
+
+// Backwards compatibility alias
+const getUKEnglishVoice = getIndianEnglishVoice;
 
 function speakHindiFallback(speechText) {
   const hiVoice = getHindiVoice();
   speakWithUtterance(speechText, hiVoice, 'hi-IN');
 }
 
-function speakUKEnglishFallback(speechText) {
-  const ukVoice = getUKEnglishVoice();
-  speakWithUtterance(speechText, ukVoice, 'en-GB');
+function speakIndianEnglishFallback(speechText) {
+  const inVoice = getIndianEnglishVoice();
+  speakWithUtterance(speechText, inVoice, 'en-IN');
 }
 
-// Strictly populates ONLY 2 language choices: Hindi and UK English
+// Backwards compatibility alias
+const speakUKEnglishFallback = speakIndianEnglishFallback;
+
+// Strictly populates ONLY 2 language choices: Hindi and Indian English
 function populateVoiceList() {
   if (!voiceSelect) return;
   voiceSelect.innerHTML = '';
@@ -274,16 +289,19 @@ function populateVoiceList() {
   optHindi.value = 'hindi';
   optHindi.textContent = '✨ Hindi';
 
-  const optUK = document.createElement('option');
-  optUK.value = 'uk_english';
-  optUK.textContent = '✨ UK English';
+  const optIndian = document.createElement('option');
+  optIndian.value = 'indian_english';
+  optIndian.textContent = '✨ Indian English';
 
   voiceSelect.appendChild(optHindi);
-  voiceSelect.appendChild(optUK);
+  voiceSelect.appendChild(optIndian);
 
   const savedLang = localStorage.getItem('studybuddy_voice_lang');
-  if (savedLang === 'uk_english' || savedLang === 'hindi') {
+  if (savedLang === 'indian_english' || savedLang === 'hindi') {
     selectedVoiceName = savedLang;
+  } else if (savedLang === 'uk_english') {
+    selectedVoiceName = 'indian_english';
+    localStorage.setItem('studybuddy_voice_lang', 'indian_english');
   } else {
     selectedVoiceName = 'hindi';
   }
@@ -298,8 +316,8 @@ if (voiceSelect) {
 }
 
 function pickVoice() {
-  if (selectedVoiceName === 'uk_english') {
-    return getUKEnglishVoice();
+  if (selectedVoiceName === 'indian_english' || selectedVoiceName === 'uk_english') {
+    return getIndianEnglishVoice();
   }
   return getHindiVoice();
 }
@@ -368,7 +386,7 @@ function stopLipSync() {
   setViseme('REST');
 }
 
-function speakWithUtterance(speechText, chosenVoice = null, fallbackLang = 'en-GB') {
+function speakWithUtterance(speechText, chosenVoice = null, fallbackLang = 'en-IN') {
   if (!voiceEnabled || !window.speechSynthesis) return;
 
   if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -459,12 +477,12 @@ function speak(rawText) {
 
   const isHindiText = /[\u0900-\u097F]/.test(speechText);
 
-  // If user selected UK English
-  if (selectedVoiceName === 'uk_english') {
+  // If user selected Indian English
+  if (selectedVoiceName === 'indian_english' || selectedVoiceName === 'uk_english') {
     if (isHindiText) {
       speakServerTTS(speechText, 'hi');
     } else {
-      speakServerTTS(speechText, 'uk');
+      speakServerTTS(speechText, 'in');
     }
     return;
   }
@@ -473,8 +491,8 @@ function speak(rawText) {
   if (isHindiText) {
     speakServerTTS(speechText, 'hi');
   } else {
-    // English text should ALWAYS be spoken with UK English TTS, never with Hindi phonetics!
-    speakServerTTS(speechText, 'uk');
+    // English text should ALWAYS be spoken with Indian English TTS, never with Hindi phonetics!
+    speakServerTTS(speechText, 'in');
   }
 }
 

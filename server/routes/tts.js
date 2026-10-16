@@ -12,12 +12,15 @@ router.get('/', async (req, res) => {
     let ttsLang = 'hi';
     let ttsHost = 'https://translate.google.com';
 
-    if (reqLang === 'uk' || reqLang === 'en-gb' || reqLang === 'uk_english') {
+    if (reqLang === 'in' || reqLang === 'en-in' || reqLang === 'indian_english' || reqLang === 'indian') {
+      ttsLang = 'en';
+      ttsHost = 'https://translate.google.co.in';
+    } else if (reqLang === 'uk' || reqLang === 'en-gb' || reqLang === 'uk_english') {
       ttsLang = 'en';
       ttsHost = 'https://translate.google.co.uk';
     } else if (reqLang === 'en' || reqLang === 'en-us' || reqLang === 'english') {
       ttsLang = 'en';
-      ttsHost = 'https://translate.google.com';
+      ttsHost = 'https://translate.google.co.in';
     } else {
       ttsLang = 'hi';
       ttsHost = 'https://translate.google.com';
