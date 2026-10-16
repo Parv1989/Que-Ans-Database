@@ -860,23 +860,30 @@ if (changeContextBtn) {
   });
 }
 
+function closeContextSettings() {
+  if (contextModal) contextModal.classList.add('hidden');
+  if (!greetingSpoken) {
+    greetingSpoken = true;
+    unlockAudioContext();
+    speak(INITIAL_GREETING);
+  }
+}
+
 if (closeContextModalBtn) {
-  closeContextModalBtn.addEventListener('click', () => {
-    if (contextModal) contextModal.classList.add('hidden');
-  });
+  closeContextModalBtn.addEventListener('click', closeContextSettings);
 }
 
 if (contextModal) {
   contextModal.addEventListener('click', (e) => {
     if (e.target === contextModal) {
-      contextModal.classList.add('hidden');
+      closeContextSettings();
     }
   });
 }
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && contextModal && !contextModal.classList.contains('hidden')) {
-    contextModal.classList.add('hidden');
+    closeContextSettings();
   }
 });
 
@@ -902,8 +909,9 @@ if (saveContextBtn) {
     const chapText = currentChapter !== 'All Chapters' ? ` (${currentChapter})` : '';
     addMessage(`📌 Active Context: **${currentClass} • ${currentBook}**${chapText}. Feel free to ask any question about this book!`, 'bot', '', false);
 
-    // Start welcome message voice immediately when user clicks Start Chatting
+    // Start welcome message voice ONLY the first time
     if (!greetingSpoken) {
+      greetingSpoken = true;
       speak(INITIAL_GREETING);
     }
   });
