@@ -3752,8 +3752,12 @@ body.dark-mode .testpaper-close-btn:hover {
   #testPaperPreviewView,
   .testpaper-scroll-wrap,
   #printableTestPaper,
-  #printableTestPaper * {
-    visibility: visible;
+  #printableTestPaper *,
+  #lessonPlanModal,
+  #lessonPlanModal *,
+  #printableLessonPlan,
+  #printableLessonPlan * {
+    visibility: visible !important;
   }
 
   #testPaperModal {
@@ -4172,6 +4176,21 @@ body.dark-mode .framework-pill {
     display: none !important;
   }
 
+  #lessonPlanModal,
+  #lessonPlanModal *,
+  .lessonplan-modal-card,
+  .lessonplan-modal-card *,
+  #lessonPlanPreviewView,
+  #lessonPlanPreviewView *,
+  .lessonplan-scroll-wrap,
+  .lessonplan-scroll-wrap *,
+  .lessonplan-sheet,
+  .lessonplan-sheet *,
+  #printableLessonPlan,
+  #printableLessonPlan * {
+    visibility: visible !important;
+  }
+
   #lessonPlanModal {
     position: static !important;
     inset: auto !important;
@@ -4249,31 +4268,37 @@ body.dark-mode .framework-pill {
   .lp-school-header {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
     border-bottom: 2pt solid #047857 !important;
-    margin-bottom: 8pt !important;
-    padding-bottom: 6pt !important;
+    margin-bottom: 6pt !important;
+    padding-bottom: 4pt !important;
   }
 
   .lp-school-name {
-    font-size: 14pt !important;
+    font-size: 13.5pt !important;
     color: #064e3b !important;
     margin-bottom: 2pt !important;
+    line-height: 1.2 !important;
   }
 
   .lp-plan-title {
-    font-size: 12pt !important;
+    font-size: 10.5pt !important;
     color: #0f766e !important;
     margin: 0 !important;
+    line-height: 1.2 !important;
   }
 
   .lp-meta-grid {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
     grid-template-columns: repeat(3, 1fr) !important;
-    gap: 4pt 8pt !important;
-    padding: 6pt 8pt !important;
-    margin-bottom: 8pt !important;
-    font-size: 8.5pt !important;
+    gap: 3pt 6pt !important;
+    padding: 4pt 6pt !important;
+    margin-bottom: 6pt !important;
+    font-size: 8pt !important;
     background: #f8fafc !important;
     border: 1px solid #94a3b8 !important;
     -webkit-print-color-adjust: exact !important;
@@ -4281,9 +4306,9 @@ body.dark-mode .framework-pill {
   }
 
   .lp-block {
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-    margin-bottom: 8pt !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+    margin-bottom: 6pt !important;
     border: 1px solid #94a3b8 !important;
     border-radius: 4px !important;
     overflow: visible !important;
@@ -4292,16 +4317,19 @@ body.dark-mode .framework-pill {
   .lp-block-header {
     background: #f1f5f9 !important;
     border-left: 3pt solid #059669 !important;
-    padding: 4pt 6pt !important;
-    font-size: 9pt !important;
+    padding: 3pt 6pt !important;
+    font-size: 8.8pt !important;
     font-weight: 800 !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .lp-block-body {
-    padding: 6pt 8pt !important;
-    font-size: 8.5pt !important;
+    padding: 4pt 6pt !important;
+    font-size: 8.2pt !important;
+    line-height: 1.35 !important;
   }
 
   .lp-phase-table {
@@ -4310,7 +4338,8 @@ body.dark-mode .framework-pill {
     table-layout: auto !important;
     page-break-inside: auto !important;
     break-inside: auto !important;
-    font-size: 8.5pt !important;
+    font-size: 7.8pt !important;
+    line-height: 1.32 !important;
   }
 
   .lp-phase-table thead {
@@ -4325,7 +4354,7 @@ body.dark-mode .framework-pill {
   .lp-phase-table th,
   .lp-phase-table td {
     border: 1px solid #94a3b8 !important;
-    padding: 4pt 6pt !important;
+    padding: 3pt 5pt !important;
     vertical-align: top !important;
     color: #000000 !important;
   }
@@ -4343,10 +4372,10 @@ body.dark-mode .framework-pill {
     break-inside: avoid !important;
     display: flex !important;
     justify-content: space-between !important;
-    margin-top: 15pt !important;
-    padding-top: 8pt !important;
+    margin-top: 10pt !important;
+    padding-top: 6pt !important;
     border-top: 1px solid #94a3b8 !important;
-    font-size: 9pt !important;
+    font-size: 8.5pt !important;
   }
 
   @page {

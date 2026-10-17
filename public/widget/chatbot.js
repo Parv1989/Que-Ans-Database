@@ -2751,12 +2751,195 @@ function renderLessonPlanDocument() {
   `;
 }
 
+function printLessonPlanDocument() {
+  if (!printableLessonPlan) return;
+
+  // Clone printable content without no-print elements (like attached PDF download banner)
+  const clone = printableLessonPlan.cloneNode(true);
+  clone.querySelectorAll('.no-print').forEach((el) => el.remove());
+
+  // Use a hidden iframe for isolated, high-fidelity printing without blank page issues
+  let iframe = document.getElementById('lessonPlanPrintIframe');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'lessonPlanPrintIframe';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+  }
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>${escapeHtml(currentBook || 'Curriculum')} - Lesson Plan</title>
+      <style>
+        @page {
+          size: A4 portrait;
+          margin: 8mm 10mm 10mm 10mm;
+        }
+        * { box-sizing: border-box; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+          color: #000000;
+          background: #ffffff;
+          line-height: 1.38;
+          margin: 0;
+          padding: 0;
+          font-size: 8.8pt;
+        }
+        .lp-school-header {
+          text-align: center;
+          border-bottom: 2px solid #047857;
+          padding-bottom: 4px;
+          margin-bottom: 8px;
+          page-break-inside: avoid;
+          break-inside: avoid;
+          page-break-after: avoid;
+          break-after: avoid;
+        }
+        .lp-school-name {
+          font-size: 13.5pt;
+          font-weight: 800;
+          text-transform: uppercase;
+          color: #064e3b;
+          margin: 0 0 2px;
+          line-height: 1.2;
+        }
+        .lp-plan-title {
+          font-size: 10.5pt;
+          font-weight: 800;
+          text-transform: uppercase;
+          color: #0f766e;
+          margin: 0;
+          line-height: 1.2;
+        }
+        .lp-meta-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 3px 8px;
+          background: #f8fafc;
+          border: 1px solid #94a3b8;
+          border-radius: 4px;
+          padding: 5px 8px;
+          margin-bottom: 8px;
+          font-size: 8.2pt;
+          page-break-inside: avoid;
+          break-inside: avoid;
+          page-break-after: avoid;
+          break-after: avoid;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .lp-meta-item { display: flex; gap: 3px; }
+        .lp-meta-item strong { color: #0f172a; white-space: nowrap; }
+        .lp-block {
+          margin-bottom: 8px;
+          border: 1px solid #94a3b8;
+          border-radius: 4px;
+          overflow: visible;
+          page-break-inside: auto;
+          break-inside: auto;
+        }
+        .lp-block-header {
+          background: #f1f5f9;
+          border-left: 3.5px solid #059669;
+          padding: 4px 8px;
+          font-weight: 800;
+          font-size: 8.8pt;
+          text-transform: uppercase;
+          color: #065f46;
+          page-break-after: avoid;
+          break-after: avoid;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .lp-block-body {
+          padding: 6px 8px;
+          font-size: 8.5pt;
+        }
+        .lp-list {
+          margin: 0;
+          padding-left: 16px;
+        }
+        .lp-list li {
+          margin-bottom: 2px;
+        }
+        .lp-phase-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 8pt;
+          line-height: 1.32;
+          page-break-inside: auto;
+          break-inside: auto;
+        }
+        .lp-phase-table thead {
+          display: table-header-group;
+        }
+        .lp-phase-table tr {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        .lp-phase-table th,
+        .lp-phase-table td {
+          border: 1px solid #94a3b8;
+          padding: 4px 6px;
+          vertical-align: top;
+          text-align: left;
+        }
+        .lp-phase-table th {
+          background: #e2e8f0;
+          font-weight: 700;
+          color: #0f172a;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .lp-signature-row {
+          display: flex;
+          justify-content: space-between;
+          margin-top: 12px;
+          padding-top: 6px;
+          border-top: 1px solid #94a3b8;
+          font-size: 8.5pt;
+          font-weight: 600;
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        .no-print { display: none !important; }
+      </style>
+    </head>
+    <body>
+      ${clone.innerHTML}
+    </body>
+    </html>
+  `);
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (err) {
+      console.warn('Iframe print error, falling back to window.print():', err);
+      window.print();
+    }
+  }, 250);
+}
+
 if (lessonPlanBtn) lessonPlanBtn.addEventListener('click', openLessonPlanModal);
 if (closeLessonPlanPreviewBtn) closeLessonPlanPreviewBtn.addEventListener('click', closeLessonPlanModal);
 if (closeLessonPlanEmptyBtn) closeLessonPlanEmptyBtn.addEventListener('click', closeLessonPlanModal);
 if (lessonPlanPrintBtn) {
   lessonPlanPrintBtn.addEventListener('click', () => {
-    window.print();
+    printLessonPlanDocument();
   });
 }
 if (lessonPlanModal) {

@@ -181,6 +181,268 @@ router.post('/admin/upload-file', requireAdmin, upload.single('file'), (req, res
   }
 });
 
+// Admin POST: Read chapter PDF and auto-generate Lesson Plan and Mind Map using Gemini AI
+router.post('/admin/generate-from-pdf', requireAdmin, upload.single('file'), async (req, res) => {
+  try {
+    const { className, bookName, chapterName, existingPdfUrl } = req.body;
+    if (!className || !bookName || !chapterName) {
+      return res.status(400).json({ error: 'className, bookName, and chapterName are required' });
+    }
+
+    let fileBuffer = null;
+    let fileUrl = null;
+
+    if (req.file) {
+      fileUrl = `/uploads/pedagogy/${req.file.filename}`;
+      fileBuffer = fs.readFileSync(req.file.path);
+    } else if (existingPdfUrl) {
+      const cleanPath = existingPdfUrl.startsWith('/') ? existingPdfUrl.slice(1) : existingPdfUrl;
+      const localFilePath = path.join(__dirname, '..', '..', 'public', cleanPath);
+      if (fs.existsSync(localFilePath)) {
+        fileUrl = existingPdfUrl;
+        fileBuffer = fs.readFileSync(localFilePath);
+      }
+    }
+
+    if (!fileBuffer) {
+      return res.status(400).json({ error: 'Please choose and upload a Chapter PDF file (.pdf) first!' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
+    }
+
+    const base64Data = fileBuffer.toString('base64');
+
+    const promptText = `You are a Master Academic Pedagogy Expert specializing in CBSE, ICSE, and NEP 2020 curriculum standards.
+Carefully and thoroughly read the attached textbook Chapter PDF for:
+- Class: "${className}"
+- Book: "${bookName}"
+- Chapter: "${chapterName}"
+
+Based SOLELY on the actual contents, concepts, stories, examples, diagrams, and exercises present in this attached Chapter PDF, generate a complete, curriculum-aligned Pedagogical Lesson Plan and a Concept Mind Map.
+
+Return ONLY a valid JSON object matching this exact schema without any markdown formatting or code fences:
+{
+  "lessonPlan": {
+    "unitTitle": "Unit or Chapter Title extracted from PDF",
+    "pedagogicalMethodology": "e.g. 5E Inquiry Model, Experiential Learning & Hands-on Visual Observation",
+    "learningObjectives": [
+      "Students will be able to explain...",
+      "Students will identify and categorize...",
+      "Students will analyze...",
+      "Students will apply learning to real-world examples..."
+    ],
+    "bloomTaxonomy": ["Remembering", "Understanding", "Applying", "Analyzing"],
+    "periodsCount": 4,
+    "periods": [
+      {
+        "periodNumber": 1,
+        "title": "Introduction, Hook & Concept Hook",
+        "teacherActivity": "Detailed teacher explanation, story/real-life hook question based directly on the chapter content.",
+        "studentActivity": "Active student listening, naming items, sharing prior experiences.",
+        "teachingAids": "Concrete TLM: Real objects, blackboard illustrations, flashcards.",
+        "assessmentQuestion": "Formative oral question based directly on Period 1 content."
+      },
+      {
+        "periodNumber": 2,
+        "title": "In-Depth Inquiry & Key Mechanisms",
+        "teacherActivity": "Detailed explanation of core concepts and mechanisms from the chapter.",
+        "studentActivity": "Group discussion, categorizing concepts, writing key terms.",
+        "teachingAids": "Charts, diagrams from the textbook, flowcharts.",
+        "assessmentQuestion": "Formative question checking understanding of mechanisms."
+      },
+      {
+        "periodNumber": 3,
+        "title": "Experiential Learning & Concept Application",
+        "teacherActivity": "Guiding hands-on activity, reading passage, analyzing illustrations.",
+        "studentActivity": "Sketching, solving interactive problem, peer demonstration.",
+        "teachingAids": "Worksheet, activity materials, textbook pictures.",
+        "assessmentQuestion": "Application-level question."
+      },
+      {
+        "periodNumber": 4,
+        "title": "Evaluation, Synthesis & Revision",
+        "teacherActivity": "Conducting quick recap quiz, addressing misconceptions, summarizing key takeaways.",
+        "studentActivity": "Answering revision questions, presenting learning outcomes.",
+        "teachingAids": "Revision cards, summary chart, blackboard.",
+        "assessmentQuestion": "Summary question assessing overall chapter understanding."
+      }
+    ],
+    "classroomActivity": "A practical, experiential classroom demonstration, group game, or experiment connecting the chapter's main concept.",
+    "homeworkAssignment": "Thoughtful, creative extension task or exercise questions to be completed in notebook."
+  },
+  "mindMap": {
+    "centralTopic": "Main concept/theme of this chapter",
+    "branches": [
+      {
+        "id": "branch-1",
+        "title": "Core Fundamentals & Definitions",
+        "color": "#059669",
+        "subtopics": [
+          {
+            "name": "Subtopic Concept",
+            "detail": "1-2 sentence clear definition from chapter",
+            "keywords": ["keyword1", "keyword2"]
+          }
+        ]
+      },
+      {
+        "id": "branch-2",
+        "title": "Processes & Mechanisms",
+        "color": "#6366f1",
+        "subtopics": [
+          {
+            "name": "Subtopic Concept",
+            "detail": "1-2 sentence clear definition from chapter",
+            "keywords": ["keyword1", "keyword2"]
+          }
+        ]
+      },
+      {
+        "id": "branch-3",
+        "title": "Structures & Components",
+        "color": "#d97706",
+        "subtopics": [
+          {
+            "name": "Subtopic Concept",
+            "detail": "1-2 sentence clear definition from chapter",
+            "keywords": ["keyword1", "keyword2"]
+          }
+        ]
+      },
+      {
+        "id": "branch-4",
+        "title": "Real-Life Applications & Significance",
+        "color": "#8b5cf6",
+        "subtopics": [
+          {
+            "name": "Subtopic Concept",
+            "detail": "1-2 sentence clear definition from chapter",
+            "keywords": ["keyword1", "keyword2"]
+          }
+        ]
+      }
+    ]
+  }
+}
+CRITICAL REQUIREMENTS:
+1. Every objective, activity, question, and branch MUST be directly grounded in the provided Chapter PDF text.
+2. Ensure realistic, creative, and age-appropriate teacher activities and student tasks.
+3. Return ONLY raw JSON without any markdown code fences.`;
+
+    const candidateModels = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
+    let rawResponse = '';
+    let lastError = '';
+
+    for (const model of candidateModels) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const resp = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    inlineData: {
+                      mimeType: 'application/pdf',
+                      data: base64Data
+                    }
+                  },
+                  {
+                    text: promptText
+                  }
+                ]
+              }
+            ]
+          })
+        });
+
+        if (resp.ok) {
+          const geminiData = await resp.json();
+          rawResponse = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (rawResponse) break;
+        } else {
+          const errData = await resp.json().catch(() => ({}));
+          lastError = errData?.error?.message || `Status ${resp.status}`;
+          console.warn(`Model ${model} failed:`, lastError);
+        }
+      } catch (err) {
+        lastError = err.message;
+        console.warn(`Model ${model} exception:`, lastError);
+      }
+    }
+
+    if (!rawResponse) {
+      return res.status(502).json({ error: 'Gemini AI failed to process the PDF: ' + (lastError || 'Empty response') });
+    }
+
+    // Extract JSON safely
+    let parsed;
+    try {
+      let cleaned = rawResponse.trim();
+      if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+      }
+      parsed = JSON.parse(cleaned);
+    } catch (parseErr) {
+      const start = rawResponse.indexOf('{');
+      const end = rawResponse.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        parsed = JSON.parse(rawResponse.substring(start, end + 1));
+      } else {
+        throw new Error('Invalid JSON format returned by AI: ' + parseErr.message);
+      }
+    }
+
+    if (!parsed || !parsed.lessonPlan || !parsed.mindMap) {
+      return res.status(502).json({ error: 'AI output missing lessonPlan or mindMap structure' });
+    }
+
+    // Attach PDF URL to both
+    parsed.lessonPlan.pdfUrl = fileUrl;
+    parsed.mindMap.pdfUrl = fileUrl;
+
+    // Save to Database
+    const savedDoc = await Pedagogy.findOneAndUpdate(
+      {
+        className: className.trim(),
+        bookName: bookName.trim(),
+        chapterName: chapterName.trim()
+      },
+      {
+        className: className.trim(),
+        bookName: bookName.trim(),
+        chapterName: chapterName.trim(),
+        lessonPlan: {
+          ...parsed.lessonPlan,
+          isAIGenerated: true,
+          lastGeneratedAt: new Date()
+        },
+        mindMap: {
+          ...parsed.mindMap,
+          isAIGenerated: true,
+          lastGeneratedAt: new Date()
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Lesson Plan and Mind Map generated successfully from Chapter PDF!',
+      fileUrl,
+      data: savedDoc
+    });
+  } catch (err) {
+    console.error('generate-from-pdf error:', err);
+    res.status(500).json({ error: 'Failed to generate from PDF: ' + err.message });
+  }
+});
+
 // Admin GET: List all books and their feature toggles
 router.get('/admin/book-features', requireAdmin, async (req, res) => {
   try {

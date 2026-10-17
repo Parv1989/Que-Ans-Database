@@ -774,12 +774,17 @@ const pedagogySaveBtn = document.getElementById('pedagogySaveBtn');
 const mmBranchesContainer = document.getElementById('mmBranchesContainer');
 const mmAddBranchBtn = document.getElementById('mmAddBranchBtn');
 
-// Lesson plan PDF upload elements
-const lpPdfFileInput = document.getElementById('lpPdfFileInput');
-const lpUploadPdfBtn = document.getElementById('lpUploadPdfBtn');
-const lpPdfUploadStatus = document.getElementById('lpPdfUploadStatus');
+// AI Chapter PDF Reader & Generator elements
+const chapterPdfInput = document.getElementById('chapterPdfInput');
+const generateFromPdfBtn = document.getElementById('generateFromPdfBtn');
+const justUploadPdfBtn = document.getElementById('justUploadPdfBtn');
+const pdfGenStatusText = document.getElementById('pdfGenStatusText');
+const pdfGenLoadingRow = document.getElementById('pdfGenLoadingRow');
+const pdfGenLoadingTitle = document.getElementById('pdfGenLoadingTitle');
+const pdfGenLoadingSub = document.getElementById('pdfGenLoadingSub');
 const lpPdfPreviewRow = document.getElementById('lpPdfPreviewRow');
 const lpPdfLink = document.getElementById('lpPdfLink');
+const lpPdfOpenBtn = document.getElementById('lpPdfOpenBtn');
 const lpRemovePdfBtn = document.getElementById('lpRemovePdfBtn');
 const lpPdfUrl = document.getElementById('lpPdfUrl');
 
@@ -904,8 +909,8 @@ function clearPedagogyForms(ch) {
 
   // Clear PDF
   if (lpPdfUrl) lpPdfUrl.value = '';
-  if (lpPdfFileInput) lpPdfFileInput.value = '';
-  if (lpPdfUploadStatus) lpPdfUploadStatus.textContent = '';
+  if (chapterPdfInput) chapterPdfInput.value = '';
+  if (pdfGenStatusText) pdfGenStatusText.textContent = '';
   if (lpPdfPreviewRow) lpPdfPreviewRow.classList.add('hidden');
 
   for (let i = 1; i <= 4; i++) {
@@ -955,7 +960,8 @@ function fillPedagogyForms(doc) {
   if (lpPdfUrl) lpPdfUrl.value = lp.pdfUrl || '';
   if (lp.pdfUrl && lpPdfPreviewRow && lpPdfLink) {
     lpPdfLink.href = lp.pdfUrl;
-    lpPdfLink.textContent = `Attached PDF: ${lp.pdfUrl.split('/').pop()}`;
+    lpPdfLink.textContent = `Attached Chapter PDF: ${lp.pdfUrl.split('/').pop()}`;
+    if (lpPdfOpenBtn) lpPdfOpenBtn.href = lp.pdfUrl;
     lpPdfPreviewRow.classList.remove('hidden');
   } else if (lpPdfPreviewRow) {
     lpPdfPreviewRow.classList.add('hidden');
@@ -994,10 +1000,82 @@ function fillPedagogyForms(doc) {
   renderMindMapBranches(mm.branches || []);
 }
 
-// PDF File Upload Handler for Lesson Plan
-if (lpUploadPdfBtn && lpPdfFileInput) {
-  lpUploadPdfBtn.addEventListener('click', async () => {
-    const file = lpPdfFileInput.files[0];
+// AI Chapter PDF Reader & Auto-Generator
+if (generateFromPdfBtn) {
+  generateFromPdfBtn.addEventListener('click', async () => {
+    const ch = getSelectedChapterObj();
+    if (!ch) {
+      alert('Please select a Class & Chapter from the dropdown first!');
+      return;
+    }
+
+    const file = chapterPdfInput?.files[0];
+    const existingUrl = lpPdfUrl?.value;
+
+    if (!file && !existingUrl) {
+      alert('Please choose a Chapter PDF file (.pdf) to read and auto-generate!');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('className', ch.className);
+    formData.append('bookName', ch.bookName);
+    formData.append('chapterName', ch.chapterName);
+    if (file) {
+      formData.append('file', file);
+    } else if (existingUrl) {
+      formData.append('existingPdfUrl', existingUrl);
+    }
+
+    generateFromPdfBtn.disabled = true;
+    if (justUploadPdfBtn) justUploadPdfBtn.disabled = true;
+    if (pdfGenLoadingRow) pdfGenLoadingRow.classList.remove('hidden');
+    if (pdfGenStatusText) pdfGenStatusText.textContent = '';
+
+    try {
+      const res = await fetch(`${API_BASE}/pedagogy/admin/generate-from-pdf`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+
+      // Populate form with newly generated data
+      if (data.data) {
+        fillPedagogyForms(data.data);
+        updatePedagogyStatusBadge(data.data);
+      }
+
+      if (pdfGenStatusText) {
+        pdfGenStatusText.textContent = '✔ Auto-generated & Saved to Database!';
+      }
+      alert('✨ Detailed Lesson Plan & Concept Mind Map successfully generated from Chapter PDF!');
+    } catch (err) {
+      console.error('generate-from-pdf error:', err);
+      alert('Error generating from Chapter PDF: ' + err.message);
+      if (pdfGenStatusText) {
+        pdfGenStatusText.textContent = '❌ Generation failed: ' + err.message;
+      }
+    } finally {
+      generateFromPdfBtn.disabled = false;
+      if (justUploadPdfBtn) justUploadPdfBtn.disabled = false;
+      if (pdfGenLoadingRow) pdfGenLoadingRow.classList.add('hidden');
+    }
+  });
+}
+
+// Just Attach PDF without AI generation
+if (justUploadPdfBtn) {
+  justUploadPdfBtn.addEventListener('click', async () => {
+    const ch = getSelectedChapterObj();
+    if (!ch) {
+      alert('Please select a Class & Chapter first!');
+      return;
+    }
+
+    const file = chapterPdfInput?.files[0];
     if (!file) {
       alert('Please choose a PDF file first!');
       return;
@@ -1006,8 +1084,8 @@ if (lpUploadPdfBtn && lpPdfFileInput) {
     const formData = new FormData();
     formData.append('file', file);
 
-    if (lpPdfUploadStatus) lpPdfUploadStatus.textContent = 'Uploading PDF...';
-    lpUploadPdfBtn.disabled = true;
+    justUploadPdfBtn.disabled = true;
+    if (pdfGenStatusText) pdfGenStatusText.textContent = 'Uploading PDF...';
 
     try {
       const res = await fetch(`${API_BASE}/pedagogy/admin/upload-file`, {
@@ -1021,26 +1099,37 @@ if (lpUploadPdfBtn && lpPdfFileInput) {
       if (lpPdfUrl) lpPdfUrl.value = data.fileUrl;
       if (lpPdfLink) {
         lpPdfLink.href = data.fileUrl;
-        lpPdfLink.textContent = `Attached PDF: ${data.fileName}`;
+        lpPdfLink.textContent = `Attached Chapter PDF: ${data.fileName}`;
       }
+      if (lpPdfOpenBtn) lpPdfOpenBtn.href = data.fileUrl;
       if (lpPdfPreviewRow) lpPdfPreviewRow.classList.remove('hidden');
-      if (lpPdfUploadStatus) lpPdfUploadStatus.textContent = '✔ Uploaded successfully!';
+
+      // Auto-save attachment
+      if (pedagogySaveBtn) {
+        await pedagogySaveBtn.click();
+        if (pdfGenStatusText) pdfGenStatusText.textContent = '✔ PDF Attached & Saved to Database!';
+      }
     } catch (err) {
       console.error('PDF upload error:', err);
-      if (lpPdfUploadStatus) lpPdfUploadStatus.textContent = '❌ Upload failed';
-      alert('Error uploading PDF: ' + err.message);
+      alert('Upload failed: ' + err.message);
+      if (pdfGenStatusText) pdfGenStatusText.textContent = '❌ Upload failed';
     } finally {
-      lpUploadPdfBtn.disabled = false;
+      justUploadPdfBtn.disabled = false;
     }
   });
 }
 
+// Remove attached PDF
 if (lpRemovePdfBtn) {
-  lpRemovePdfBtn.addEventListener('click', () => {
+  lpRemovePdfBtn.addEventListener('click', async () => {
     if (lpPdfUrl) lpPdfUrl.value = '';
-    if (lpPdfFileInput) lpPdfFileInput.value = '';
+    if (chapterPdfInput) chapterPdfInput.value = '';
     if (lpPdfPreviewRow) lpPdfPreviewRow.classList.add('hidden');
-    if (lpPdfUploadStatus) lpPdfUploadStatus.textContent = 'PDF removed (Click Save to confirm)';
+    if (pdfGenStatusText) pdfGenStatusText.textContent = 'Removing PDF...';
+    if (pedagogySaveBtn) {
+      await pedagogySaveBtn.click();
+      if (pdfGenStatusText) pdfGenStatusText.textContent = '✔ PDF removed & Saved to Database!';
+    }
   });
 }
 
@@ -1081,7 +1170,12 @@ if (mmUploadFileBtn && mmFileInput) {
         mmFileLink.textContent = `Attached Diagram: ${data.fileName}`;
       }
       if (mmPreviewRow) mmPreviewRow.classList.remove('hidden');
-      if (mmUploadStatus) mmUploadStatus.textContent = '✔ Uploaded successfully!';
+      if (mmUploadStatus) mmUploadStatus.textContent = '✔ Uploaded & Saving...';
+
+      if (pedagogySaveBtn) {
+        await pedagogySaveBtn.click();
+        if (mmUploadStatus) mmUploadStatus.textContent = '✔ Poster Uploaded & Saved to Database! (डेटाबेस में सुरक्षित)';
+      }
     } catch (err) {
       console.error('Poster upload error:', err);
       if (mmUploadStatus) mmUploadStatus.textContent = '❌ Upload failed';
@@ -1093,12 +1187,16 @@ if (mmUploadFileBtn && mmFileInput) {
 }
 
 if (mmRemoveFileBtn) {
-  mmRemoveFileBtn.addEventListener('click', () => {
+  mmRemoveFileBtn.addEventListener('click', async () => {
     if (mmImageUrl) mmImageUrl.value = '';
     if (mmPdfUrl) mmPdfUrl.value = '';
     if (mmFileInput) mmFileInput.value = '';
     if (mmPreviewRow) mmPreviewRow.classList.add('hidden');
-    if (mmUploadStatus) mmUploadStatus.textContent = 'Poster removed (Click Save to confirm)';
+    if (mmUploadStatus) mmUploadStatus.textContent = 'Removing poster...';
+    if (pedagogySaveBtn) {
+      await pedagogySaveBtn.click();
+      if (mmUploadStatus) mmUploadStatus.textContent = '✔ Poster removed & Saved to Database!';
+    }
   });
 }
 
