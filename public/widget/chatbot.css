@@ -4141,39 +4141,217 @@ body.dark-mode .framework-pill {
 }
 
 @media print {
+  /* Hide all chat, robot, headers, and navigation UI */
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+    min-height: 100% !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 
-  #lessonPlanModal,
-  #lessonPlanPreviewView,
-  .lessonplan-scroll-wrap,
-  #printableLessonPlan,
-  #printableLessonPlan * {
-    visibility: visible;
+  .chat-shell,
+  .robot-stage,
+  .chat-header,
+  .context-bar,
+  .academic-tools-strip,
+  .chat-messages,
+  .chat-input-row,
+  .context-modal-overlay,
+  .worksheet-modal-overlay,
+  .testpaper-modal-overlay,
+  .oraltest-modal-overlay,
+  .mindmap-modal-overlay,
+  .quiz-modal-overlay,
+  .lessonplan-config-card,
+  .lessonplan-toolbar,
+  .lessonplan-close-btn,
+  .no-print {
+    display: none !important;
   }
 
   #lessonPlanModal {
-    position: absolute;
-    inset: 0;
-    background: none;
-    padding: 0;
-    margin: 0;
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 
   .lessonplan-modal-card {
-    border-radius: 0;
-    box-shadow: none;
-    max-width: 100%;
-    height: auto;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #lessonPlanPreviewView,
+  .lessonplan-preview-container {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
   }
 
   .lessonplan-scroll-wrap {
-    padding: 0;
-    background: none;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    display: block !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
-  .lessonplan-sheet {
-    box-shadow: none;
-    padding: 1rem 1.5rem;
-    max-width: 100%;
+  .lessonplan-sheet,
+  #printableLessonPlan {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 10.5pt !important;
+    color: #000000 !important;
+    line-height: 1.4 !important;
+  }
+
+  .lp-school-header {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    border-bottom: 2pt solid #047857 !important;
+    margin-bottom: 8pt !important;
+    padding-bottom: 6pt !important;
+  }
+
+  .lp-school-name {
+    font-size: 14pt !important;
+    color: #064e3b !important;
+    margin-bottom: 2pt !important;
+  }
+
+  .lp-plan-title {
+    font-size: 12pt !important;
+    color: #0f766e !important;
+    margin: 0 !important;
+  }
+
+  .lp-meta-grid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 4pt 8pt !important;
+    padding: 6pt 8pt !important;
+    margin-bottom: 8pt !important;
+    font-size: 8.5pt !important;
+    background: #f8fafc !important;
+    border: 1px solid #94a3b8 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .lp-block {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 8pt !important;
+    border: 1px solid #94a3b8 !important;
+    border-radius: 4px !important;
+    overflow: visible !important;
+  }
+
+  .lp-block-header {
+    background: #f1f5f9 !important;
+    border-left: 3pt solid #059669 !important;
+    padding: 4pt 6pt !important;
+    font-size: 9pt !important;
+    font-weight: 800 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .lp-block-body {
+    padding: 6pt 8pt !important;
+    font-size: 8.5pt !important;
+  }
+
+  .lp-phase-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    table-layout: auto !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+    font-size: 8.5pt !important;
+  }
+
+  .lp-phase-table thead {
+    display: table-header-group !important;
+  }
+
+  .lp-phase-table tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .lp-phase-table th,
+  .lp-phase-table td {
+    border: 1px solid #94a3b8 !important;
+    padding: 4pt 6pt !important;
+    vertical-align: top !important;
+    color: #000000 !important;
+  }
+
+  .lp-phase-table th {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .lp-signature-row {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    margin-top: 15pt !important;
+    padding-top: 8pt !important;
+    border-top: 1px solid #94a3b8 !important;
+    font-size: 9pt !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm 10mm 10mm;
   }
 }
 

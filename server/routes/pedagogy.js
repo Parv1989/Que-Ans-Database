@@ -1,10 +1,46 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const Pedagogy = require('../models/Pedagogy');
+const BookFeature = require('../models/BookFeature');
 const QA = require('../models/QA');
 const { requireAdmin } = require('../middleware/auth');
 
-// Candidate Gemini models with fallback
+// Setup upload directory for pedagogy files (PDFs, images)
+const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads', 'pedagogy');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const cleanBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e4);
+    cb(null, `${cleanBase}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30 MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.pdf', '.png', '.jpg', '.jpeg', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF and image files (.png, .jpg, .jpeg, .webp) are allowed'));
+    }
+  }
+});
+
+// Candidate Gemini models with fallback (kept for internal reference)
 const CANDIDATE_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
 // Public GET: Fetch saved lesson plan & mind map for a chapter
@@ -35,6 +71,40 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Public GET: Fetch feature toggles for a specific book
+router.get('/book-features', async (req, res) => {
+  try {
+    const { className, bookName } = req.query;
+    const defaultFeatures = {
+      lessonPlan: true,
+      mindMap: true,
+      testPaper: true,
+      worksheet: true,
+      oralTest: true,
+      quiz: true,
+      notes: true,
+      explainSimply: true,
+      voiceTts: true
+    };
+
+    if (!className || !bookName) {
+      return res.json({ features: defaultFeatures });
+    }
+
+    const doc = await BookFeature.findOne({
+      className: new RegExp('^' + className.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i'),
+      bookName: new RegExp('^' + bookName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i')
+    }).lean();
+
+    res.json({
+      features: doc && doc.features ? { ...defaultFeatures, ...doc.features } : defaultFeatures
+    });
+  } catch (err) {
+    console.error('book-features get error:', err);
+    res.status(500).json({ error: 'Failed to fetch book features' });
+  }
+});
+
 // Admin GET: List all chapters and their pedagogy completion status
 router.get('/admin/chapters', requireAdmin, async (req, res) => {
   try {
@@ -58,13 +128,13 @@ router.get('/admin/chapters', requireAdmin, async (req, res) => {
       }
     ]);
 
-    const pedagogies = await Pedagogy.find({}, 'className bookName chapterName lessonPlan.lastGeneratedAt mindMap.lastGeneratedAt').lean();
+    const pedagogies = await Pedagogy.find({}, 'className bookName chapterName lessonPlan mindMap updatedAt').lean();
     const statusMap = new Map();
     pedagogies.forEach((p) => {
       const key = `${p.className}___${p.bookName}___${p.chapterName}`.toLowerCase();
       statusMap.set(key, {
-        hasLessonPlan: !!(p.lessonPlan && p.lessonPlan.unitTitle),
-        hasMindMap: !!(p.mindMap && p.mindMap.centralTopic),
+        hasLessonPlan: !!(p.lessonPlan && (p.lessonPlan.unitTitle || p.lessonPlan.pdfUrl)),
+        hasMindMap: !!(p.mindMap && (p.mindMap.centralTopic || p.mindMap.imageUrl || p.mindMap.pdfUrl)),
         lastUpdated: p.updatedAt
       });
     });
@@ -92,197 +162,114 @@ router.get('/admin/chapters', requireAdmin, async (req, res) => {
   }
 });
 
-// Admin POST: Generate with AI using Gemini & permanently save to MongoDB
-router.post('/admin/generate-ai', requireAdmin, async (req, res) => {
+// Admin POST: Upload PDF or image file for lesson plan or mind map
+router.post('/admin/upload-file', requireAdmin, upload.single('file'), (req, res) => {
   try {
-    const { className, bookName, chapterName } = req.body;
-    if (!className || !bookName || !chapterName) {
-      return res.status(400).json({ error: 'className, bookName, and chapterName are required' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file received' });
     }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(400).json({ error: 'GEMINI_API_KEY is not configured in server/.env' });
-    }
-
-    // Fetch sample questions from DB for authentic grounding
-    const sampleQuestions = await QA.find({
-      className: new RegExp('^' + className.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i'),
-      bookName: new RegExp('^' + bookName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i'),
-      chapterName: new RegExp('^' + chapterName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i')
-    }).limit(15).lean();
-
-    const qContext = sampleQuestions.map((q, i) => `${i + 1}. Q: ${q.question} | Ans: ${q.answer}`).join('\n');
-
-    const prompt = `You are a Senior CBSE & NCERT Pedagogical Curriculum Specialist.
-Target Class: ${className}
-Book/Subject: ${bookName}
-Chapter: ${chapterName}
-
-Concepts and Q&A from this chapter in our curriculum database:
-${qContext || 'Standard NCERT curriculum topics for ' + chapterName}
-
-Your task:
-1. Generate an authentic, comprehensive, teacher-friendly Lesson Plan adhering to CBSE guidelines (Learning Outcomes, 5E pedagogical model, 4 periods structure, teaching aids, class activity, homework).
-2. Generate a structured multi-branch Mind Map (central topic with 4 distinct branches, each having concrete subtopics, details, and keywords).
-
-You MUST respond strictly with valid JSON without markdown fences, matching this exact schema:
-{
-  "lessonPlan": {
-    "unitTitle": "Unit / Chapter Title",
-    "learningObjectives": [
-      "Students will be able to...",
-      "Students will understand...",
-      "Students will apply..."
-    ],
-    "pedagogicalMethodology": "5E Model (Engage, Explore, Explain, Elaborate, Evaluate) with Interactive Discussion",
-    "periodsCount": 4,
-    "periods": [
-      {
-        "periodNumber": 1,
-        "title": "Introduction & Concept Hook",
-        "focus": "Engage and introduce core terminology",
-        "teacherActivity": "Detailed teacher explanation and inquiry prompts",
-        "studentActivity": "Active listening, responding to hook question, peer discussion",
-        "teachingAids": "Blackboard, textbook illustrations, flashcards",
-        "assessmentQuestion": "Formative oral check question"
-      },
-      {
-        "periodNumber": 2,
-        "title": "In-Depth Exploration & Mechanisms",
-        "focus": "Core scientific/educational processes",
-        "teacherActivity": "Step-by-step process demonstration and explanation",
-        "studentActivity": "Making structured notes, identifying key steps",
-        "teachingAids": "Process charts, visual models",
-        "assessmentQuestion": "Conceptual check question"
-      },
-      {
-        "periodNumber": 3,
-        "title": "Visual Analysis & Application",
-        "focus": "Diagrams, real-world connections, and case scenarios",
-        "teacherActivity": "Guiding students through diagrams and practical examples",
-        "studentActivity": "Diagram sketching, labeling parts, group activity",
-        "teachingAids": "Diagram worksheet, interactive props",
-        "assessmentQuestion": "Application-level question"
-      },
-      {
-        "periodNumber": 4,
-        "title": "Evaluation, Synthesis & Revision",
-        "focus": "Assessment and doubt resolution",
-        "teacherActivity": "Conducting quick recap quiz and reviewing student worksheets",
-        "studentActivity": "Completing practice exercises and self-assessment",
-        "teachingAids": "Review test paper, question cards",
-        "assessmentQuestion": "Summative test question"
-      }
-    ],
-    "bloomTaxonomy": ["Remembering", "Understanding", "Applying", "Analyzing"],
-    "classroomActivity": "Exciting classroom activity, roleplay or mini-experiment",
-    "homeworkAssignment": "Thoughtful revision task reinforcing chapter concepts"
-  },
-  "mindMap": {
-    "centralTopic": "Chapter Central Concept Name",
-    "branches": [
-      {
-        "id": "branch-1",
-        "title": "Core Definitions & Fundamentals",
-        "color": "#6366f1",
-        "subtopics": [
-          { "name": "Key Concept 1", "detail": "Clear explanation", "keywords": ["term1", "term2"] },
-          { "name": "Key Concept 2", "detail": "Clear explanation", "keywords": ["term3"] }
-        ]
-      },
-      {
-        "id": "branch-2",
-        "title": "Processes & Mechanisms",
-        "color": "#059669",
-        "subtopics": [
-          { "name": "Process 1", "detail": "How it works", "keywords": ["process", "cycle"] }
-        ]
-      },
-      {
-        "id": "branch-3",
-        "title": "Structures & Components",
-        "color": "#d97706",
-        "subtopics": [
-          { "name": "Component 1", "detail": "Function and purpose", "keywords": ["role", "part"] }
-        ]
-      },
-      {
-        "id": "branch-4",
-        "title": "Real-Life Applications & Significance",
-        "color": "#8b5cf6",
-        "subtopics": [
-          { "name": "Application 1", "detail": "Why it matters in daily life", "keywords": ["life", "usage"] }
-        ]
-      }
-    ]
+    const fileUrl = `/uploads/pedagogy/${req.file.filename}`;
+    res.json({
+      success: true,
+      fileUrl,
+      fileName: req.file.originalname,
+      size: req.file.size
+    });
+  } catch (err) {
+    console.error('pedagogy file upload error:', err);
+    res.status(500).json({ error: 'Failed to upload file: ' + err.message });
   }
-}
-CRITICAL: Output ONLY valid JSON. No markdown code blocks, backticks, or introductory notes.`;
+});
 
-    let generatedText = null;
-    let lastError = null;
-
-    for (const model of CANDIDATE_MODELS) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        const aiRes = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-
-        if (aiRes.ok) {
-          const data = await aiRes.json();
-          const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (candidateText) {
-            generatedText = candidateText;
-            break;
-          }
-        } else {
-          const errData = await aiRes.json().catch(() => ({}));
-          lastError = errData?.error?.message || `HTTP ${aiRes.status}`;
+// Admin GET: List all books and their feature toggles
+router.get('/admin/book-features', requireAdmin, async (req, res) => {
+  try {
+    const booksAgg = await QA.aggregate([
+      {
+        $group: {
+          _id: {
+            className: '$className',
+            bookName: '$bookName'
+          },
+          chapterCount: { $addToSet: '$chapterName' },
+          questionCount: { $sum: 1 }
         }
-      } catch (callErr) {
-        lastError = callErr.message;
+      },
+      {
+        $sort: {
+          '_id.className': 1,
+          '_id.bookName': 1
+        }
       }
+    ]);
+
+    const existingConfigs = await BookFeature.find({}).lean();
+    const configMap = new Map();
+    existingConfigs.forEach((c) => {
+      const key = `${c.className}___${c.bookName}`.toLowerCase();
+      configMap.set(key, c.features);
+    });
+
+    const defaultFeatures = {
+      lessonPlan: true,
+      mindMap: true,
+      testPaper: true,
+      worksheet: true,
+      oralTest: true,
+      quiz: true,
+      notes: true,
+      explainSimply: true,
+      voiceTts: true
+    };
+
+    const result = booksAgg.map((item) => {
+      const c = item._id.className || 'General';
+      const b = item._id.bookName || 'General';
+      const key = `${c}___${b}`.toLowerCase();
+      const customFeatures = configMap.get(key);
+
+      return {
+        className: c,
+        bookName: b,
+        chaptersCount: (item.chapterCount || []).length,
+        questionCount: item.questionCount,
+        features: customFeatures ? { ...defaultFeatures, ...customFeatures } : { ...defaultFeatures }
+      };
+    });
+
+    res.json({ books: result });
+  } catch (err) {
+    console.error('admin book-features list error:', err);
+    res.status(500).json({ error: 'Failed to fetch book feature list' });
+  }
+});
+
+// Admin POST: Save feature toggles for a book
+router.post('/admin/book-features', requireAdmin, async (req, res) => {
+  try {
+    const { className, bookName, features } = req.body;
+    if (!className || !bookName || !features) {
+      return res.status(400).json({ error: 'className, bookName, and features are required' });
     }
 
-    if (!generatedText) {
-      return res.status(502).json({ error: 'AI generation failed: ' + (lastError || 'Gemini service unavailable') });
-    }
-
-    // Clean JSON response (strip markdown fences if any)
-    const cleanedJson = generatedText
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/```\s*$/i, '')
-      .trim();
-
-    let parsed;
-    try {
-      parsed = JSON.parse(cleanedJson);
-    } catch (parseErr) {
-      console.error('Failed to parse Gemini output:', generatedText);
-      return res.status(502).json({ error: 'AI output could not be parsed as JSON: ' + parseErr.message });
-    }
-
-    // Save permanently to MongoDB (Cache Forever)
-    const savedDoc = await Pedagogy.findOneAndUpdate(
-      { className: className.trim(), bookName: bookName.trim(), chapterName: chapterName.trim() },
+    const savedDoc = await BookFeature.findOneAndUpdate(
+      {
+        className: className.trim(),
+        bookName: bookName.trim()
+      },
       {
         className: className.trim(),
         bookName: bookName.trim(),
-        chapterName: chapterName.trim(),
-        lessonPlan: {
-          ...parsed.lessonPlan,
-          lastGeneratedAt: new Date(),
-          isAIGenerated: true
-        },
-        mindMap: {
-          ...parsed.mindMap,
-          lastGeneratedAt: new Date(),
-          isAIGenerated: true
+        features: {
+          lessonPlan: Boolean(features.lessonPlan),
+          mindMap: Boolean(features.mindMap),
+          testPaper: Boolean(features.testPaper),
+          worksheet: Boolean(features.worksheet),
+          oralTest: Boolean(features.oralTest),
+          quiz: Boolean(features.quiz),
+          notes: Boolean(features.notes),
+          explainSimply: Boolean(features.explainSimply),
+          voiceTts: Boolean(features.voiceTts)
         }
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -290,16 +277,16 @@ CRITICAL: Output ONLY valid JSON. No markdown code blocks, backticks, or introdu
 
     res.json({
       success: true,
-      message: 'Lesson Plan & Mind Map generated with AI and permanently saved to Database!',
+      message: `Features updated for ${className} • ${bookName}`,
       data: savedDoc
     });
   } catch (err) {
-    console.error('pedagogy generate-ai error:', err);
-    res.status(500).json({ error: 'Server error during AI generation: ' + err.message });
+    console.error('admin book-features save error:', err);
+    res.status(500).json({ error: 'Failed to save book features: ' + err.message });
   }
 });
 
-// Admin POST: Save manual edits
+// Admin POST: Save manual edits for Lesson Plan and Mind Map
 router.post('/admin/save', requireAdmin, async (req, res) => {
   try {
     const { className, bookName, chapterName, lessonPlan, mindMap } = req.body;
@@ -316,18 +303,24 @@ router.post('/admin/save', requireAdmin, async (req, res) => {
     if (lessonPlan) {
       updateData.lessonPlan = {
         ...lessonPlan,
-        isAIGenerated: false
+        isAIGenerated: false,
+        lastGeneratedAt: new Date()
       };
     }
     if (mindMap) {
       updateData.mindMap = {
         ...mindMap,
-        isAIGenerated: false
+        isAIGenerated: false,
+        lastGeneratedAt: new Date()
       };
     }
 
     const savedDoc = await Pedagogy.findOneAndUpdate(
-      { className: className.trim(), bookName: bookName.trim(), chapterName: chapterName.trim() },
+      {
+        className: className.trim(),
+        bookName: bookName.trim(),
+        chapterName: chapterName.trim()
+      },
       updateData,
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );

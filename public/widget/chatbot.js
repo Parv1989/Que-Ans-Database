@@ -3,6 +3,55 @@ const TTS_API_URL = window.location.origin + '/api/tts';
 const HIERARCHY_API_URL = window.location.origin + '/api/ask/hierarchy';
 const PEDAGOGY_API_URL = window.location.origin + '/api/pedagogy';
 
+let currentBookFeatures = {
+  lessonPlan: true,
+  mindMap: true,
+  testPaper: true,
+  worksheet: true,
+  oralTest: true,
+  quiz: true,
+  notes: true,
+  explainSimply: true,
+  voiceTts: true
+};
+
+async function fetchAndApplyBookFeatures(cls, bk) {
+  try {
+    const res = await fetch(`${PEDAGOGY_API_URL}/book-features?className=${encodeURIComponent(cls || 'Class 3')}&bookName=${encodeURIComponent(bk || 'Ripples')}`);
+    const data = await res.json();
+    if (data && data.features) {
+      currentBookFeatures = { ...currentBookFeatures, ...data.features };
+    }
+  } catch (e) {
+    console.warn('Could not fetch book features:', e);
+  }
+
+  // Toggle quick tool chips
+  const lpB = document.getElementById('lessonPlanBtn');
+  const mmB = document.getElementById('mindMapBtn');
+  const tpB = document.getElementById('testPaperBtn');
+  const wsB = document.getElementById('worksheetBtn');
+  const otB = document.getElementById('oralTestBtn');
+  const qzB = document.getElementById('quizBtn');
+  const ntB = document.getElementById('exportNotesBtn');
+
+  if (lpB) lpB.style.display = currentBookFeatures.lessonPlan !== false ? '' : 'none';
+  if (mmB) mmB.style.display = currentBookFeatures.mindMap !== false ? '' : 'none';
+  if (tpB) tpB.style.display = currentBookFeatures.testPaper !== false ? '' : 'none';
+  if (wsB) wsB.style.display = currentBookFeatures.worksheet !== false ? '' : 'none';
+  if (otB) otB.style.display = currentBookFeatures.oralTest !== false ? '' : 'none';
+  if (qzB) qzB.style.display = currentBookFeatures.quiz !== false ? '' : 'none';
+  if (ntB) ntB.style.display = currentBookFeatures.notes !== false ? '' : 'none';
+
+  // Toggle voice controls
+  const vSelect = document.getElementById('voiceSelect');
+  const vSpeed = document.getElementById('voiceSpeedSelect');
+  const vMute = document.getElementById('muteBtn');
+  if (vSelect) vSelect.style.display = currentBookFeatures.voiceTts !== false ? '' : 'none';
+  if (vSpeed) vSpeed.style.display = currentBookFeatures.voiceTts !== false ? '' : 'none';
+  if (vMute) vMute.style.display = currentBookFeatures.voiceTts !== false ? '' : 'none';
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -518,7 +567,7 @@ function speakWithUtterance(speechText, chosenVoice = null, fallbackLang = 'en-I
 }
 
 function speak(rawText) {
-  if (!voiceEnabled) return;
+  if (!voiceEnabled || currentBookFeatures.voiceTts === false) return;
 
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   if (currentAudio) {
@@ -634,7 +683,7 @@ function addMessage(text, sender, imageUrl = '', shouldSpeak = true, isAi = fals
   }
 
   // Add "Explain simply" helper chip only on answered QA messages from database
-  if (sender === 'bot' && !isAi && relatedQuestion && !text.startsWith('Connection issue') && !text.startsWith('Hi!')) {
+  if (sender === 'bot' && !isAi && relatedQuestion && !text.startsWith('Connection issue') && !text.startsWith('Hi!') && currentBookFeatures.explainSimply !== false) {
     const explainWrap = document.createElement('div');
     explainWrap.className = 'explain-wrap';
 
@@ -1142,6 +1191,7 @@ if (saveContextBtn) {
     localStorage.setItem('bot_selected_chapter', currentChapter);
 
     updateContextBadge();
+    fetchAndApplyBookFeatures(currentClass, currentBook);
     if (contextModal) contextModal.classList.add('hidden');
 
     const chapText = currentChapter !== 'All Chapters' ? ` (${currentChapter})` : '';
@@ -1177,6 +1227,7 @@ async function initContextEngine() {
 
   // Pre-update badge with currently restored/selected values
   updateContextBadge();
+  fetchAndApplyBookFeatures(currentClass, currentBook);
 
   // STOP auto-dismiss: The "Select Class & Book" modal must stay visible
   // so the user can verify/choose and click "Start Chatting 🚀"
@@ -2521,29 +2572,20 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ==========================================================================
-// Smart Pedagogical Lesson Plan Generator Engine
+// Smart Pedagogical Lesson Plan Engine (Direct Curriculum Load)
 // ==========================================================================
 const lessonPlanBtn = document.getElementById('lessonPlanBtn');
 const lessonPlanModal = document.getElementById('lessonPlanModal');
-const lessonPlanConfigView = document.getElementById('lessonPlanConfigView');
 const lessonPlanPreviewView = document.getElementById('lessonPlanPreviewView');
-const closeLessonPlanConfigBtn = document.getElementById('closeLessonPlanConfigBtn');
 const closeLessonPlanPreviewBtn = document.getElementById('closeLessonPlanPreviewBtn');
+const closeLessonPlanEmptyBtn = document.getElementById('closeLessonPlanEmptyBtn');
 const lessonPlanContextDisplay = document.getElementById('lessonPlanContextDisplay');
 const lessonPlanLoadingSpinner = document.getElementById('lessonPlanLoadingSpinner');
-const lessonPlanActiveOptions = document.getElementById('lessonPlanActiveOptions');
 const lessonPlanEmptyNotice = document.getElementById('lessonPlanEmptyNotice');
-const lessonPlanSchoolInput = document.getElementById('lessonPlanSchoolInput');
-const lessonPlanTeacherInput = document.getElementById('lessonPlanTeacherInput');
-const lessonPlanDurationSelect = document.getElementById('lessonPlanDurationSelect');
-const lessonPlanFocusSelect = document.getElementById('lessonPlanFocusSelect');
-const generateLessonPlanBtn = document.getElementById('generateLessonPlanBtn');
-const lessonPlanBackBtn = document.getElementById('lessonPlanBackBtn');
-const lessonPlanShuffleBtn = document.getElementById('lessonPlanShuffleBtn');
+const lessonPlanPdfDownloadBtn = document.getElementById('lessonPlanPdfDownloadBtn');
 const lessonPlanPrintBtn = document.getElementById('lessonPlanPrintBtn');
 const printableLessonPlan = document.getElementById('printableLessonPlan');
 
-let allLessonPoolQuestions = [];
 let activeDbPedagogy = null;
 let activeDbMindMap = null;
 
@@ -2556,51 +2598,34 @@ async function openLessonPlanModal() {
   if (!lessonPlanModal) return;
 
   lessonPlanModal.classList.remove('hidden');
-  if (lessonPlanConfigView) lessonPlanConfigView.classList.remove('hidden');
-  if (lessonPlanPreviewView) lessonPlanPreviewView.classList.add('hidden');
   if (lessonPlanLoadingSpinner) lessonPlanLoadingSpinner.classList.remove('hidden');
-  if (lessonPlanActiveOptions) lessonPlanActiveOptions.classList.add('hidden');
   if (lessonPlanEmptyNotice) lessonPlanEmptyNotice.classList.add('hidden');
+  if (printableLessonPlan) printableLessonPlan.innerHTML = '';
+  if (lessonPlanPdfDownloadBtn) lessonPlanPdfDownloadBtn.classList.add('hidden');
 
   const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? ` • Chapter: ${currentChapter}` : '';
   if (lessonPlanContextDisplay) {
     lessonPlanContextDisplay.textContent = `${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}`;
   }
 
-  if (lessonPlanSchoolInput) {
-    const saved = localStorage.getItem('studybuddy_worksheet_school');
-    if (saved) lessonPlanSchoolInput.value = saved;
-  }
-  if (lessonPlanTeacherInput) {
-    const savedT = localStorage.getItem('studybuddy_teacher_name');
-    if (savedT) lessonPlanTeacherInput.value = savedT;
-  }
-
   try {
-    // 1. Check if DB has curated/AI Lesson Plan saved for this chapter
-    try {
-      const pedUrl = `${PEDAGOGY_API_URL}?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
-      const pedRes = await fetch(pedUrl);
-      const pedData = await pedRes.json();
-      activeDbPedagogy = (pedData.exists && pedData.data) ? pedData.data : null;
-    } catch (pedErr) {
-      activeDbPedagogy = null;
-    }
-
-    // 2. Load chapter questions for fallback and context
-    const url = `${API_URL}/worksheet-questions?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
-    const res = await fetch(url);
-    const data = await res.json();
+    const pedUrl = `${PEDAGOGY_API_URL}?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
+    const pedRes = await fetch(pedUrl);
+    const pedData = await pedRes.json();
+    activeDbPedagogy = (pedData.exists && pedData.data) ? pedData.data : null;
 
     if (lessonPlanLoadingSpinner) lessonPlanLoadingSpinner.classList.add('hidden');
 
-    allLessonPoolQuestions = data.questions || [];
-    if (allLessonPoolQuestions.length === 0 && !activeDbPedagogy) {
-      if (lessonPlanEmptyNotice) lessonPlanEmptyNotice.classList.remove('hidden');
-      if (lessonPlanActiveOptions) lessonPlanActiveOptions.classList.add('hidden');
+    if (activeDbPedagogy && activeDbPedagogy.lessonPlan && (activeDbPedagogy.lessonPlan.unitTitle || activeDbPedagogy.lessonPlan.pdfUrl)) {
+      renderLessonPlanDocument();
     } else {
-      if (lessonPlanEmptyNotice) lessonPlanEmptyNotice.classList.add('hidden');
-      if (lessonPlanActiveOptions) lessonPlanActiveOptions.classList.remove('hidden');
+      if (lessonPlanEmptyNotice) {
+        lessonPlanEmptyNotice.classList.remove('hidden');
+        const emptyTxt = document.getElementById('lessonPlanEmptyText');
+        if (emptyTxt) {
+          emptyTxt.textContent = `Lesson Plan has not been configured yet for ${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}.`;
+        }
+      }
     }
   } catch (e) {
     console.warn('Failed to load lesson plan data:', e);
@@ -2610,127 +2635,50 @@ async function openLessonPlanModal() {
 }
 
 function renderLessonPlanDocument() {
-  if (!printableLessonPlan) return;
+  if (!printableLessonPlan || !activeDbPedagogy || !activeDbPedagogy.lessonPlan) return;
 
-  const school = (lessonPlanSchoolInput ? lessonPlanSchoolInput.value.trim() : '') || 'ST. XAVIER\'S CONVENT SENIOR SECONDARY SCHOOL';
-  const teacher = (lessonPlanTeacherInput ? lessonPlanTeacherInput.value.trim() : '') || 'Mrs. Anjali Sharma (Subject Teacher)';
-  const duration = lessonPlanDurationSelect ? lessonPlanDurationSelect.value : '40 Minutes (1 Period)';
-  const focus = lessonPlanFocusSelect ? lessonPlanFocusSelect.value : 'Interactive Discussion & Visual Learning';
-  const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  const chap = (currentChapter && currentChapter !== 'All Chapters') ? currentChapter : 'All Chapters';
+  const lp = activeDbPedagogy.lessonPlan;
+  const chap = (currentChapter && currentChapter !== 'All Chapters') ? currentChapter : (activeDbPedagogy.chapterName || 'All Chapters');
 
-  // If saved authentic CBSE Lesson Plan exists in MongoDB, render it!
-  if (activeDbPedagogy && activeDbPedagogy.lessonPlan && activeDbPedagogy.lessonPlan.unitTitle) {
-    const lp = activeDbPedagogy.lessonPlan;
-    printableLessonPlan.innerHTML = `
-      <div class="lp-school-header">
-        <h1 class="lp-school-name">${school}</h1>
-        <h2 class="lp-plan-title">SMART PEDAGOGICAL LESSON PLAN (CBSE &amp; NEP 2020)</h2>
-        <div style="margin-top:0.35rem;"><span style="background:#e0e7ff; color:#3730a3; font-size:0.78rem; font-weight:700; padding:0.25rem 0.75rem; border-radius:999px;">✔ Curated &amp; Database-Grounded Curriculum</span></div>
-      </div>
-
-      <div class="lp-meta-grid">
-        <div class="lp-meta-item"><strong>Unit Title:</strong> <span>${escapeHtml(lp.unitTitle)}</span></div>
-        <div class="lp-meta-item"><strong>Class / Subject:</strong> <span>${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}</span></div>
-        <div class="lp-meta-item"><strong>Chapter:</strong> <span>${chap}</span></div>
-        <div class="lp-meta-item"><strong>Teacher:</strong> <span>${teacher}</span></div>
-        <div class="lp-meta-item"><strong>Duration:</strong> <span>${lp.periodsCount || 4} Periods (${duration})</span></div>
-        <div class="lp-meta-item"><strong>Date:</strong> <span>${today}</span></div>
-        <div class="lp-meta-item" style="grid-column: span 3;"><strong>Teaching Approach / Methodology:</strong> <span>${escapeHtml(lp.pedagogicalMethodology || focus)}</span></div>
-      </div>
-
-      <!-- 1. Learning Objectives -->
-      <div class="lp-block">
-        <div class="lp-block-header">1. Specific Learning Objectives (Bloom's Taxonomy)</div>
-        <div class="lp-block-body">
-          <ul class="lp-list">
-            ${(lp.learningObjectives || []).map(obj => `<li>${escapeHtml(obj)}</li>`).join('')}
-          </ul>
-          <div style="margin-top:0.5rem; font-size:0.84rem; color:#4338ca;">
-            <strong>Target Bloom's Levels:</strong> ${(lp.bloomTaxonomy || []).join(', ')}
-          </div>
-        </div>
-      </div>
-
-      <!-- 2. Detailed 4-Period Breakdown -->
-      <div class="lp-block">
-        <div class="lp-block-header">2. Detailed Pedagogical Execution Plan (Period-by-Period)</div>
-        <div class="lp-block-body" style="padding:0;">
-          <table class="lp-phase-table">
-            <thead>
-              <tr>
-                <th style="width:14%;">Period</th>
-                <th style="width:23%;">Teacher Activity &amp; Inquiry</th>
-                <th style="width:23%;">Student Learning Activity</th>
-                <th style="width:20%;">Teaching Aids / TLM</th>
-                <th style="width:20%;">Formative Check</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${(lp.periods || []).map(p => `
-                <tr>
-                  <td><strong>Period ${p.periodNumber}</strong><br><span style="font-size:0.8rem; color:#4f46e5; font-weight:700;">${escapeHtml(p.title)}</span></td>
-                  <td>${escapeHtml(p.teacherActivity || 'Interactive concept explanation.')}</td>
-                  <td>${escapeHtml(p.studentActivity || 'Active listening, peer discussion.')}</td>
-                  <td>${escapeHtml(p.teachingAids || 'Blackboard, textbook illustrations.')}</td>
-                  <td><em>${escapeHtml(p.assessmentQuestion || 'Formative oral check.')}</em></td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- 3. Classroom Activity & Homework -->
-      <div class="lp-block">
-        <div class="lp-block-header">3. Experiential Classroom Activity &amp; Homework</div>
-        <div class="lp-block-body">
-          <p><strong>Classroom Group Activity / Demonstration:</strong> ${escapeHtml(lp.classroomActivity || 'Class discussion and visual concept exploration.')}</p>
-          <p style="margin-top:0.5rem;"><strong>Homework &amp; Extension Task:</strong> ${escapeHtml(lp.homeworkAssignment || 'Solve exercise questions and draw concept diagram in notebook.')}</p>
-        </div>
-      </div>
-
-      <!-- 4. Teacher Reflection -->
-      <div class="lp-block">
-        <div class="lp-block-header">4. Teacher's Self-Reflection &amp; Learning Outcome Status</div>
-        <div class="lp-block-body">
-          <div style="display:flex; gap:1.5rem; margin-bottom:0.5rem;">
-            <span>Learning Objectives Achieved: <strong>[ ] Yes  [ ] Partially  [ ] Needs Revision</strong></span>
-            <span>Student Engagement Level: <strong>[ ] High  [ ] Average  [ ] Low</strong></span>
-          </div>
-          <div>Remarks: ..........................................................................................................................................................................</div>
-        </div>
-      </div>
-
-      <div class="lp-signature-row">
-        <div>Teacher's Signature: __________________________</div>
-        <div>Principal / Academic Coordinator: __________________________</div>
-      </div>
-    `;
-    return;
+  if (lp.pdfUrl) {
+    if (lessonPlanPdfDownloadBtn) {
+      lessonPlanPdfDownloadBtn.href = lp.pdfUrl;
+      lessonPlanPdfDownloadBtn.classList.remove('hidden');
+    }
+  } else {
+    if (lessonPlanPdfDownloadBtn) {
+      lessonPlanPdfDownloadBtn.classList.add('hidden');
+    }
   }
 
-
-
-  const questionsSample = [...allLessonPoolQuestions].sort(() => 0.5 - Math.random());
-  const diagramQ = questionsSample.find(q => q.imageUrl && q.imageUrl.trim());
-  const warmUpQ = questionsSample[0] ? questionsSample[0].question : 'What do you already know about this topic?';
-  const homeworkQs = questionsSample.slice(0, 3);
+  const pdfBanner = lp.pdfUrl ? `
+    <div class="no-print" style="margin-bottom: 1.25rem; background: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 12px; padding: 0.85rem 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+      <div>
+        <strong style="color: #065f46; font-size: 0.95rem;">📎 Official Lesson Plan PDF Available</strong>
+        <div style="font-size: 0.82rem; color: #047857; margin-top: 0.15rem;">An official curriculum document is attached to this chapter.</div>
+      </div>
+      <a href="${lp.pdfUrl}" target="_blank" download style="background: #059669; color: #ffffff; padding: 0.5rem 1.1rem; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 0.45rem; box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);">
+        📥 Download / View PDF
+      </a>
+    </div>
+  ` : '';
 
   printableLessonPlan.innerHTML = `
+    ${pdfBanner}
     <div class="lp-school-header">
-      <h1 class="lp-school-name">${school}</h1>
-      <h2 class="lp-plan-title">SMART PEDAGOGICAL LESSON PLAN (NEP 2020 & 5E MODEL)</h2>
+      <h1 class="lp-school-name">${escapeHtml(currentBook || 'Curriculum')} &bull; ${escapeHtml(currentClass || 'Class 3')}</h1>
+      <h2 class="lp-plan-title">SMART PEDAGOGICAL LESSON PLAN (CBSE &amp; NEP 2020)</h2>
+      <div style="margin-top:0.35rem;"><span style="background:#e0e7ff; color:#3730a3; font-size:0.78rem; font-weight:700; padding:0.25rem 0.75rem; border-radius:999px;">✔ Curated &amp; Database-Grounded Curriculum</span></div>
     </div>
 
     <div class="lp-meta-grid">
-      <div class="lp-meta-item"><strong>Class / Grade:</strong> <span>${currentClass || 'Class 3'}</span></div>
-      <div class="lp-meta-item"><strong>Subject:</strong> <span>${currentBook || 'Ripples'}</span></div>
-      <div class="lp-meta-item"><strong>Chapter:</strong> <span>${chap}</span></div>
-      <div class="lp-meta-item"><strong>Teacher:</strong> <span>${teacher}</span></div>
-      <div class="lp-meta-item"><strong>Duration:</strong> <span>${duration}</span></div>
-      <div class="lp-meta-item"><strong>Date:</strong> <span>${today}</span></div>
-      <div class="lp-meta-item" style="grid-column: span 3;"><strong>Teaching Approach:</strong> <span>${focus}</span></div>
+      <div class="lp-meta-item"><strong>Class:</strong> <span>${escapeHtml(currentClass || 'Class 3')}</span></div>
+      <div class="lp-meta-item"><strong>Subject/Book:</strong> <span>${escapeHtml(currentBook || 'Ripples')}</span></div>
+      <div class="lp-meta-item"><strong>Chapter:</strong> <span>${escapeHtml(chap)}</span></div>
+      <div class="lp-meta-item"><strong>Unit Title:</strong> <span>${escapeHtml(lp.unitTitle || chap)}</span></div>
+      <div class="lp-meta-item"><strong>Duration:</strong> <span>${lp.periodsCount || 4} Periods</span></div>
+      <div class="lp-meta-item"><strong>Curriculum Alignment:</strong> <span>CBSE &amp; NEP 2020</span></div>
+      <div class="lp-meta-item" style="grid-column: span 3;"><strong>Teaching Approach / Methodology:</strong> <span>${escapeHtml(lp.pedagogicalMethodology || '5E Inquiry Model, Visual Learning & Interactive Discussion')}</span></div>
     </div>
 
     <!-- 1. Learning Objectives -->
@@ -2738,107 +2686,61 @@ function renderLessonPlanDocument() {
       <div class="lp-block-header">1. Specific Learning Objectives (Bloom's Taxonomy)</div>
       <div class="lp-block-body">
         <ul class="lp-list">
-          <li><strong>Cognitive (Knowledge):</strong> Students will be able to define, recall, and list fundamental terms and concepts of <em>${chap}</em>.</li>
-          <li><strong>Affective (Understanding):</strong> Students will be able to explain the core processes and summarize them in their own words.</li>
-          <li><strong>Psychomotor (Application & Skill):</strong> Students will observe diagrams, interpret visual illustrations, and relate concepts to real-life daily experiences.</li>
+          ${(lp.learningObjectives || []).map(obj => `<li>${escapeHtml(obj)}</li>`).join('')}
         </ul>
+        <div style="margin-top:0.5rem; font-size:0.84rem; color:#4338ca;">
+          <strong>Target Bloom's Levels:</strong> ${(lp.bloomTaxonomy || []).join(', ') || 'Remembering, Understanding, Applying'}
+        </div>
       </div>
     </div>
 
-    <!-- 2. Teaching Aids / TLM -->
+    <!-- 2. Detailed Periods Breakdown -->
     <div class="lp-block">
-      <div class="lp-block-header">2. Teaching Aids & Learning Materials (TLM)</div>
-      <div class="lp-block-body">
-        <ul class="lp-list">
-          <li>Textbook (<em>${currentBook || 'Ripples'}</em>, ${chap}), Whiteboard / Chalkboard.</li>
-          <li>Smartboard Interactive Mascot & Digital Diagrams ${diagramQ ? `(e.g., <strong>${formatText(diagramQ.question)}</strong>)` : ''}.</li>
-          <li>Student Revision Notes & Practice Worksheets.</li>
-        </ul>
-      </div>
-    </div>
-
-    <!-- 3. Prerequisite Knowledge & Hook -->
-    <div class="lp-block">
-      <div class="lp-block-header">3. Prerequisite Knowledge & Warm-Up Hook (Engage - 5 Mins)</div>
-      <div class="lp-block-body">
-        <p><strong>Warm-Up Inquiry Question:</strong> "${formatText(warmUpQ)}"</p>
-        <p><em>Teacher Strategy:</em> Prompt students with a real-life observation to activate prior knowledge and stimulate natural curiosity before diving into formal definitions.</p>
-      </div>
-    </div>
-
-    <!-- 4. 5E Instructional Plan -->
-    <div class="lp-block">
-      <div class="lp-block-header">4. 5E Instructional Execution Plan</div>
+      <div class="lp-block-header">2. Detailed Pedagogical Execution Plan (Period-by-Period)</div>
       <div class="lp-block-body" style="padding:0;">
         <table class="lp-phase-table">
           <thead>
             <tr>
-              <th style="width:18%;">Phase (5E)</th>
-              <th style="width:14%;">Time</th>
-              <th style="width:34%;">Teacher Activity</th>
-              <th style="width:34%;">Student Learning Activity</th>
+              <th style="width:14%;">Period</th>
+              <th style="width:23%;">Teacher Activity &amp; Inquiry</th>
+              <th style="width:23%;">Student Learning Activity</th>
+              <th style="width:20%;">Teaching Aids / TLM</th>
+              <th style="width:20%;">Formative Check</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td><strong>1. Engage</strong></td>
-              <td>5 mins</td>
-              <td>Asks motivating starter questions and shows real-world examples.</td>
-              <td>Share daily observations and brainstorm ideas in pairs.</td>
-            </tr>
-            <tr>
-              <td><strong>2. Explore</strong></td>
-              <td>10 mins</td>
-              <td>Directs students to analyze textbook diagrams and textbook illustrations.</td>
-              <td>Examine visual details, identify labels, and discuss observations.</td>
-            </tr>
-            <tr>
-              <td><strong>3. Explain</strong></td>
-              <td>12 mins</td>
-              <td>Explains core scientific principles, breaks down technical terms, and guides note-taking.</td>
-              <td>Note down key definitions, ask questions, and repeat key terms.</td>
-            </tr>
-            <tr>
-              <td><strong>4. Elaborate</strong></td>
-              <td>8 mins</td>
-              <td>Connects the chapter concepts with broader environmental and practical examples.</td>
-              <td>Solve a quick challenge or draw a simple conceptual sketch in notebooks.</td>
-            </tr>
-            <tr>
-              <td><strong>5. Evaluate</strong></td>
-              <td>5 mins</td>
-              <td>Conducts formative oral review check using 2 rapid-fire questions from chapter database.</td>
-              <td>Respond orally to check immediate understanding and retention.</td>
-            </tr>
+            ${(lp.periods || []).map(p => `
+              <tr>
+                <td><strong>Period ${p.periodNumber}</strong><br><span style="font-size:0.8rem; color:#4f46e5; font-weight:700;">${escapeHtml(p.title)}</span></td>
+                <td>${escapeHtml(p.teacherActivity || 'Interactive concept explanation.')}</td>
+                <td>${escapeHtml(p.studentActivity || 'Active listening, peer discussion.')}</td>
+                <td>${escapeHtml(p.teachingAids || 'Blackboard, textbook illustrations.')}</td>
+                <td><em>${escapeHtml(p.assessmentQuestion || 'Formative oral check.')}</em></td>
+              </tr>
+            `).join('')}
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- 5. Formative Assessment & Homework -->
+    <!-- 3. Classroom Activity & Homework -->
     <div class="lp-block">
-      <div class="lp-block-header">5. Homework & Formative Assessment (Selected Questions)</div>
+      <div class="lp-block-header">3. Experiential Classroom Activity &amp; Homework</div>
       <div class="lp-block-body">
-        <ol style="margin:0; padding-left:1.2rem;">
-          ${homeworkQs.map(q => `
-            <li style="margin-bottom:0.5rem;">
-              <strong>${formatText(q.question)}</strong><br>
-              <span style="font-size:0.84rem; color:#065f46;"><em>Answer Guide:</em> ${formatText(q.answer)}</span>
-            </li>
-          `).join('')}
-        </ol>
+        <p><strong>Classroom Group Activity / Demonstration:</strong> ${escapeHtml(lp.classroomActivity || 'Class discussion and visual concept exploration.')}</p>
+        <p style="margin-top:0.5rem;"><strong>Homework &amp; Extension Task:</strong> ${escapeHtml(lp.homeworkAssignment || 'Solve exercise questions and draw concept diagram in notebook.')}</p>
       </div>
     </div>
 
-    <!-- 6. Teacher Reflection -->
+    <!-- 4. Teacher Reflection -->
     <div class="lp-block">
-      <div class="lp-block-header">6. Teacher's Self-Reflection & Learning Outcome Status</div>
+      <div class="lp-block-header">4. Teacher's Self-Reflection &amp; Learning Outcome Status</div>
       <div class="lp-block-body">
-        <div style="display:flex; gap:1.5rem; margin-bottom:0.5rem;">
+        <div style="display:flex; gap:1.5rem; margin-bottom:0.5rem; flex-wrap:wrap;">
           <span>Learning Objectives Achieved: <strong>[ ] Yes  [ ] Partially  [ ] Needs Revision</strong></span>
           <span>Student Engagement Level: <strong>[ ] High  [ ] Average  [ ] Low</strong></span>
         </div>
-        <div>Remarks: ..........................................................................................................................................................................</div>
+        <div>Teacher's Notes / Observations: ..........................................................................................................................................................................</div>
       </div>
     </div>
 
@@ -2849,35 +2751,9 @@ function renderLessonPlanDocument() {
   `;
 }
 
-function generateLessonPlan() {
-  if (lessonPlanSchoolInput) {
-    localStorage.setItem('studybuddy_worksheet_school', lessonPlanSchoolInput.value.trim());
-  }
-  if (lessonPlanTeacherInput) {
-    localStorage.setItem('studybuddy_teacher_name', lessonPlanTeacherInput.value.trim());
-  }
-
-  renderLessonPlanDocument();
-
-  if (lessonPlanConfigView) lessonPlanConfigView.classList.add('hidden');
-  if (lessonPlanPreviewView) lessonPlanPreviewView.classList.remove('hidden');
-}
-
 if (lessonPlanBtn) lessonPlanBtn.addEventListener('click', openLessonPlanModal);
-if (closeLessonPlanConfigBtn) closeLessonPlanConfigBtn.addEventListener('click', closeLessonPlanModal);
 if (closeLessonPlanPreviewBtn) closeLessonPlanPreviewBtn.addEventListener('click', closeLessonPlanModal);
-if (generateLessonPlanBtn) generateLessonPlanBtn.addEventListener('click', generateLessonPlan);
-if (lessonPlanBackBtn) {
-  lessonPlanBackBtn.addEventListener('click', () => {
-    if (lessonPlanPreviewView) lessonPlanPreviewView.classList.add('hidden');
-    if (lessonPlanConfigView) lessonPlanConfigView.classList.remove('hidden');
-  });
-}
-if (lessonPlanShuffleBtn) {
-  lessonPlanShuffleBtn.addEventListener('click', () => {
-    renderLessonPlanDocument();
-  });
-}
+if (closeLessonPlanEmptyBtn) closeLessonPlanEmptyBtn.addEventListener('click', closeLessonPlanModal);
 if (lessonPlanPrintBtn) {
   lessonPlanPrintBtn.addEventListener('click', () => {
     window.print();
@@ -4057,11 +3933,16 @@ window.addEventListener('keydown', (e) => {
 const mindMapBtn = document.getElementById('mindMapBtn');
 const mindMapModal = document.getElementById('mindMapModal');
 const closeMindMapBtn = document.getElementById('closeMindMapBtn');
+const closeMindMapEmptyBtn = document.getElementById('closeMindMapEmptyBtn');
 const mindMapSubtitle = document.getElementById('mindMapSubtitle');
 const mindMapZoomInBtn = document.getElementById('mindMapZoomInBtn');
 const mindMapZoomOutBtn = document.getElementById('mindMapZoomOutBtn');
 const mindMapResetZoomBtn = document.getElementById('mindMapResetZoomBtn');
 const mindMapPrintPosterBtn = document.getElementById('mindMapPrintPosterBtn');
+const mindMapPdfBtn = document.getElementById('mindMapPdfBtn');
+const mindMapEmptyNotice = document.getElementById('mindMapEmptyNotice');
+const mindMapPosterWrap = document.getElementById('mindMapPosterWrap');
+const mindMapPosterImg = document.getElementById('mindMapPosterImg');
 
 const mindMapViewport = document.getElementById('mindMapViewport');
 const mindMapLoading = document.getElementById('mindMapLoading');
@@ -4086,10 +3967,15 @@ function closeMindMapModal() {
   if (conceptSpotlightDrawer) conceptSpotlightDrawer.classList.add('hidden');
 }
 
+if (closeMindMapEmptyBtn) closeMindMapEmptyBtn.addEventListener('click', closeMindMapModal);
+
 function updateMindMapZoom(newZoom) {
   mindMapCurrentZoom = Math.min(Math.max(newZoom, 0.5), 2.2);
   if (mindMapCanvasWrap) {
     mindMapCanvasWrap.style.transform = `scale(${mindMapCurrentZoom})`;
+  }
+  if (mindMapPosterImg) {
+    mindMapPosterImg.style.transform = `scale(${mindMapCurrentZoom})`;
   }
 }
 
@@ -4100,6 +3986,10 @@ async function openMindMapModal() {
   mindMapModal.classList.remove('hidden');
   if (conceptSpotlightDrawer) conceptSpotlightDrawer.classList.add('hidden');
   if (mindMapLoading) mindMapLoading.classList.remove('hidden');
+  if (mindMapEmptyNotice) mindMapEmptyNotice.classList.add('hidden');
+  if (mindMapPosterWrap) mindMapPosterWrap.classList.add('hidden');
+  if (mindMapCanvasWrap) mindMapCanvasWrap.classList.add('hidden');
+  if (mindMapPdfBtn) mindMapPdfBtn.classList.add('hidden');
   updateMindMapZoom(1);
 
   const chapLabel = (currentChapter && currentChapter !== 'All Chapters') ? ` • Chapter: ${currentChapter}` : '';
@@ -4108,27 +3998,43 @@ async function openMindMapModal() {
   }
 
   try {
-    // 1. Check if DB has curated/AI Mind Map saved for this chapter
-    try {
-      const pedUrl = `${PEDAGOGY_API_URL}?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
-      const pedRes = await fetch(pedUrl);
-      const pedData = await pedRes.json();
-      activeDbMindMap = (pedData.exists && pedData.data && pedData.data.mindMap && pedData.data.mindMap.centralTopic) ? pedData.data.mindMap : null;
-    } catch (pedErr) {
-      activeDbMindMap = null;
+    const pedUrl = `${PEDAGOGY_API_URL}?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
+    const pedRes = await fetch(pedUrl);
+    const pedData = await pedRes.json();
+    activeDbMindMap = (pedData.exists && pedData.data && pedData.data.mindMap) ? pedData.data.mindMap : null;
+
+    if (mindMapLoading) mindMapLoading.classList.add('hidden');
+
+    if (activeDbMindMap) {
+      if (activeDbMindMap.pdfUrl && mindMapPdfBtn) {
+        mindMapPdfBtn.href = activeDbMindMap.pdfUrl;
+        mindMapPdfBtn.classList.remove('hidden');
+      }
+
+      if (activeDbMindMap.imageUrl) {
+        if (mindMapPosterWrap && mindMapPosterImg) {
+          mindMapPosterImg.src = activeDbMindMap.imageUrl;
+          mindMapPosterWrap.classList.remove('hidden');
+        }
+      } else if (activeDbMindMap.branches && activeDbMindMap.branches.length > 0) {
+        if (mindMapCanvasWrap) mindMapCanvasWrap.classList.remove('hidden');
+        renderConceptMindMap();
+      } else {
+        if (mindMapEmptyNotice) mindMapEmptyNotice.classList.remove('hidden');
+      }
+    } else {
+      if (mindMapEmptyNotice) {
+        mindMapEmptyNotice.classList.remove('hidden');
+        const emptyTxt = document.getElementById('mindMapEmptyText');
+        if (emptyTxt) {
+          emptyTxt.textContent = `Mind Map is not configured yet for ${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}.`;
+        }
+      }
     }
-
-    const url = `${API_URL}/worksheet-questions?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    allMindMapQuestions = data.questions || [];
-
-    if (mindMapLoading) mindMapLoading.classList.add('hidden');
-    renderConceptMindMap();
   } catch (err) {
-    console.warn('Failed to load questions for mind map:', err);
+    console.warn('Failed to load mind map:', err);
     if (mindMapLoading) mindMapLoading.classList.add('hidden');
-    renderConceptMindMap();
+    if (mindMapEmptyNotice) mindMapEmptyNotice.classList.remove('hidden');
   }
 }
 

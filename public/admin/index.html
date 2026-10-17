@@ -39,6 +39,7 @@
         <button class="nav-btn" data-tab="analytics">📊 Analytics &amp; Logs</button>
         <button class="nav-btn" data-tab="synonyms">Synonyms</button>
         <button class="nav-btn" data-tab="pedagogy">📋 Smart Plans &amp; Mind Maps</button>
+        <button class="nav-btn" data-tab="features">⚙️ Book Features</button>
         <button class="nav-btn" data-tab="embed">Get Widget Code</button>
       </nav>
       <button id="logoutBtn" class="logout-btn">Log out</button>
@@ -192,11 +193,10 @@
         <header class="panel-header">
           <div>
             <h2>Smart Lesson Plans &amp; Mind Maps</h2>
-            <p class="muted">Generate once with AI, edit &amp; customize, and save permanently to MongoDB for zero ongoing API load.</p>
+            <p class="muted">Create, edit, and manage manual lesson plans and mind maps, or attach official curriculum PDFs.</p>
           </div>
           <div class="header-actions">
             <button id="pedagogyRefreshBtn" class="ghost-btn" title="Refresh chapters list">🔄 Refresh</button>
-            <button id="pedagogyGenerateAIBtn" class="primary-btn" title="Generate with AI for selected chapter">✨ Auto-Generate with AI</button>
             <button id="pedagogySaveBtn" class="primary-btn" style="background: #059669;" title="Save edits to Database">💾 Save Changes</button>
           </div>
         </header>
@@ -210,10 +210,6 @@
             </div>
             <div id="pedagogyStatusBadge" class="pedagogy-status-badge">Checking status...</div>
           </div>
-          <div id="pedagogyAiLoadingBanner" class="pedagogy-ai-loading hidden">
-            <div class="spinner-small"></div>
-            <span>Generating authentic CBSE Lesson Plan &amp; Mind Map via Gemini AI... (Please wait a few seconds)</span>
-          </div>
         </div>
 
         <!-- Mode Sub-Tabs -->
@@ -224,6 +220,26 @@
 
         <!-- Subpanel 1: Lesson Plan Form -->
         <div id="subpanel-lessonplan" class="pedagogy-subpanel">
+          <!-- Attached PDF Card -->
+          <div class="ped-field-group" style="background: #f0fdf4; border: 1.5px dashed #86efac; border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 0.5rem;">
+            <label style="color: #166534; font-size: 0.95rem; font-weight: 800;">📎 Attached Lesson Plan PDF Document:
+              <span class="muted" style="display: block; font-weight: normal; margin: 0.25rem 0 0.6rem; font-size: 0.84rem;">
+                Agar aapke paas ready Lesson Plan PDF hai to yahan attach karein. Widget me teachers is PDF ko directly download/view kar sakenge.
+              </span>
+              <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                <input type="file" id="lpPdfFileInput" accept=".pdf" style="max-width: 280px; font-size: 0.85rem;" />
+                <button type="button" id="lpUploadPdfBtn" class="primary-btn" style="background: #15803d; padding: 0.45rem 0.9rem; font-size: 0.85rem;">📤 Upload PDF</button>
+                <span id="lpPdfUploadStatus" class="muted" style="font-size: 0.85rem; font-weight: 700;"></span>
+              </div>
+              <div id="lpPdfPreviewRow" class="hidden" style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.75rem; padding: 0.6rem 0.9rem; background: #ffffff; border: 1px solid #bbf7d0; border-radius: 8px;">
+                <span style="font-size: 1.3rem;">📄</span>
+                <a id="lpPdfLink" href="" target="_blank" style="color: #15803d; font-weight: 700; text-decoration: underline; font-size: 0.88rem; flex: 1;">Attached Lesson Plan PDF</a>
+                <button type="button" id="lpRemovePdfBtn" class="ghost-btn" style="color: #dc2626; border-color: #fecaca; font-size: 0.8rem; padding: 0.25rem 0.6rem;" title="Remove PDF">✕ Remove</button>
+                <input type="hidden" id="lpPdfUrl" />
+              </div>
+            </label>
+          </div>
+
           <div class="ped-form-grid">
             <div class="ped-field-group">
               <label>Unit / Chapter Title:
@@ -377,20 +393,61 @@
 
         <!-- Subpanel 2: Mind Map Form -->
         <div id="subpanel-mindmap" class="pedagogy-subpanel hidden">
+          <!-- Attached Diagram / PDF Card -->
+          <div class="ped-field-group" style="background: #f5f3ff; border: 1.5px dashed #c4b5fd; border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 0.5rem;">
+            <label style="color: #5b21b6; font-size: 0.95rem; font-weight: 800;">📎 Attached Mind Map Diagram / Poster (Optional):
+              <span class="muted" style="display: block; font-weight: normal; margin: 0.25rem 0 0.6rem; font-size: 0.84rem;">
+                Aap high-resolution concept image (.png, .jpg, .webp) ya PDF poster bhi upload kar sakte hain jo mind map modal me show hoga.
+              </span>
+              <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                <input type="file" id="mmFileInput" accept=".pdf,.png,.jpg,.jpeg,.webp" style="max-width: 280px; font-size: 0.85rem;" />
+                <button type="button" id="mmUploadFileBtn" class="primary-btn" style="background: #6d28d9; padding: 0.45rem 0.9rem; font-size: 0.85rem;">📤 Upload Poster</button>
+                <span id="mmUploadStatus" class="muted" style="font-size: 0.85rem; font-weight: 700;"></span>
+              </div>
+              <div id="mmPreviewRow" class="hidden" style="display: flex; align-items: center; gap: 0.75rem; margin-top: 0.75rem; padding: 0.6rem 0.9rem; background: #ffffff; border: 1px solid #ddd6fe; border-radius: 8px;">
+                <span style="font-size: 1.3rem;">🖼️</span>
+                <a id="mmFileLink" href="" target="_blank" style="color: #6d28d9; font-weight: 700; text-decoration: underline; font-size: 0.88rem; flex: 1;">Attached Mind Map Visual Diagram</a>
+                <button type="button" id="mmRemoveFileBtn" class="ghost-btn" style="color: #dc2626; border-color: #fecaca; font-size: 0.8rem; padding: 0.25rem 0.6rem;" title="Remove diagram">✕ Remove</button>
+                <input type="hidden" id="mmImageUrl" />
+                <input type="hidden" id="mmPdfUrl" />
+              </div>
+            </label>
+          </div>
+
           <div class="ped-field-group">
             <label>Central Topic Name:
               <input type="text" id="mmCentralTopic" placeholder="e.g. Water Cycle &amp; Weather" />
             </label>
           </div>
 
-          <div class="ped-section-divider">
-            <h4>🌿 Mind Map Branches (Categories &amp; Subtopics)</h4>
-            <span class="muted">Each branch represents a key conceptual cluster</span>
+          <div class="ped-section-divider" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <div>
+              <h4>🌿 Mind Map Branches (Categories &amp; Subtopics)</h4>
+              <span class="muted">Each branch represents a key conceptual cluster</span>
+            </div>
+            <button type="button" id="mmAddBranchBtn" class="ghost-btn" style="border-color: #6366f1; color: #4338ca; font-weight: 700;">+ Add Branch</button>
           </div>
 
           <div class="branches-container" id="mmBranchesContainer">
-            <!-- 4 Branches dynamically rendered or edited here -->
+            <!-- Branches dynamically rendered or edited here -->
           </div>
+        </div>
+      </section>
+
+      <!-- BOOK FEATURES TAB -->
+      <section id="tab-features" class="tab-panel hidden">
+        <header class="panel-header">
+          <div>
+            <h2>⚙️ Book Feature Management</h2>
+            <p class="muted">Control which academic features (Lesson Plan, Mind Map, Quiz, Voice TTS, etc.) are enabled for each book in the chatbot widget.</p>
+          </div>
+          <div class="header-actions">
+            <button id="refreshFeaturesBtn" class="ghost-btn" title="Reload books">🔄 Refresh</button>
+          </div>
+        </header>
+
+        <div id="bookFeaturesContainer" class="book-features-grid">
+          <div class="muted" style="padding: 2rem; text-align: center;">Loading books and feature settings...</div>
         </div>
       </section>
 

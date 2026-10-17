@@ -35,9 +35,10 @@ app.use(
 
 app.use(express.json());
 
-// --- Static files: admin panel + embeddable widget ---
+// --- Static files: admin panel + embeddable widget + uploads ---
 app.use('/admin', express.static(path.join(__dirname, '..', 'public', 'admin')));
 app.use('/widget', express.static(path.join(__dirname, '..', 'public', 'widget')));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'public', 'uploads')));
 
 // --- API routes ---
 app.use('/api/ask', askLimiter, askRoute);

@@ -81,6 +81,8 @@ document.querySelectorAll('.nav-btn').forEach((btn) => {
       loadQAList(document.getElementById('qaSearch').value);
     } else if (tabName === 'pedagogy') {
       loadPedagogyChaptersList();
+    } else if (tabName === 'features') {
+      loadBookFeaturesList();
     }
   });
 });
@@ -767,11 +769,29 @@ let currentPedagogyChapters = [];
 
 const pedagogyChapterSelect = document.getElementById('pedagogyChapterSelect');
 const pedagogyStatusBadge = document.getElementById('pedagogyStatusBadge');
-const pedagogyAiLoadingBanner = document.getElementById('pedagogyAiLoadingBanner');
 const pedagogyRefreshBtn = document.getElementById('pedagogyRefreshBtn');
-const pedagogyGenerateAIBtn = document.getElementById('pedagogyGenerateAIBtn');
 const pedagogySaveBtn = document.getElementById('pedagogySaveBtn');
 const mmBranchesContainer = document.getElementById('mmBranchesContainer');
+const mmAddBranchBtn = document.getElementById('mmAddBranchBtn');
+
+// Lesson plan PDF upload elements
+const lpPdfFileInput = document.getElementById('lpPdfFileInput');
+const lpUploadPdfBtn = document.getElementById('lpUploadPdfBtn');
+const lpPdfUploadStatus = document.getElementById('lpPdfUploadStatus');
+const lpPdfPreviewRow = document.getElementById('lpPdfPreviewRow');
+const lpPdfLink = document.getElementById('lpPdfLink');
+const lpRemovePdfBtn = document.getElementById('lpRemovePdfBtn');
+const lpPdfUrl = document.getElementById('lpPdfUrl');
+
+// Mind map image/PDF upload elements
+const mmFileInput = document.getElementById('mmFileInput');
+const mmUploadFileBtn = document.getElementById('mmUploadFileBtn');
+const mmUploadStatus = document.getElementById('mmUploadStatus');
+const mmPreviewRow = document.getElementById('mmPreviewRow');
+const mmFileLink = document.getElementById('mmFileLink');
+const mmRemoveFileBtn = document.getElementById('mmRemoveFileBtn');
+const mmImageUrl = document.getElementById('mmImageUrl');
+const mmPdfUrl = document.getElementById('mmPdfUrl');
 
 // Sub-tabs switching
 document.querySelectorAll('.pedagogy-subtab').forEach((tab) => {
@@ -850,7 +870,7 @@ async function onPedagogyChapterChange() {
       clearPedagogyForms(ch);
       if (pedagogyStatusBadge) {
         pedagogyStatusBadge.className = 'pedagogy-status-badge status-empty';
-        pedagogyStatusBadge.textContent = '⚪ Not in Database (Click "Auto-Generate with AI")';
+        pedagogyStatusBadge.textContent = '⚪ Not in Database (Fill details and click "Save Changes")';
       }
     }
   } catch (err) {
@@ -860,16 +880,11 @@ async function onPedagogyChapterChange() {
 
 function updatePedagogyStatusBadge(doc) {
   if (!pedagogyStatusBadge || !doc) return;
-  const isAI = doc.lessonPlan && doc.lessonPlan.isAIGenerated;
   const dateStr = doc.updatedAt ? new Date(doc.updatedAt).toLocaleDateString() : '';
+  const hasPdf = doc.lessonPlan && doc.lessonPlan.pdfUrl;
 
-  if (isAI) {
-    pedagogyStatusBadge.className = 'pedagogy-status-badge status-ai';
-    pedagogyStatusBadge.innerHTML = `🟣 AI Generated &amp; Saved in MongoDB (${dateStr})`;
-  } else {
-    pedagogyStatusBadge.className = 'pedagogy-status-badge status-saved';
-    pedagogyStatusBadge.innerHTML = `🟢 Saved &amp; Customized in MongoDB (${dateStr})`;
-  }
+  pedagogyStatusBadge.className = 'pedagogy-status-badge status-saved';
+  pedagogyStatusBadge.innerHTML = `🟢 Saved in MongoDB ${hasPdf ? '• Attached PDF 📄' : ''} (${dateStr})`;
 }
 
 function clearPedagogyForms(ch) {
@@ -887,6 +902,12 @@ function clearPedagogyForms(ch) {
   if (lpClassroomActivity) lpClassroomActivity.value = '';
   if (lpHomeworkAssignment) lpHomeworkAssignment.value = '';
 
+  // Clear PDF
+  if (lpPdfUrl) lpPdfUrl.value = '';
+  if (lpPdfFileInput) lpPdfFileInput.value = '';
+  if (lpPdfUploadStatus) lpPdfUploadStatus.textContent = '';
+  if (lpPdfPreviewRow) lpPdfPreviewRow.classList.add('hidden');
+
   for (let i = 1; i <= 4; i++) {
     const t = document.getElementById(`p${i}Title`);
     const te = document.getElementById(`p${i}Teacher`);
@@ -900,8 +921,14 @@ function clearPedagogyForms(ch) {
     if (as) as.value = '';
   }
 
+  // Clear Mind Map
   const mmCentralTopic = document.getElementById('mmCentralTopic');
   if (mmCentralTopic) mmCentralTopic.value = ch.chapterName || 'Chapter Topic';
+  if (mmImageUrl) mmImageUrl.value = '';
+  if (mmPdfUrl) mmPdfUrl.value = '';
+  if (mmFileInput) mmFileInput.value = '';
+  if (mmUploadStatus) mmUploadStatus.textContent = '';
+  if (mmPreviewRow) mmPreviewRow.classList.add('hidden');
 
   renderDefaultBranches(ch.chapterName);
 }
@@ -924,6 +951,16 @@ function fillPedagogyForms(doc) {
   if (lpClassroomActivity) lpClassroomActivity.value = lp.classroomActivity || '';
   if (lpHomeworkAssignment) lpHomeworkAssignment.value = lp.homeworkAssignment || '';
 
+  // PDF Preview
+  if (lpPdfUrl) lpPdfUrl.value = lp.pdfUrl || '';
+  if (lp.pdfUrl && lpPdfPreviewRow && lpPdfLink) {
+    lpPdfLink.href = lp.pdfUrl;
+    lpPdfLink.textContent = `Attached PDF: ${lp.pdfUrl.split('/').pop()}`;
+    lpPdfPreviewRow.classList.remove('hidden');
+  } else if (lpPdfPreviewRow) {
+    lpPdfPreviewRow.classList.add('hidden');
+  }
+
   const periods = lp.periods || [];
   for (let i = 1; i <= 4; i++) {
     const p = periods.find((x) => x.periodNumber === i) || periods[i - 1] || {};
@@ -939,10 +976,130 @@ function fillPedagogyForms(doc) {
     if (as) as.value = p.assessmentQuestion || '';
   }
 
+  // Mind map
   const mmCentralTopic = document.getElementById('mmCentralTopic');
   if (mmCentralTopic) mmCentralTopic.value = mm.centralTopic || doc.chapterName || '';
 
+  if (mmImageUrl) mmImageUrl.value = mm.imageUrl || '';
+  if (mmPdfUrl) mmPdfUrl.value = mm.pdfUrl || '';
+  const mmVisualUrl = mm.imageUrl || mm.pdfUrl;
+  if (mmVisualUrl && mmPreviewRow && mmFileLink) {
+    mmFileLink.href = mmVisualUrl;
+    mmFileLink.textContent = `Attached Diagram: ${mmVisualUrl.split('/').pop()}`;
+    mmPreviewRow.classList.remove('hidden');
+  } else if (mmPreviewRow) {
+    mmPreviewRow.classList.add('hidden');
+  }
+
   renderMindMapBranches(mm.branches || []);
+}
+
+// PDF File Upload Handler for Lesson Plan
+if (lpUploadPdfBtn && lpPdfFileInput) {
+  lpUploadPdfBtn.addEventListener('click', async () => {
+    const file = lpPdfFileInput.files[0];
+    if (!file) {
+      alert('Please choose a PDF file first!');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    if (lpPdfUploadStatus) lpPdfUploadStatus.textContent = 'Uploading PDF...';
+    lpUploadPdfBtn.disabled = true;
+
+    try {
+      const res = await fetch(`${API_BASE}/pedagogy/admin/upload-file`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+      if (lpPdfUrl) lpPdfUrl.value = data.fileUrl;
+      if (lpPdfLink) {
+        lpPdfLink.href = data.fileUrl;
+        lpPdfLink.textContent = `Attached PDF: ${data.fileName}`;
+      }
+      if (lpPdfPreviewRow) lpPdfPreviewRow.classList.remove('hidden');
+      if (lpPdfUploadStatus) lpPdfUploadStatus.textContent = '✔ Uploaded successfully!';
+    } catch (err) {
+      console.error('PDF upload error:', err);
+      if (lpPdfUploadStatus) lpPdfUploadStatus.textContent = '❌ Upload failed';
+      alert('Error uploading PDF: ' + err.message);
+    } finally {
+      lpUploadPdfBtn.disabled = false;
+    }
+  });
+}
+
+if (lpRemovePdfBtn) {
+  lpRemovePdfBtn.addEventListener('click', () => {
+    if (lpPdfUrl) lpPdfUrl.value = '';
+    if (lpPdfFileInput) lpPdfFileInput.value = '';
+    if (lpPdfPreviewRow) lpPdfPreviewRow.classList.add('hidden');
+    if (lpPdfUploadStatus) lpPdfUploadStatus.textContent = 'PDF removed (Click Save to confirm)';
+  });
+}
+
+// Mind Map Poster / Image Upload Handler
+if (mmUploadFileBtn && mmFileInput) {
+  mmUploadFileBtn.addEventListener('click', async () => {
+    const file = mmFileInput.files[0];
+    if (!file) {
+      alert('Please choose an image or PDF poster first!');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    if (mmUploadStatus) mmUploadStatus.textContent = 'Uploading poster...';
+    mmUploadFileBtn.disabled = true;
+
+    try {
+      const res = await fetch(`${API_BASE}/pedagogy/admin/upload-file`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        if (mmPdfUrl) mmPdfUrl.value = data.fileUrl;
+        if (mmImageUrl) mmImageUrl.value = '';
+      } else {
+        if (mmImageUrl) mmImageUrl.value = data.fileUrl;
+        if (mmPdfUrl) mmPdfUrl.value = '';
+      }
+
+      if (mmFileLink) {
+        mmFileLink.href = data.fileUrl;
+        mmFileLink.textContent = `Attached Diagram: ${data.fileName}`;
+      }
+      if (mmPreviewRow) mmPreviewRow.classList.remove('hidden');
+      if (mmUploadStatus) mmUploadStatus.textContent = '✔ Uploaded successfully!';
+    } catch (err) {
+      console.error('Poster upload error:', err);
+      if (mmUploadStatus) mmUploadStatus.textContent = '❌ Upload failed';
+      alert('Error uploading poster: ' + err.message);
+    } finally {
+      mmUploadFileBtn.disabled = false;
+    }
+  });
+}
+
+if (mmRemoveFileBtn) {
+  mmRemoveFileBtn.addEventListener('click', () => {
+    if (mmImageUrl) mmImageUrl.value = '';
+    if (mmPdfUrl) mmPdfUrl.value = '';
+    if (mmFileInput) mmFileInput.value = '';
+    if (mmPreviewRow) mmPreviewRow.classList.add('hidden');
+    if (mmUploadStatus) mmUploadStatus.textContent = 'Poster removed (Click Save to confirm)';
+  });
 }
 
 function renderDefaultBranches(chapterName) {
@@ -951,25 +1108,25 @@ function renderDefaultBranches(chapterName) {
       id: 'branch-1',
       title: 'Core Fundamentals & Definitions',
       color: '#6366f1',
-      subtopics: [{ name: 'Key Concept', detail: 'Basic definition and role', keywords: ['concept'] }]
+      subtopics: [{ name: 'Key Concept', detail: 'Basic definition and role' }]
     },
     {
       id: 'branch-2',
       title: 'Processes & Mechanisms',
       color: '#059669',
-      subtopics: [{ name: 'How It Works', detail: 'Step-by-step mechanism', keywords: ['process'] }]
+      subtopics: [{ name: 'How It Works', detail: 'Step-by-step mechanism' }]
     },
     {
       id: 'branch-3',
       title: 'Structures & Components',
       color: '#d97706',
-      subtopics: [{ name: 'Main Parts', detail: 'Functions and roles', keywords: ['structure'] }]
+      subtopics: [{ name: 'Main Parts', detail: 'Functions and roles' }]
     },
     {
       id: 'branch-4',
       title: 'Real-Life Applications & Significance',
       color: '#8b5cf6',
-      subtopics: [{ name: 'Everyday Example', detail: 'Application in daily life', keywords: ['example'] }]
+      subtopics: [{ name: 'Everyday Example', detail: 'Application in daily life' }]
     }
   ];
   renderMindMapBranches(defaultBranches);
@@ -988,7 +1145,10 @@ function renderMindMapBranches(branches) {
         .map(
           (s, sIdx) => `
         <div class="subtopic-item-row" data-sub-idx="${sIdx}">
-          <input type="text" class="subtopic-name-input" value="${escapeHtml(s.name || '')}" placeholder="Subtopic Name (e.g. Evaporation)" />
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+            <input type="text" class="subtopic-name-input" value="${escapeHtml(s.name || '')}" placeholder="Subtopic Title (e.g. Evaporation)" style="flex:1;" />
+            <button type="button" class="danger-btn-sm remove-subtopic-btn" title="Remove subtopic" style="padding:0.2rem 0.4rem; font-size:0.75rem; background:none; border:none; color:#dc2626; cursor:pointer;">✕</button>
+          </div>
           <textarea class="subtopic-detail-input" rows="2" placeholder="Explanation or concept detail...">${escapeHtml(s.detail || '')}</textarea>
         </div>
       `
@@ -997,20 +1157,22 @@ function renderMindMapBranches(branches) {
 
       return `
       <div class="branch-card" data-branch-idx="${bIdx}">
-        <div class="branch-card-head">
-          <span class="branch-color-indicator" style="background: ${b.color || '#6366f1'};"></span>
-          <input type="text" class="branch-title-input" value="${escapeHtml(b.title || '')}" placeholder="Branch Title" />
+        <div class="branch-card-head" style="display:flex; align-items:center; gap:0.5rem;">
+          <span class="branch-color-indicator" style="background: ${b.color || '#6366f1'}; width:14px; height:14px; border-radius:50%; flex-shrink:0;"></span>
+          <input type="text" class="branch-title-input" value="${escapeHtml(b.title || '')}" placeholder="Branch Title" style="flex:1; font-weight:700;" />
           <input type="color" class="branch-color-picker" value="${b.color || '#6366f1'}" style="width:28px;height:28px;padding:0;border:none;background:none;cursor:pointer;" />
+          <button type="button" class="remove-branch-btn" title="Remove branch" style="background:none; border:none; color:#dc2626; font-size:0.9rem; cursor:pointer;">✕</button>
         </div>
-        <div class="branch-subtopics-list">
+        <div class="branch-subtopics-list" style="margin-top:0.5rem; display:flex; flex-direction:column; gap:0.5rem;">
           ${subsHtml}
         </div>
+        <button type="button" class="ghost-btn add-subtopic-btn" style="margin-top:0.5rem; font-size:0.8rem; padding:0.25rem 0.5rem; align-self:flex-start;">+ Add Subtopic</button>
       </div>
     `;
     })
     .join('');
 
-  // Wire color pickers to indicators
+  // Wire events: color pickers, remove branch, add subtopic, remove subtopic
   mmBranchesContainer.querySelectorAll('.branch-card').forEach((card) => {
     const picker = card.querySelector('.branch-color-picker');
     const indicator = card.querySelector('.branch-color-indicator');
@@ -1019,55 +1181,93 @@ function renderMindMapBranches(branches) {
         indicator.style.background = picker.value;
       });
     }
+
+    const removeBranchBtn = card.querySelector('.remove-branch-btn');
+    if (removeBranchBtn) {
+      removeBranchBtn.addEventListener('click', () => {
+        card.remove();
+      });
+    }
+
+    const addSubtopicBtn = card.querySelector('.add-subtopic-btn');
+    const subList = card.querySelector('.branch-subtopics-list');
+    if (addSubtopicBtn && subList) {
+      addSubtopicBtn.addEventListener('click', () => {
+        const row = document.createElement('div');
+        row.className = 'subtopic-item-row';
+        row.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+            <input type="text" class="subtopic-name-input" value="" placeholder="Subtopic Title" style="flex:1;" />
+            <button type="button" class="danger-btn-sm remove-subtopic-btn" title="Remove subtopic" style="padding:0.2rem 0.4rem; font-size:0.75rem; background:none; border:none; color:#dc2626; cursor:pointer;">✕</button>
+          </div>
+          <textarea class="subtopic-detail-input" rows="2" placeholder="Explanation or concept detail..."></textarea>
+        `;
+        row.querySelector('.remove-subtopic-btn').addEventListener('click', () => row.remove());
+        subList.appendChild(row);
+      });
+    }
+
+    card.querySelectorAll('.remove-subtopic-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.target.closest('.subtopic-item-row')?.remove();
+      });
+    });
   });
 }
 
-// Auto-generate with AI button
-if (pedagogyGenerateAIBtn) {
-  pedagogyGenerateAIBtn.addEventListener('click', async () => {
-    const ch = getSelectedChapterObj();
-    if (!ch) {
-      alert('Please select a Class & Chapter first!');
-      return;
+// Add Branch Button
+if (mmAddBranchBtn && mmBranchesContainer) {
+  mmAddBranchBtn.addEventListener('click', () => {
+    const colors = ['#6366f1', '#059669', '#d97706', '#8b5cf6', '#ec4899', '#0284c7'];
+    const currentCount = mmBranchesContainer.querySelectorAll('.branch-card').length;
+    const randomColor = colors[currentCount % colors.length];
+
+    const card = document.createElement('div');
+    card.className = 'branch-card';
+    card.innerHTML = `
+      <div class="branch-card-head" style="display:flex; align-items:center; gap:0.5rem;">
+        <span class="branch-color-indicator" style="background: ${randomColor}; width:14px; height:14px; border-radius:50%; flex-shrink:0;"></span>
+        <input type="text" class="branch-title-input" value="New Concept Branch ${currentCount + 1}" placeholder="Branch Title" style="flex:1; font-weight:700;" />
+        <input type="color" class="branch-color-picker" value="${randomColor}" style="width:28px;height:28px;padding:0;border:none;background:none;cursor:pointer;" />
+        <button type="button" class="remove-branch-btn" title="Remove branch" style="background:none; border:none; color:#dc2626; font-size:0.9rem; cursor:pointer;">✕</button>
+      </div>
+      <div class="branch-subtopics-list" style="margin-top:0.5rem; display:flex; flex-direction:column; gap:0.5rem;">
+        <div class="subtopic-item-row">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+            <input type="text" class="subtopic-name-input" value="Key Concept" placeholder="Subtopic Title" style="flex:1;" />
+            <button type="button" class="danger-btn-sm remove-subtopic-btn" title="Remove subtopic" style="padding:0.2rem 0.4rem; font-size:0.75rem; background:none; border:none; color:#dc2626; cursor:pointer;">✕</button>
+          </div>
+          <textarea class="subtopic-detail-input" rows="2" placeholder="Explanation or concept detail..."></textarea>
+        </div>
+      </div>
+      <button type="button" class="ghost-btn add-subtopic-btn" style="margin-top:0.5rem; font-size:0.8rem; padding:0.25rem 0.5rem; align-self:flex-start;">+ Add Subtopic</button>
+    `;
+
+    const picker = card.querySelector('.branch-color-picker');
+    const indicator = card.querySelector('.branch-color-indicator');
+    if (picker && indicator) {
+      picker.addEventListener('input', () => { indicator.style.background = picker.value; });
     }
+    card.querySelector('.remove-branch-btn')?.addEventListener('click', () => card.remove());
+    card.querySelector('.remove-subtopic-btn')?.addEventListener('click', (e) => e.target.closest('.subtopic-item-row')?.remove());
 
-    if (
-      currentPedagogyData &&
-      !confirm('This chapter already has saved pedagogy data. Do you want to re-generate it with AI? (Existing custom edits will be replaced)')
-    ) {
-      return;
-    }
+    const addSub = card.querySelector('.add-subtopic-btn');
+    const subList = card.querySelector('.branch-subtopics-list');
+    addSub?.addEventListener('click', () => {
+      const row = document.createElement('div');
+      row.className = 'subtopic-item-row';
+      row.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+          <input type="text" class="subtopic-name-input" value="" placeholder="Subtopic Title" style="flex:1;" />
+          <button type="button" class="danger-btn-sm remove-subtopic-btn" title="Remove subtopic" style="padding:0.2rem 0.4rem; font-size:0.75rem; background:none; border:none; color:#dc2626; cursor:pointer;">✕</button>
+        </div>
+        <textarea class="subtopic-detail-input" rows="2" placeholder="Explanation or concept detail..."></textarea>
+      `;
+      row.querySelector('.remove-subtopic-btn').addEventListener('click', () => row.remove());
+      subList.appendChild(row);
+    });
 
-    if (pedagogyAiLoadingBanner) pedagogyAiLoadingBanner.classList.remove('hidden');
-    pedagogyGenerateAIBtn.disabled = true;
-
-    try {
-      const res = await authedFetch(`${API_BASE}/pedagogy/admin/generate-ai`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ch)
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'AI generation failed');
-      }
-
-      currentPedagogyData = data.data;
-      fillPedagogyForms(currentPedagogyData);
-      updatePedagogyStatusBadge(currentPedagogyData);
-
-      // Refresh option icon in dropdown
-      loadPedagogyChaptersList();
-
-      alert('✨ Authentic CBSE Lesson Plan & Mind Map generated with AI and permanently saved to MongoDB!');
-    } catch (err) {
-      console.error('AI generation error:', err);
-      alert('Error during AI generation: ' + err.message);
-    } finally {
-      if (pedagogyAiLoadingBanner) pedagogyAiLoadingBanner.classList.add('hidden');
-      pedagogyGenerateAIBtn.disabled = false;
-    }
+    mmBranchesContainer.appendChild(card);
   });
 }
 
@@ -1092,6 +1292,7 @@ if (pedagogySaveBtn) {
       .filter(Boolean);
     const lpClassroomActivity = (document.getElementById('lpClassroomActivity')?.value || '').trim();
     const lpHomeworkAssignment = (document.getElementById('lpHomeworkAssignment')?.value || '').trim();
+    const attachedPdf = (lpPdfUrl?.value || '').trim();
 
     const periods = [];
     for (let i = 1; i <= 4; i++) {
@@ -1113,7 +1314,8 @@ if (pedagogySaveBtn) {
       periodsCount: 4,
       periods,
       classroomActivity: lpClassroomActivity,
-      homeworkAssignment: lpHomeworkAssignment
+      homeworkAssignment: lpHomeworkAssignment,
+      pdfUrl: attachedPdf
     };
 
     const mmCentralTopic = (document.getElementById('mmCentralTopic')?.value || ch.chapterName || '').trim();
@@ -1136,7 +1338,9 @@ if (pedagogySaveBtn) {
 
     const mindMap = {
       centralTopic: mmCentralTopic,
-      branches
+      branches,
+      imageUrl: (mmImageUrl?.value || '').trim(),
+      pdfUrl: (mmPdfUrl?.value || '').trim()
     };
 
     try {
@@ -1156,6 +1360,7 @@ if (pedagogySaveBtn) {
 
       currentPedagogyData = data.data;
       updatePedagogyStatusBadge(currentPedagogyData);
+      loadPedagogyChaptersList();
       alert('💾 Changes successfully saved to Database!');
     } catch (err) {
       console.error('Save error:', err);
@@ -1163,5 +1368,154 @@ if (pedagogySaveBtn) {
     }
   });
 }
+
+// =========================================================================
+// ---------- BOOK FEATURES MANAGEMENT ADMIN ----------
+// =========================================================================
+
+const bookFeaturesContainer = document.getElementById('bookFeaturesContainer');
+const refreshFeaturesBtn = document.getElementById('refreshFeaturesBtn');
+
+const ALL_FEATURES_META = [
+  { key: 'lessonPlan', label: '📋 Smart Lesson Plans', desc: 'Direct lesson plan sheet & PDF view' },
+  { key: 'mindMap', label: '🗺️ Concept Mind Maps', desc: 'Interactive concept map & visual diagrams' },
+  { key: 'testPaper', label: '📑 Examination Papers', desc: 'School examination generator & live editor' },
+  { key: 'worksheet', label: '📝 Practice Worksheets', desc: 'Printable chapter question worksheets' },
+  { key: 'oralTest', label: '🎙️ Robot Voice Viva', desc: 'Oral test & speaking dialogue with robot' },
+  { key: 'quiz', label: '🎯 Interactive Quiz', desc: 'MCQ & memory flashcards module' },
+  { key: 'notes', label: '📄 Study Revision Notes', desc: 'Chapter notes export & print' },
+  { key: 'explainSimply', label: '💡 Explain Simply', desc: 'Step-by-step breakdown chip on answers' },
+  { key: 'voiceTts', label: '🔊 Robot Voice / TTS', desc: 'Speech audio synthesis & voice speed controls' }
+];
+
+async function loadBookFeaturesList() {
+  if (!bookFeaturesContainer) return;
+  bookFeaturesContainer.innerHTML = '<div class="muted" style="padding: 2rem; text-align: center;">Loading books and feature settings...</div>';
+
+  try {
+    const res = await authedFetch(`${API_BASE}/pedagogy/admin/book-features`);
+    const data = await res.json();
+    const books = data.books || [];
+
+    if (books.length === 0) {
+      bookFeaturesContainer.innerHTML = '<div class="muted" style="padding: 2rem; text-align: center;">No textbooks found in the database.</div>';
+      return;
+    }
+
+    renderBookFeaturesGrid(books);
+  } catch (err) {
+    console.error('Failed to load book features:', err);
+    bookFeaturesContainer.innerHTML = `<div class="muted" style="padding: 2rem; text-align: center; color:#dc2626;">Error loading book features: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+if (refreshFeaturesBtn) {
+  refreshFeaturesBtn.addEventListener('click', loadBookFeaturesList);
+}
+
+function renderBookFeaturesGrid(books) {
+  if (!bookFeaturesContainer) return;
+
+  bookFeaturesContainer.innerHTML = books
+    .map((book, bIdx) => {
+      const featTogglesHtml = ALL_FEATURES_META.map((feat) => {
+        const isChecked = book.features && book.features[feat.key] !== false;
+        return `
+          <div class="feature-toggle-item">
+            <label>
+              <div class="feature-label-text">
+                <span>${feat.label}</span>
+                <span style="font-size: 0.75rem; font-weight: normal; color: var(--ink-soft);">(${feat.desc})</span>
+              </div>
+              <input type="checkbox" class="feature-checkbox" data-feat="${feat.key}" ${isChecked ? 'checked' : ''} />
+            </label>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="book-feature-card" data-idx="${bIdx}" data-class="${escapeHtml(book.className)}" data-book="${escapeHtml(book.bookName)}">
+          <div class="book-card-header">
+            <div>
+              <h3 class="book-card-title">${escapeHtml(book.className)} • ${escapeHtml(book.bookName)}</h3>
+              <div class="book-card-meta">📚 ${book.chaptersCount || 0} Chapters &bull; ❓ ${book.questionCount || 0} Questions</div>
+            </div>
+            <div class="book-card-bulk-actions">
+              <button type="button" class="ghost-btn select-all-feat-btn" style="font-size:0.75rem; padding:0.2rem 0.5rem;">All ON</button>
+              <button type="button" class="ghost-btn clear-all-feat-btn" style="font-size:0.75rem; padding:0.2rem 0.5rem;">All OFF</button>
+            </div>
+          </div>
+
+          <div class="feature-toggles-list">
+            ${featTogglesHtml}
+          </div>
+
+          <div class="book-card-actions">
+            <span class="book-save-status"></span>
+            <button type="button" class="primary-btn save-book-feat-btn" style="padding:0.45rem 1rem; font-size:0.85rem;">Save Book Settings</button>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+
+  // Attach card event listeners
+  bookFeaturesContainer.querySelectorAll('.book-feature-card').forEach((card) => {
+    const className = card.dataset.class;
+    const bookName = card.dataset.book;
+    const checkboxes = card.querySelectorAll('.feature-checkbox');
+    const saveBtn = card.querySelector('.save-book-feat-btn');
+    const statusSpan = card.querySelector('.book-save-status');
+    const selectAllBtn = card.querySelector('.select-all-feat-btn');
+    const clearAllBtn = card.querySelector('.clear-all-feat-btn');
+
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        checkboxes.forEach((cb) => (cb.checked = true));
+      });
+    }
+
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', () => {
+        checkboxes.forEach((cb) => (cb.checked = false));
+      });
+    }
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        const features = {};
+        checkboxes.forEach((cb) => {
+          features[cb.dataset.feat] = cb.checked;
+        });
+
+        saveBtn.disabled = true;
+        statusSpan.textContent = 'Saving...';
+        statusSpan.style.color = 'var(--ink-soft)';
+
+        try {
+          const res = await authedFetch(`${API_BASE}/pedagogy/admin/book-features`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ className, bookName, features })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Failed to save');
+
+          statusSpan.textContent = '✔ Saved!';
+          statusSpan.style.color = '#059669';
+          setTimeout(() => { statusSpan.textContent = ''; }, 3000);
+        } catch (err) {
+          console.error('Error saving book features:', err);
+          statusSpan.textContent = '❌ Error';
+          statusSpan.style.color = '#dc2626';
+          alert('Could not save feature settings: ' + err.message);
+        } finally {
+          saveBtn.disabled = false;
+        }
+      });
+    }
+  });
+}
+
 
 

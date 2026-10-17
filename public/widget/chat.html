@@ -595,89 +595,18 @@
     </div>
   </div>
 
-  <!-- Smart Pedagogical Lesson Plan Generator & Preview Modal Overlay -->
+  <!-- Smart Pedagogical Lesson Plan Preview Modal Overlay -->
   <div id="lessonPlanModal" class="lessonplan-modal-overlay hidden" aria-modal="true" role="dialog">
     <div class="lessonplan-modal-card">
-      <!-- Step 1: Pre-generation Options Screen -->
-      <div id="lessonPlanConfigView" class="lessonplan-config-card">
-        <div class="lessonplan-modal-header">
-          <div class="lessonplan-modal-icon">📋</div>
-          <h3>Smart Lesson Plan Generator</h3>
-          <p>Generate a structured, curriculum-aligned pedagogical lesson plan for teachers in a single click!</p>
-          <button id="closeLessonPlanConfigBtn" class="lessonplan-close-btn" type="button" aria-label="Close lesson plan generator">&times;</button>
-        </div>
-
-        <div class="lessonplan-config-body">
-          <div class="lessonplan-context-badge">
-            <span class="context-label">Selected Chapter:</span>
-            <strong id="lessonPlanContextDisplay" class="context-val">Class 3 • Ripples</strong>
-          </div>
-
-          <div id="lessonPlanLoadingSpinner" class="lessonplan-loading hidden">
-            <div class="spinner-dot"></div>
-            <span>Analyzing chapter objectives & questions...</span>
-          </div>
-
-          <div id="lessonPlanActiveOptions">
-            <div class="form-row-2col">
-              <div class="form-group">
-                <label for="lessonPlanSchoolInput">School / Institution Name:</label>
-                <input id="lessonPlanSchoolInput" type="text" class="lessonplan-text-input" placeholder="e.g. St. Xavier's Senior Secondary School" />
-              </div>
-              <div class="form-group">
-                <label for="lessonPlanTeacherInput">Teacher Name:</label>
-                <input id="lessonPlanTeacherInput" type="text" class="lessonplan-text-input" placeholder="e.g. Mrs. Anjali Sharma" />
-              </div>
-            </div>
-
-            <div class="form-row-2col">
-              <div class="form-group">
-                <label for="lessonPlanDurationSelect">Period Duration:</label>
-                <select id="lessonPlanDurationSelect" class="lessonplan-select">
-                  <option value="35 Minutes">35 Minutes</option>
-                  <option value="40 Minutes (1 Period)" selected>40 Minutes (1 Period)</option>
-                  <option value="45 Minutes">45 Minutes</option>
-                  <option value="80 Minutes (Double Period)">80 Minutes (Double Period)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="lessonPlanFocusSelect">Teaching Approach:</label>
-                <select id="lessonPlanFocusSelect" class="lessonplan-select">
-                  <option value="Interactive Discussion & Visual Learning" selected>Interactive & Visual Learning</option>
-                  <option value="Concept Mastery & Theory">Concept Mastery & Theory</option>
-                  <option value="Exam Preparation & Question Practice">Exam Prep & Question Practice</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label>Pedagogical Alignment:</label>
-              <div class="framework-pills">
-                <span class="framework-pill">✨ Bloom's Taxonomy</span>
-                <span class="framework-pill">🎯 NEP 2020 Aligned</span>
-                <span class="framework-pill">🎨 5E Instructional Model</span>
-              </div>
-            </div>
-
-            <button id="generateLessonPlanBtn" type="button" class="generate-lessonplan-btn">
-              Generate Smart Lesson Plan 🚀
-            </button>
-          </div>
-
-          <div id="lessonPlanEmptyNotice" class="lessonplan-empty-notice hidden">
-            <div class="notice-icon">⚠️</div>
-            <p><strong>No chapter questions found for this selection.</strong></p>
-            <p>Please select another Class/Book using "Change ⚙️".</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Step 2: Generated Printable Lesson Plan Preview View -->
-      <div id="lessonPlanPreviewView" class="lessonplan-preview-container hidden">
+      <div id="lessonPlanPreviewView" class="lessonplan-preview-container">
         <div class="lessonplan-toolbar no-print">
           <div class="toolbar-left">
-            <button id="lessonPlanBackBtn" type="button" class="tool-btn secondary" title="Back to settings">⬅️ Settings</button>
-            <button id="lessonPlanShuffleBtn" type="button" class="tool-btn secondary" title="Regenerate activities">🔀 Regenerate</button>
+            <span style="font-size: 1.15rem;">📋</span>
+            <span style="font-weight: 800; font-size: 0.95rem;">Smart Lesson Plan</span>
+            <span id="lessonPlanContextDisplay" style="font-size: 0.8rem; background: rgba(255,255,255,0.18); padding: 0.2rem 0.6rem; border-radius: 999px;">Class 3 • Ripples</span>
+            <a id="lessonPlanPdfDownloadBtn" href="" target="_blank" class="tool-btn secondary hidden" style="background: #10b981; color: #ffffff; text-decoration: none; padding: 0.35rem 0.75rem; border-radius: 8px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;" download>
+              <span>📥 Download PDF</span>
+            </a>
           </div>
           <div class="toolbar-right">
             <button id="lessonPlanPrintBtn" type="button" class="tool-btn primary" title="Print or save as PDF">🖨️ Print Lesson Plan</button>
@@ -686,6 +615,18 @@
         </div>
 
         <div class="lessonplan-scroll-wrap">
+          <div id="lessonPlanLoadingSpinner" class="lessonplan-loading hidden" style="padding: 3rem 1rem; text-align: center;">
+            <div class="spinner-dot" style="margin: 0 auto 1rem;"></div>
+            <span>Loading Lesson Plan from Curriculum Database...</span>
+          </div>
+
+          <div id="lessonPlanEmptyNotice" class="lessonplan-empty-notice hidden" style="margin: 3rem auto; max-width: 480px; text-align: center; background: #ffffff; border-radius: 16px; padding: 2.5rem 1.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.06);">
+            <div class="notice-icon" style="font-size: 2.5rem; margin-bottom: 0.5rem;">📋</div>
+            <h3 style="margin: 0 0 0.5rem; color: #1e293b;">Lesson Plan Not Available</h3>
+            <p id="lessonPlanEmptyText" class="muted" style="margin: 0 0 1.2rem; font-size: 0.9rem;">This chapter does not have a saved lesson plan yet in the database.</p>
+            <button type="button" id="closeLessonPlanEmptyBtn" class="tool-btn secondary" style="padding: 0.5rem 1.2rem;">Back to Chat</button>
+          </div>
+
           <div id="printableLessonPlan" class="lessonplan-sheet">
             <!-- Dynamic Lesson Plan Rendered Here -->
           </div>
@@ -909,6 +850,7 @@
         </div>
 
         <div class="mindmap-header-controls">
+          <a id="mindMapPdfBtn" href="" target="_blank" class="tool-btn secondary hidden" style="background:#8b5cf6; color:#ffffff; text-decoration:none; font-size:0.8rem; font-weight:700; padding:0.35rem 0.7rem; border-radius:8px;" download>📥 PDF Poster</a>
           <button id="mindMapZoomInBtn" class="mindmap-ctrl-btn" type="button" title="Zoom In">➕</button>
           <button id="mindMapZoomOutBtn" class="mindmap-ctrl-btn" type="button" title="Zoom Out">➖</button>
           <button id="mindMapResetZoomBtn" class="mindmap-ctrl-btn" type="button" title="Fit to Screen">🎯</button>
@@ -921,7 +863,19 @@
       <div id="mindMapViewport" class="mindmap-viewport">
         <div id="mindMapLoading" class="mindmap-loading hidden">
           <div class="spinner-dot"></div>
-          <span>Building Chapter Mind Map...</span>
+          <span>Loading Chapter Mind Map...</span>
+        </div>
+
+        <div id="mindMapEmptyNotice" class="lessonplan-empty-notice hidden" style="margin: 3rem auto; max-width: 440px; text-align: center; background: #ffffff; border-radius: 16px; padding: 2.5rem 1.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.06);">
+          <div class="notice-icon" style="font-size: 2.5rem; margin-bottom: 0.5rem;">🗺️</div>
+          <h3 style="margin: 0 0 0.5rem; color: #1e293b;">Mind Map Not Available</h3>
+          <p id="mindMapEmptyText" class="muted" style="margin: 0 0 1.2rem; font-size: 0.9rem;">This chapter does not have a saved mind map yet in the database.</p>
+          <button type="button" id="closeMindMapEmptyBtn" class="tool-btn secondary" style="padding: 0.5rem 1.2rem;">Back to Chat</button>
+        </div>
+
+        <!-- Visual Image Poster View (if image uploaded) -->
+        <div id="mindMapPosterWrap" class="mindmap-poster-wrap hidden" style="width:100%; height:100%; overflow:auto; text-align:center; padding:1.5rem;">
+          <img id="mindMapPosterImg" src="" alt="Concept Mind Map Diagram" style="max-width:100%; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.25);" />
         </div>
 
         <div id="mindMapCanvasWrap" class="mindmap-canvas-wrap">

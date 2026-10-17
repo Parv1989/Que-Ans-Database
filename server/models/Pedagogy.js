@@ -53,6 +53,7 @@ const PedagogySchema = new mongoose.Schema(
       bloomTaxonomy: { type: [String], default: ['Remembering', 'Understanding', 'Applying'] },
       classroomActivity: { type: String, default: '' },
       homeworkAssignment: { type: String, default: '' },
+      pdfUrl: { type: String, default: '' },
       lastGeneratedAt: { type: Date, default: null },
       isAIGenerated: { type: Boolean, default: false }
     },
@@ -60,6 +61,8 @@ const PedagogySchema = new mongoose.Schema(
     mindMap: {
       centralTopic: { type: String, default: '' },
       branches: { type: [BranchSchema], default: [] },
+      pdfUrl: { type: String, default: '' },
+      imageUrl: { type: String, default: '' },
       lastGeneratedAt: { type: Date, default: null },
       isAIGenerated: { type: Boolean, default: false }
     }

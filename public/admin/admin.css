@@ -989,4 +989,112 @@ code {
   font-family: inherit;
 }
 
+/* Book Features Management Styles */
+.book-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.book-feature-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 4px 16px rgba(45, 42, 69, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.book-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1.5px solid var(--line);
+  padding-bottom: 0.75rem;
+}
+
+.book-card-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.book-card-meta {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-top: 0.25rem;
+}
+
+.book-card-bulk-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.feature-toggles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.feature-toggle-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.8rem;
+  background: #fbfbfe;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.feature-toggle-item:hover {
+  background: #f4f3fb;
+  border-color: #c4b5fd;
+}
+
+.feature-toggle-item label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  cursor: pointer;
+  margin: 0;
+}
+
+.feature-label-text {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.feature-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--indigo);
+  cursor: pointer;
+}
+
+.book-card-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.75rem;
+  border-top: 1.5px solid var(--line);
+}
+
+.book-save-status {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #059669;
+}
+
+
 
