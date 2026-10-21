@@ -19,7 +19,6 @@ function showLogin() {
   loginScreen.classList.remove('hidden');
 }
 
-if (token) showDashboard();
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1981,5 +1980,9 @@ function renderBookFeaturesGrid(books) {
   });
 }
 
-
-
+// ---------- Initial Boot ----------
+if (token) {
+  showDashboard();
+} else {
+  showLogin();
+}
