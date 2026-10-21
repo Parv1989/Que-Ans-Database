@@ -56,6 +56,28 @@ router.post('/', async (req, res) => {
     const filters = { className, bookName, chapterName };
     const result = await findAnswer(question.trim(), filters);
 
+    if (result.isGreeting) {
+      // Log greeting as answered query so it does not count as unanswered in analytics
+      QueryLog.create({
+        query: question.trim(),
+        answered: true,
+        confidence: 100,
+        matchedQA: null,
+        matchedQuestion: 'Greeting: ' + (result.category || 'General'),
+        className: filters.className || 'All Classes',
+        bookName: filters.bookName || 'All Books',
+        chapterName: filters.chapterName || 'All Chapters'
+      }).catch((logErr) => console.warn('QueryLog create warning:', logErr.message));
+
+      return res.json({
+        answered: true,
+        isGreeting: true,
+        answer: result.greetingReply,
+        category: result.category,
+        confidence: 100
+      });
+    }
+
     // Fire-and-forget query logging for analytics and unanswered query tracking
     QueryLog.create({
       query: question.trim(),

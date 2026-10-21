@@ -1,6 +1,7 @@
 const QA = require('../models/QA');
 const Synonym = require('../models/Synonym');
 const { devanagariToLatin, normalizePhonetic, getConceptSynonyms } = require('./transliterate');
+const { checkGreeting, stripGreetingPrefix } = require('./greetingHandler');
 
 // Common filler words (English + Hinglish + Hindi) that add noise to matching.
 const STOPWORDS = new Set([
@@ -219,12 +220,28 @@ async function expandQuery(rawQuery, vocabSet) {
  * Handles zero-AI cross-lingual question matching (English <-> Hindi <-> Hinglish).
  */
 async function findAnswer(rawQuery, filters = {}) {
+  // 0. Greeting check: If user sends "Hi", "Hello", "How are you?", "Kaise ho?", etc.
+  const greeting = checkGreeting(rawQuery);
+  if (greeting) {
+    return {
+      match: null,
+      isGreeting: true,
+      greetingReply: greeting.reply,
+      category: greeting.category,
+      confidence: 100,
+      suggestions: []
+    };
+  }
+
+  // If query is an educational question prefixed with a greeting ("Hi, what is photosynthesis?"), clean it
+  const effectiveQuery = stripGreetingPrefix(rawQuery);
+
   const { allQA, docTokens, vocabSet } = await getQADataset();
   if (!allQA || allQA.length === 0) {
     return { match: null, confidence: 0, suggestions: [] };
   }
 
-  const isHindiQuery = /[\u0900-\u097F]/.test(rawQuery);
+  const isHindiQuery = /[\u0900-\u097F]/.test(effectiveQuery);
 
   // Filter docTokens by className, bookName, chapterName if provided
   const targetClassName = (filters.className || '').trim();
@@ -256,7 +273,7 @@ async function findAnswer(rawQuery, filters = {}) {
   const candidateDocs = filteredDocTokens.length > 0 ? filteredDocTokens : docTokens;
 
   // 1. Direct Exact Normalized Match check
-  const normQuery = normalizeText(rawQuery);
+  const normQuery = normalizeText(effectiveQuery);
   if (normQuery) {
     const exactMatch = candidateDocs.find(({ doc }) => normalizeText(doc.question) === normQuery)
       || docTokens.find(({ doc }) => normalizeText(doc.question) === normQuery);
@@ -281,7 +298,7 @@ async function findAnswer(rawQuery, filters = {}) {
 
   // 2. Direct Phonetic & Transliteration Match (Zero-AI: Hindi <-> Hinglish <-> English)
   // Handles: 'shivaji kon the?' <-> 'शिवाजी कौन थे?', 'ped hume kya dete h' <-> 'पेड़ हमें क्या देते हैं?', etc.
-  const queryPhonetic = normalizePhonetic(rawQuery);
+  const queryPhonetic = normalizePhonetic(effectiveQuery);
   if (queryPhonetic) {
     const phoneticMatch = candidateDocs.find((d) => d.phoneticQ === queryPhonetic)
       || docTokens.find((d) => d.phoneticQ === queryPhonetic);
@@ -304,7 +321,7 @@ async function findAnswer(rawQuery, filters = {}) {
     }
   }
 
-  const { correctedTokens, expandedTokens } = await expandQuery(rawQuery, vocabSet);
+  const { correctedTokens, expandedTokens } = await expandQuery(effectiveQuery, vocabSet);
 
   // If query had only stopwords or symbols
   if (correctedTokens.length === 0) {
@@ -345,8 +362,8 @@ async function findAnswer(rawQuery, filters = {}) {
     }
 
     const explanationMsg = isHindiQuery
-      ? `आपका प्रश्न "${rawQuery}" काफ़ी छोटा या अधूरा है। कृपया प्रश्न को थोड़ा और विस्तार से बताएं (जैसे: इसके बारे में आप क्या जानना चाहते हैं?) ताकि सही उत्तर मिल सके।`
-      : `Your question "${rawQuery}" is too brief or incomplete. Please explain your question in a bit more detail (for example, what you'd like to know about it) so I can give you an accurate answer.`;
+      ? `आपका प्रश्न "${effectiveQuery}" काफ़ी छोटा या अधूरा है। कृपया प्रश्न को थोड़ा और विस्तार से बताएं (जैसे: इसके बारे में आप क्या जानना चाहते हैं?) ताकि सही उत्तर मिल सके।`
+      : `Your question "${effectiveQuery}" is too brief or incomplete. Please explain your question in a bit more detail (for example, what you'd like to know about it) so I can give you an accurate answer.`;
 
     return {
       match: null,
@@ -495,5 +512,5 @@ async function getHierarchy() {
   return formatted;
 }
 
-module.exports = { findAnswer, getHierarchy, expandQuery, tokenize, invalidateSynonymCache, invalidateQACache };
+module.exports = { findAnswer, getHierarchy, expandQuery, tokenize, invalidateSynonymCache, invalidateQACache, checkGreeting, stripGreetingPrefix };
 
