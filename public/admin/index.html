@@ -61,8 +61,18 @@
           </div>
         </header>
 
+        <!-- Stats Strip: Classes, Books, Chapters, Questions -->
+        <div class="qa-stats-strip">
+          <div class="qa-stat-pill"><span class="pill-icon">🏫</span> <span><strong id="statClassesCount">0</strong> Classes</span></div>
+          <div class="qa-stat-pill"><span class="pill-icon">📚</span> <span><strong id="statBooksCount">0</strong> Books</span></div>
+          <div class="qa-stat-pill"><span class="pill-icon">🔖</span> <span><strong id="statChaptersCount">0</strong> Chapters</span></div>
+          <div class="qa-stat-pill"><span class="pill-icon">💬</span> <span><strong id="statQuestionsCount">0</strong> Questions</span></div>
+        </div>
+
         <div class="qa-toolbar">
-          <input id="qaSearch" class="search-input" placeholder="Search saved questions…" />
+          <div class="qa-search-wrap">
+            <input id="qaSearch" class="search-input" placeholder="🔍 Search question, answer, keywords, book..." />
+          </div>
           <div class="qa-filter-group">
             <select id="qaClassFilter" class="filter-select" title="Filter by Class">
               <option value="All">All Classes</option>
@@ -70,6 +80,20 @@
             <select id="qaBookFilter" class="filter-select" title="Filter by Book">
               <option value="All">All Books</option>
             </select>
+            <select id="qaChapterFilter" class="filter-select" title="Filter by Chapter">
+              <option value="All">All Chapters</option>
+            </select>
+            <select id="qaSortBy" class="filter-select" title="Sort Order">
+              <option value="book_asc">📚 Book &amp; Chapter Order</option>
+              <option value="newest">🕒 Newest First</option>
+              <option value="oldest">⏳ Oldest First</option>
+              <option value="hits">🔥 Most Hits (Popular)</option>
+              <option value="alphabetical">🔤 Alphabetical (A-Z)</option>
+            </select>
+          </div>
+          <div class="view-mode-toggle" title="Switch layout view">
+            <button id="viewGroupedBtn" class="view-mode-btn active" type="button" title="Grouped by Book &amp; Chapter">📚 Book View</button>
+            <button id="viewFlatBtn" class="view-mode-btn" type="button" title="Flat List View">📋 Flat List</button>
           </div>
           <div class="bulk-toolbar-actions">
             <label class="select-all-box" title="Select / deselect all questions">
@@ -81,6 +105,9 @@
             </button>
           </div>
         </div>
+
+        <!-- Quick 1-click Book Navigation Chips -->
+        <div id="bookQuickChips" class="book-quick-chips"></div>
 
         <div id="qaList" class="card-list"></div>
       </section>

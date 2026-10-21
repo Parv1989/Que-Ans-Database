@@ -1339,3 +1339,343 @@ code {
   font-weight: 700;
   color: #059669;
 }
+
+/* ================================================================
+   BOOK & CHAPTER HIERARCHICAL MANAGEMENT SYSTEM
+   ================================================================ */
+
+/* ---------- QA Stats Strip ---------- */
+.qa-stats-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.qa-stat-pill {
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  padding: 0.55rem 1rem;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  box-shadow: 0 2px 6px rgba(45, 42, 69, 0.04);
+}
+
+.qa-stat-pill .pill-icon {
+  font-size: 1.15rem;
+}
+
+.qa-stat-pill strong {
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+/* ---------- Toolbar Enhancements ---------- */
+.qa-search-wrap {
+  flex: 1;
+  min-width: 240px;
+}
+
+.qa-search-wrap .search-input {
+  margin-bottom: 0;
+  width: 100%;
+}
+
+.qa-filter-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.qa-filter-group .filter-select {
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--line);
+  background: var(--panel);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.qa-filter-group .filter-select:hover,
+.qa-filter-group .filter-select:focus {
+  border-color: var(--indigo);
+}
+
+/* ---------- View Mode Toggle ---------- */
+.view-mode-toggle {
+  display: inline-flex;
+  background: var(--paper);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 3px;
+}
+
+.view-mode-btn {
+  background: transparent;
+  border: none;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.view-mode-btn:hover {
+  color: var(--ink);
+}
+
+.view-mode-btn.active {
+  background: var(--panel);
+  color: var(--indigo-dark);
+  box-shadow: 0 2px 8px rgba(45, 42, 69, 0.1);
+}
+
+/* ---------- Book Quick Filter Chips ---------- */
+.book-quick-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.35rem;
+  padding-bottom: 0.25rem;
+}
+
+.book-chip {
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: all 0.15s ease;
+}
+
+.book-chip:hover {
+  border-color: var(--indigo);
+  background: #faf9fd;
+}
+
+.book-chip.active {
+  background: var(--indigo-dark);
+  color: #fff;
+  border-color: var(--indigo-dark);
+}
+
+.book-chip .chip-count {
+  background: rgba(0, 0, 0, 0.08);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+}
+
+.book-chip.active .chip-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+/* ---------- Book Grouping Container ---------- */
+.book-group {
+  background: var(--panel);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 1.75rem;
+  box-shadow: 0 4px 16px rgba(45, 42, 69, 0.04);
+  overflow: hidden;
+}
+
+.book-group-header {
+  background: linear-gradient(135deg, #f8f7fc 0%, #f1eff8 100%);
+  padding: 1rem 1.4rem;
+  border-bottom: 1.5px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.book-info {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.book-icon {
+  font-size: 1.6rem;
+  width: 2.8rem;
+  height: 2.8rem;
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(45, 42, 69, 0.05);
+}
+
+.book-title {
+  font-family: 'Baloo 2', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.book-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.book-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ghost-btn-sm {
+  background: #fff;
+  border: 1.5px solid var(--line);
+  color: var(--ink-soft);
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ghost-btn-sm:hover {
+  color: var(--indigo-dark);
+  border-color: var(--indigo);
+  background: #faf9fd;
+}
+
+.ghost-btn-xs {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ghost-btn-xs:hover {
+  color: var(--ink);
+  border-color: var(--indigo);
+}
+
+/* ---------- Chapter Accordion ---------- */
+.book-chapters {
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.chapter-accordion {
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #faf9fd;
+  transition: all 0.15s ease;
+}
+
+.chapter-accordion.open {
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(45, 42, 69, 0.03);
+}
+
+.chapter-accordion-header {
+  padding: 0.85rem 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+
+.chapter-accordion-header:hover {
+  background: #f3f0f9;
+}
+
+.chapter-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.chapter-chevron {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  transition: transform 0.2s ease;
+  display: inline-block;
+  width: 14px;
+}
+
+.chapter-accordion.open .chapter-chevron {
+  transform: rotate(90deg);
+}
+
+.chapter-icon {
+  font-size: 1.1rem;
+}
+
+.chapter-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.chapter-qcount {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #eef2ff;
+  color: #4338ca;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  margin-left: 0.35rem;
+}
+
+.chapter-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chapter-accordion-body {
+  display: none;
+  padding: 0.85rem 1.15rem 1.15rem;
+  border-top: 1px dashed var(--line);
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chapter-accordion.open .chapter-accordion-body {
+  display: flex;
+}

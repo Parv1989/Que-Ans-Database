@@ -96,34 +96,179 @@ const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
 const bulkDeleteCount = document.getElementById('bulkDeleteCount');
 const qaClassFilter = document.getElementById('qaClassFilter');
 const qaBookFilter = document.getElementById('qaBookFilter');
+const qaChapterFilter = document.getElementById('qaChapterFilter');
+const qaSortBy = document.getElementById('qaSortBy');
+const viewGroupedBtn = document.getElementById('viewGroupedBtn');
+const viewFlatBtn = document.getElementById('viewFlatBtn');
+const bookQuickChips = document.getElementById('bookQuickChips');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
+
+const statClassesCount = document.getElementById('statClassesCount');
+const statBooksCount = document.getElementById('statBooksCount');
+const statChaptersCount = document.getElementById('statChaptersCount');
+const statQuestionsCount = document.getElementById('statQuestionsCount');
 
 let selectedQAIds = new Set();
 let currentQAItems = [];
+let allRawQAItems = [];
 let resolvingQueryText = null;
+let qaViewMode = localStorage.getItem('admin_qa_view_mode') || 'grouped';
 
-function populateFilterOptions(items) {
-  if (!qaClassFilter || !qaBookFilter) return;
-  const currentClassVal = qaClassFilter.value || 'All';
-  const currentBookVal = qaBookFilter.value || 'All';
+function applyViewModeUI() {
+  if (qaViewMode === 'flat') {
+    if (viewFlatBtn) viewFlatBtn.classList.add('active');
+    if (viewGroupedBtn) viewGroupedBtn.classList.remove('active');
+  } else {
+    if (viewGroupedBtn) viewGroupedBtn.classList.add('active');
+    if (viewFlatBtn) viewFlatBtn.classList.remove('active');
+  }
+}
+applyViewModeUI();
 
-  const classes = new Set(['All']);
-  const books = new Set(['All']);
+if (viewGroupedBtn) {
+  viewGroupedBtn.addEventListener('click', () => {
+    qaViewMode = 'grouped';
+    localStorage.setItem('admin_qa_view_mode', 'grouped');
+    applyViewModeUI();
+    renderQAList(currentQAItems);
+  });
+}
+if (viewFlatBtn) {
+  viewFlatBtn.addEventListener('click', () => {
+    qaViewMode = 'flat';
+    localStorage.setItem('admin_qa_view_mode', 'flat');
+    applyViewModeUI();
+    renderQAList(currentQAItems);
+  });
+}
 
-  items.forEach((item) => {
-    if (item.className) classes.add(item.className.trim());
-    if (item.bookName) books.add(item.bookName.trim());
+function updateHierarchyStats(currentItems, allItems) {
+  const source = allItems && allItems.length > 0 ? allItems : currentItems;
+  const classes = new Set();
+  const books = new Set();
+  const chapters = new Set();
+
+  source.forEach((item) => {
+    if (item.className && item.className.trim()) classes.add(item.className.trim());
+    if (item.bookName && item.bookName.trim()) books.add(item.bookName.trim());
+    if (item.chapterName && item.chapterName.trim()) chapters.add(`${item.bookName || ''}:::${item.chapterName.trim()}`);
   });
 
+  if (statClassesCount) statClassesCount.textContent = classes.size;
+  if (statBooksCount) statBooksCount.textContent = books.size;
+  if (statChaptersCount) statChaptersCount.textContent = chapters.size;
+  if (statQuestionsCount) statQuestionsCount.textContent = currentItems.length;
+}
+
+function renderBookQuickChips(items, currentSelectedBook = 'All', currentSelectedClass = 'All') {
+  if (!bookQuickChips) return;
+  const bookCounts = new Map();
+  let totalCount = items.length;
+
+  items.forEach((i) => {
+    const cls = i.className || 'Class 3';
+    const bk = i.bookName || 'General';
+    const key = `${cls} • ${bk}`;
+    bookCounts.set(key, (bookCounts.get(key) || 0) + 1);
+  });
+
+  if (bookCounts.size <= 1) {
+    bookQuickChips.innerHTML = '';
+    return;
+  }
+
+  let html = `
+    <button type="button" class="book-chip ${(!currentSelectedBook || currentSelectedBook === 'All') ? 'active' : ''}" data-class="All" data-book="All">
+      All Books <span class="chip-count">${totalCount}</span>
+    </button>
+  `;
+
+  bookCounts.forEach((count, key) => {
+    const [cls, bk] = key.split(' • ');
+    const isActive = currentSelectedBook === bk && (currentSelectedClass === 'All' || currentSelectedClass === cls);
+    html += `
+      <button type="button" class="book-chip ${isActive ? 'active' : ''}" data-class="${escapeHtml(cls)}" data-book="${escapeHtml(bk)}">
+        📚 ${escapeHtml(bk)} <small style="opacity:0.75; font-size:0.75rem;">(${escapeHtml(cls)})</small>
+        <span class="chip-count">${count}</span>
+      </button>
+    `;
+  });
+
+  bookQuickChips.innerHTML = html;
+
+  bookQuickChips.querySelectorAll('.book-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const b = chip.dataset.book;
+      const c = chip.dataset.class;
+      if (qaClassFilter && c !== 'All') qaClassFilter.value = c;
+      if (qaBookFilter) qaBookFilter.value = b;
+      if (qaChapterFilter) qaChapterFilter.value = 'All';
+      populateFilterOptions(allRawQAItems);
+      loadQAList(document.getElementById('qaSearch').value);
+    });
+  });
+}
+
+function populateFilterOptions(items) {
+  if (!qaClassFilter || !qaBookFilter || !qaChapterFilter) return;
+  const currentClassVal = qaClassFilter.value || 'All';
+  const currentBookVal = qaBookFilter.value || 'All';
+  const currentChapVal = qaChapterFilter.value || 'All';
+
+  // 1. Classes
+  const classes = new Set(['All']);
+  items.forEach((item) => {
+    if (item.className && item.className.trim()) classes.add(item.className.trim());
+  });
   qaClassFilter.innerHTML = Array.from(classes)
     .map((c) => `<option value="${escapeHtml(c)}">${c === 'All' ? 'All Classes' : escapeHtml(c)}</option>`)
     .join('');
+  if (classes.has(currentClassVal)) qaClassFilter.value = currentClassVal;
+
+  // 2. Books (scoped to selected class)
+  const books = new Set(['All']);
+  items.forEach((item) => {
+    const itemClass = (item.className || '').trim();
+    if (currentClassVal === 'All' || itemClass.toLowerCase() === currentClassVal.toLowerCase()) {
+      if (item.bookName && item.bookName.trim()) books.add(item.bookName.trim());
+    }
+  });
   qaBookFilter.innerHTML = Array.from(books)
     .map((b) => `<option value="${escapeHtml(b)}">${b === 'All' ? 'All Books' : escapeHtml(b)}</option>`)
     .join('');
+  if (books.has(currentBookVal)) {
+    qaBookFilter.value = currentBookVal;
+  } else {
+    qaBookFilter.value = 'All';
+  }
 
-  if (classes.has(currentClassVal)) qaClassFilter.value = currentClassVal;
-  if (books.has(currentBookVal)) qaBookFilter.value = currentBookVal;
+  // 3. Chapters (scoped to selected class & book)
+  const chapters = new Set(['All']);
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  items.forEach((item) => {
+    const itemClass = (item.className || '').trim();
+    const itemBook = (item.bookName || '').trim();
+    const classMatches = currentClassVal === 'All' || itemClass.toLowerCase() === currentClassVal.toLowerCase();
+    const bookMatches = currentBookVal === 'All' || itemBook.toLowerCase() === currentBookVal.toLowerCase();
+    if (classMatches && bookMatches && item.chapterName && item.chapterName.trim()) {
+      chapters.add(item.chapterName.trim());
+    }
+  });
+
+  const sortedChapters = Array.from(chapters).sort((a, b) => {
+    if (a === 'All') return -1;
+    if (b === 'All') return 1;
+    return collator.compare(a, b);
+  });
+
+  qaChapterFilter.innerHTML = sortedChapters
+    .map((ch) => `<option value="${escapeHtml(ch)}">${ch === 'All' ? 'All Chapters' : escapeHtml(ch)}</option>`)
+    .join('');
+  if (chapters.has(currentChapVal)) {
+    qaChapterFilter.value = currentChapVal;
+  } else {
+    qaChapterFilter.value = 'All';
+  }
 }
 
 function updateBulkUI() {
@@ -155,44 +300,76 @@ async function loadQAList(search = '') {
 
   const selectedClass = qaClassFilter ? qaClassFilter.value : 'All';
   const selectedBook = qaBookFilter ? qaBookFilter.value : 'All';
+  const selectedChapter = qaChapterFilter ? qaChapterFilter.value : 'All';
+  const selectedSort = qaSortBy ? qaSortBy.value : 'book_asc';
 
   if (selectedClass && selectedClass !== 'All') url.searchParams.set('className', selectedClass);
   if (selectedBook && selectedBook !== 'All') url.searchParams.set('bookName', selectedBook);
+  if (selectedChapter && selectedChapter !== 'All') url.searchParams.set('chapterName', selectedChapter);
+  if (selectedSort) url.searchParams.set('sortBy', selectedSort);
 
-  const res = await authedFetch(url);
-  const items = await res.json();
-  currentQAItems = items;
+  try {
+    const res = await authedFetch(url);
+    const items = await res.json();
+    currentQAItems = Array.isArray(items) ? items : [];
 
-  // Populate or refresh filter dropdowns on initial or full loads
-  if (!search && (!selectedClass || selectedClass === 'All') && (!selectedBook || selectedBook === 'All')) {
-    populateFilterOptions(items);
+    // Cache all raw items on initial or full load to keep dropdowns and book chips populated
+    if (!search && (!selectedClass || selectedClass === 'All') && (!selectedBook || selectedBook === 'All') && (!selectedChapter || selectedChapter === 'All')) {
+      allRawQAItems = currentQAItems;
+      populateFilterOptions(allRawQAItems);
+    } else if (allRawQAItems.length === 0) {
+      allRawQAItems = currentQAItems;
+      populateFilterOptions(allRawQAItems);
+    }
+
+    updateHierarchyStats(currentQAItems, allRawQAItems);
+    renderBookQuickChips(allRawQAItems, selectedBook, selectedClass);
+
+    const statTotalQA = document.getElementById('statTotalQA');
+    if (statTotalQA) statTotalQA.textContent = currentQAItems.length;
+
+    const validIds = new Set(currentQAItems.map((i) => i._id));
+    selectedQAIds = new Set([...selectedQAIds].filter((id) => validIds.has(id)));
+    updateBulkUI();
+    renderQAList(currentQAItems);
+  } catch (err) {
+    console.error('loadQAList error:', err);
+    qaList.innerHTML = `<p class="empty-state">Could not load questions: ${escapeHtml(err.message)}</p>`;
   }
-
-  // Update total QA count in analytics card if rendered
-  const statTotalQA = document.getElementById('statTotalQA');
-  if (statTotalQA) statTotalQA.textContent = items.length;
-
-  // Prune any selected IDs that are no longer in current items
-  const validIds = new Set(items.map((i) => i._id));
-  selectedQAIds = new Set([...selectedQAIds].filter((id) => validIds.has(id)));
-  updateBulkUI();
-  renderQAList(items);
 }
 
 if (qaClassFilter) {
-  qaClassFilter.addEventListener('change', () => loadQAList(document.getElementById('qaSearch').value));
+  qaClassFilter.addEventListener('change', () => {
+    populateFilterOptions(allRawQAItems);
+    loadQAList(document.getElementById('qaSearch').value);
+  });
 }
 if (qaBookFilter) {
-  qaBookFilter.addEventListener('change', () => loadQAList(document.getElementById('qaSearch').value));
+  qaBookFilter.addEventListener('change', () => {
+    populateFilterOptions(allRawQAItems);
+    loadQAList(document.getElementById('qaSearch').value);
+  });
+}
+if (qaChapterFilter) {
+  qaChapterFilter.addEventListener('change', () => {
+    loadQAList(document.getElementById('qaSearch').value);
+  });
+}
+if (qaSortBy) {
+  qaSortBy.addEventListener('change', () => {
+    loadQAList(document.getElementById('qaSearch').value);
+  });
 }
 
 if (exportCsvBtn) {
   exportCsvBtn.addEventListener('click', async () => {
     const selectedClass = qaClassFilter ? qaClassFilter.value : 'All';
     const selectedBook = qaBookFilter ? qaBookFilter.value : 'All';
+    const selectedChapter = qaChapterFilter ? qaChapterFilter.value : 'All';
     const url = new URL(`${API_BASE}/admin/qa/export-csv`);
     if (selectedClass && selectedClass !== 'All') url.searchParams.set('className', selectedClass);
     if (selectedBook && selectedBook !== 'All') url.searchParams.set('bookName', selectedBook);
+    if (selectedChapter && selectedChapter !== 'All') url.searchParams.set('chapterName', selectedChapter);
 
     try {
       const res = await authedFetch(url);
@@ -201,7 +378,8 @@ if (exportCsvBtn) {
       const downloadUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = downloadUrl;
-      a.download = `qa-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      const filenameSuffix = selectedBook !== 'All' ? `-${selectedBook.replace(/[^a-zA-Z0-9_-]/g, '_')}` : '';
+      a.download = `qa-export${filenameSuffix}-${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -212,23 +390,17 @@ if (exportCsvBtn) {
   });
 }
 
-function renderQAList(items) {
-  if (items.length === 0) {
-    qaList.innerHTML = '<p class="empty-state">No questions found matching your filter/search.</p>';
-    updateBulkUI();
-    return;
-  }
-  qaList.innerHTML = items
-    .map((item) => {
-      const isChecked = selectedQAIds.has(item._id);
-      return `
+function renderQuestionCardHTML(item, qNum = null) {
+  const isChecked = selectedQAIds.has(item._id);
+  return `
     <div class="item-card ${isChecked ? 'selected' : ''}" data-id="${item._id}">
       <div class="item-select-wrap">
         <input type="checkbox" class="qa-checkbox" data-id="${item._id}" ${isChecked ? 'checked' : ''} aria-label="Select question" />
       </div>
       <div class="item-main">
-        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.4rem;">
-          <span class="tag" style="background:#eef2ff; color:#4338ca; font-weight:bold;">📚 ${escapeHtml(item.className || 'Class 3')}</span>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.4rem; align-items:center;">
+          ${qNum ? `<span style="font-weight:800; color:var(--indigo-dark); font-size:0.85rem; background:var(--lavender); padding:0.15rem 0.5rem; border-radius:6px;">#${qNum}</span>` : ''}
+          <span class="tag" style="background:#eef2ff; color:#4338ca; font-weight:bold;">🏫 ${escapeHtml(item.className || 'Class 3')}</span>
           <span class="tag" style="background:#f0fdf4; color:#15803d; font-weight:bold;">📖 ${escapeHtml(item.bookName || 'General')}</span>
           <span class="tag" style="background:#fef3c7; color:#b45309; font-weight:bold;">🔖 ${escapeHtml(item.chapterName || 'Chapter 1')}</span>
           ${item.hitCount > 0 ? `<span class="tag" style="background:#fce7f3; color:#be185d; font-weight:bold;">🔥 ${item.hitCount} Hits</span>` : ''}
@@ -240,13 +412,205 @@ function renderQAList(items) {
         ${item.keywords && item.keywords.length ? `<div class="tags">${item.keywords.map((k) => `<span class="tag">${escapeHtml(k)}</span>`).join('')}</div>` : ''}
       </div>
       <div class="item-actions">
-        <button class="icon-btn edit-qa">Edit</button>
-        <button class="icon-btn danger delete-qa">Delete</button>
+        <button type="button" class="icon-btn edit-qa">Edit</button>
+        <button type="button" class="icon-btn danger delete-qa">Delete</button>
       </div>
     </div>`;
-    })
-    .join('');
+}
 
+function renderFlatQAList(items) {
+  qaList.innerHTML = items.map((item, idx) => renderQuestionCardHTML(item, idx + 1)).join('');
+  attachQAEventListeners(items);
+}
+
+function renderGroupedQAList(items) {
+  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+  const bookMap = new Map();
+
+  items.forEach((item) => {
+    const cls = (item.className || 'Class 3').trim();
+    const bk = (item.bookName || 'General').trim();
+    const ch = (item.chapterName || 'General / Unassigned').trim();
+    const bookKey = `${cls}:::${bk}`;
+
+    if (!bookMap.has(bookKey)) {
+      bookMap.set(bookKey, {
+        className: cls,
+        bookName: bk,
+        chapters: new Map(),
+        totalQuestions: 0
+      });
+    }
+
+    const bData = bookMap.get(bookKey);
+    bData.totalQuestions += 1;
+    if (!bData.chapters.has(ch)) {
+      bData.chapters.set(ch, []);
+    }
+    bData.chapters.get(ch).push(item);
+  });
+
+  let html = '';
+
+  bookMap.forEach((bData, bKey) => {
+    const sortedChapters = Array.from(bData.chapters.keys()).sort((a, b) => collator.compare(a, b));
+    const totalChapters = sortedChapters.length;
+
+    html += `
+      <div class="book-group" data-book-key="${escapeHtml(bKey)}">
+        <div class="book-group-header">
+          <div class="book-info">
+            <span class="book-icon">📚</span>
+            <div>
+              <div class="book-title">${escapeHtml(bData.bookName)}</div>
+              <div class="book-meta">
+                <span class="tag" style="background:#eef2ff; color:#4338ca; font-weight:700;">🏫 ${escapeHtml(bData.className)}</span>
+                <span class="tag" style="background:#fef3c7; color:#b45309; font-weight:700;">🔖 ${totalChapters} Chapter${totalChapters > 1 ? 's' : ''}</span>
+                <span class="tag" style="background:#f0fdf4; color:#15803d; font-weight:700;">💬 ${bData.totalQuestions} Questions</span>
+              </div>
+            </div>
+          </div>
+          <div class="book-actions">
+            <button type="button" class="ghost-btn-sm expand-all-btn" data-book-key="${escapeHtml(bKey)}">Expand All</button>
+            <button type="button" class="ghost-btn-sm collapse-all-btn" data-book-key="${escapeHtml(bKey)}">Collapse All</button>
+            <button type="button" class="ghost-btn-sm export-book-btn" data-class="${escapeHtml(bData.className)}" data-book="${escapeHtml(bData.bookName)}" title="Export only this book to CSV">📥 Export Book</button>
+          </div>
+        </div>
+
+        <div class="book-chapters">
+    `;
+
+    sortedChapters.forEach((chName) => {
+      const chQuestions = bData.chapters.get(chName);
+      const chId = `ch-${bKey}-${chName}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+      html += `
+        <div class="chapter-accordion open" id="${chId}">
+          <div class="chapter-accordion-header">
+            <div class="chapter-title-group">
+              <span class="chapter-chevron">▶</span>
+              <span class="chapter-icon">🔖</span>
+              <span class="chapter-title">${escapeHtml(chName)}</span>
+              <span class="chapter-qcount">${chQuestions.length} Questions</span>
+            </div>
+            <div class="chapter-header-actions" onclick="event.stopPropagation();">
+              <button type="button" class="ghost-btn-xs select-chapter-btn" data-chapter-id="${chId}" title="Select/deselect all questions in this chapter">Select Chapter</button>
+            </div>
+          </div>
+          <div class="chapter-accordion-body">
+            ${chQuestions.map((item, qIdx) => renderQuestionCardHTML(item, qIdx + 1)).join('')}
+          </div>
+        </div>
+      `;
+    });
+
+    html += `
+        </div>
+      </div>
+    `;
+  });
+
+  qaList.innerHTML = html;
+  attachQAEventListeners(items);
+}
+
+function renderQAList(items) {
+  if (items.length === 0) {
+    qaList.innerHTML = '<p class="empty-state">No questions found matching your filter/search.</p>';
+    updateBulkUI();
+    return;
+  }
+
+  if (qaViewMode === 'flat') {
+    renderFlatQAList(items);
+  } else {
+    renderGroupedQAList(items);
+  }
+}
+
+function attachQAEventListeners(items) {
+  // 1. Accordion Toggle
+  qaList.querySelectorAll('.chapter-accordion-header').forEach((hdr) => {
+    hdr.addEventListener('click', () => {
+      const parent = hdr.closest('.chapter-accordion');
+      if (parent) parent.classList.toggle('open');
+    });
+  });
+
+  // 2. Expand All Chapters in Book
+  qaList.querySelectorAll('.expand-all-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const bookGroup = btn.closest('.book-group');
+      if (bookGroup) {
+        bookGroup.querySelectorAll('.chapter-accordion').forEach((acc) => acc.classList.add('open'));
+      }
+    });
+  });
+
+  // 3. Collapse All Chapters in Book
+  qaList.querySelectorAll('.collapse-all-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const bookGroup = btn.closest('.book-group');
+      if (bookGroup) {
+        bookGroup.querySelectorAll('.chapter-accordion').forEach((acc) => acc.classList.remove('open'));
+      }
+    });
+  });
+
+  // 4. Export Book Button
+  qaList.querySelectorAll('.export-book-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const cls = btn.dataset.class;
+      const bk = btn.dataset.book;
+      const url = new URL(`${API_BASE}/admin/qa/export-csv`);
+      if (cls) url.searchParams.set('className', cls);
+      if (bk) url.searchParams.set('bookName', bk);
+
+      try {
+        const res = await authedFetch(url);
+        if (!res.ok) throw new Error('Export failed');
+        const blob = await res.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `${bk.replace(/[^a-zA-Z0-9_-]/g, '_')}-${cls.replace(/[^a-zA-Z0-9_-]/g, '_')}-qa.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(downloadUrl);
+      } catch (err) {
+        alert('Book CSV export error: ' + err.message);
+      }
+    });
+  });
+
+  // 5. Select All Questions in Chapter
+  qaList.querySelectorAll('.select-chapter-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const accordion = btn.closest('.chapter-accordion');
+      if (!accordion) return;
+      const chkBoxes = accordion.querySelectorAll('.qa-checkbox');
+      const allChecked = Array.from(chkBoxes).every((chk) => chk.checked);
+
+      chkBoxes.forEach((chk) => {
+        const id = chk.dataset.id;
+        const card = chk.closest('.item-card');
+        chk.checked = !allChecked;
+        if (!allChecked) {
+          selectedQAIds.add(id);
+          if (card) card.classList.add('selected');
+        } else {
+          selectedQAIds.delete(id);
+          if (card) card.classList.remove('selected');
+        }
+      });
+      btn.textContent = !allChecked ? 'Deselect Chapter' : 'Select Chapter';
+      updateBulkUI();
+    });
+  });
+
+  // 6. Checkbox Changes
   qaList.querySelectorAll('.qa-checkbox').forEach((chk) => {
     chk.addEventListener('change', (e) => {
       const id = e.target.dataset.id;
@@ -262,14 +626,16 @@ function renderQAList(items) {
     });
   });
 
+  // 7. Edit Button
   qaList.querySelectorAll('.edit-qa').forEach((btn) =>
     btn.addEventListener('click', (e) => {
       const id = e.target.closest('.item-card').dataset.id;
-      const item = items.find((i) => i._id === id);
+      const item = items.find((i) => i._id === id) || allRawQAItems.find((i) => i._id === id);
       openQAModal(item);
     })
   );
 
+  // 8. Delete Button
   qaList.querySelectorAll('.delete-qa').forEach((btn) =>
     btn.addEventListener('click', async (e) => {
       const id = e.target.closest('.item-card').dataset.id;

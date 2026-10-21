@@ -47,12 +47,23 @@ function csvEscape(field) {
 // GET /api/admin/qa/export-csv - export all or filtered QAs to CSV with UTF-8 BOM
 router.get('/export-csv', async (req, res) => {
   try {
-    const { className, bookName } = req.query;
+    const { className, bookName, chapterName } = req.query;
     const filter = {};
     if (className && className !== 'All') filter.className = className;
     if (bookName && bookName !== 'All') filter.bookName = bookName;
+    if (chapterName && chapterName !== 'All') filter.chapterName = chapterName;
 
-    const items = await QA.find(filter).sort({ className: 1, bookName: 1, chapterName: 1, createdAt: -1 });
+    const items = await QA.find(filter).lean();
+    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+    items.sort((a, b) => {
+      const cComp = collator.compare(a.className || '', b.className || '');
+      if (cComp !== 0) return cComp;
+      const bComp = collator.compare(a.bookName || '', b.bookName || '');
+      if (bComp !== 0) return bComp;
+      const chComp = collator.compare(a.chapterName || '', b.chapterName || '');
+      if (chComp !== 0) return chComp;
+      return collator.compare(a.question || '', b.question || '');
+    });
 
     const headers = ['question', 'answer', 'detailedAnswer', 'keywords', 'Image link', 'category', 'className', 'bookName', 'chapterName'];
     const rows = items.map((doc) => {
@@ -156,25 +167,54 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
   });
 });
 
-// GET /api/admin/qa  - list all, newest first, optional ?search=
+// GET /api/admin/qa  - list questions, sorted by book & chapter by default, optional filters & search
 router.get('/', async (req, res) => {
-  const { search, className, bookName } = req.query;
-  let filter = {};
-  if (search && search.trim()) {
-    const safeSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    filter.$or = [
-      { question: { $regex: safeSearch, $options: 'i' } },
-      { keywords: { $regex: safeSearch, $options: 'i' } },
-      { className: { $regex: safeSearch, $options: 'i' } },
-      { bookName: { $regex: safeSearch, $options: 'i' } },
-      { chapterName: { $regex: safeSearch, $options: 'i' } }
-    ];
-  }
-  if (className && className !== 'All') filter.className = className;
-  if (bookName && bookName !== 'All') filter.bookName = bookName;
+  try {
+    const { search, className, bookName, chapterName, sortBy = 'book_asc' } = req.query;
+    let filter = {};
+    if (search && search.trim()) {
+      const safeSearch = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [
+        { question: { $regex: safeSearch, $options: 'i' } },
+        { answer: { $regex: safeSearch, $options: 'i' } },
+        { detailedAnswer: { $regex: safeSearch, $options: 'i' } },
+        { keywords: { $regex: safeSearch, $options: 'i' } },
+        { className: { $regex: safeSearch, $options: 'i' } },
+        { bookName: { $regex: safeSearch, $options: 'i' } },
+        { chapterName: { $regex: safeSearch, $options: 'i' } }
+      ];
+    }
+    if (className && className !== 'All') filter.className = className;
+    if (bookName && bookName !== 'All') filter.bookName = bookName;
+    if (chapterName && chapterName !== 'All') filter.chapterName = chapterName;
 
-  const items = await QA.find(filter).sort({ createdAt: -1 });
-  res.json(items);
+    let sortOption = { className: 1, bookName: 1, chapterName: 1, question: 1 };
+    if (sortBy === 'newest') sortOption = { createdAt: -1 };
+    else if (sortBy === 'oldest') sortOption = { createdAt: 1 };
+    else if (sortBy === 'hits') sortOption = { hitCount: -1, createdAt: -1 };
+    else if (sortBy === 'alphabetical') sortOption = { question: 1 };
+
+    const items = await QA.find(filter).sort(sortOption).lean();
+
+    // If sorting by book & chapter, apply natural numeric sorting for chapter numbers (e.g. Chapter 2 before Chapter 10)
+    if (sortBy === 'book_asc' || !sortBy) {
+      const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+      items.sort((a, b) => {
+        const cComp = collator.compare(a.className || '', b.className || '');
+        if (cComp !== 0) return cComp;
+        const bComp = collator.compare(a.bookName || '', b.bookName || '');
+        if (bComp !== 0) return bComp;
+        const chComp = collator.compare(a.chapterName || '', b.chapterName || '');
+        if (chComp !== 0) return chComp;
+        return collator.compare(a.question || '', b.question || '');
+      });
+    }
+
+    res.json(items);
+  } catch (err) {
+    console.error('get qa list error:', err);
+    res.status(500).json({ error: 'Could not fetch questions: ' + err.message });
+  }
 });
 
 // POST /api/admin/qa  { question, answer, detailedAnswer, keywords[], category, className, bookName, chapterName, imageUrl }
