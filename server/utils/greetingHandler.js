@@ -52,6 +52,16 @@ const GOODBYE = /^(?:bye|goodbye|good\s+bye|bye\s+bye|byee|byeee|see\s+you|see\s
 const PRAISE = /^(?:good\s+job|great\s+job|well\s+done|awesome|superb|nice|very\s+good|shabash|bahut\s+badhiya|bohot\s+badhiya|बहुत\s+बढ़िया|शाबाश)$/i;
 const HELP = /^(?:help|help\s+me|can\s+you\s+help\s+me|can\s+u\s+help\s+me|what\s+can\s+you\s+do|what\s+can\s+u\s+do|kya\s+kar\s+sakte\s+ho|(?:meri\s+)?madad\s+karo|(?:मेरी\s+)?मदद\s+(?:करो|चाहिए))$/i;
 
+// Academic tools & intents
+const REVISION = /^(?:(?:ch|chapter|lesson|book)\s+)?(?:revision|revise)(?:\s+(?:chapter|lesson|karna\s+hai|karwa\s+do|karva\s+do|please|plz))?$|^(?:(?:mujhe|hume)\s+)?(?:revision|chapter\s+revision)(?:\s+karna\s+hai)?$|^(?:रिवीजन|रिवीज़न|अभ्यास|पाठ\s+का\s+रिवीजन)$/i;
+const HOMEWORK = /^(?:(?:my|the|in|with)\s+)?home\s*work(?:\s+(?:help|please|plz|karna\s+hai|me\s+madad))?$|^(?:help\s+(?:me\s+)?(?:with|in)\s+home\s*work)$|^(?:होमवर्क)$/i;
+const QUIZ = /^(?:(?:start|take|play|open)\s+)?quiz(?:\s+(?:test|please|plz|khelna\s+hai|dena\s+hai))?$/i;
+const WORKSHEET = /^(?:(?:open|make|create|generate|print)\s+)?work\s*sheet(?:\s+(?:please|plz|chahiye|banao))?$/i;
+const MIND_MAP = /^(?:(?:open|view|show)\s+)?mind\s*map(?:\s+(?:please|plz|chahiye|dikhao))?$/i;
+const TEST_PAPER = /^(?:(?:open|make|create|generate)\s+)?(?:test\s*paper|exam\s*paper|question\s*paper)(?:\s+(?:please|plz|chahiye|banao))?$/i;
+const LESSON_PLAN = /^(?:(?:open|view|show)\s+)?lesson\s*plan(?:\s+(?:please|plz|chahiye|dikhao))?$/i;
+const NOTES = /^(?:(?:view|show|print|export)\s+)?(?:study\s+)?notes(?:\s+(?:please|plz|chahiye))?$/i;
+
 function isGeneralGreeting(cleaned) {
   if (GREETING_WORDS.has(cleaned)) return true;
   const suffixRegex = /\s+(?:bot|buddy|study\s+buddy|there|sir|mam|madam|ji|dear|friend|bro|everyone|all)$/i;
@@ -65,35 +75,36 @@ function isGeneralGreeting(cleaned) {
 // Response pools with natural variations
 const RESPONSES = {
   HOW_ARE_YOU_EN: [
-    "I'm doing great, thank you for asking! 😊 How are your studies going? Feel free to ask me any question from your lessons.",
-    "I'm doing wonderful, thanks! 🌟 Ready to help you understand and solve any book question. What would you like to ask?",
-    "All good here, thank you! 😊 How can I assist you with your homework or chapter revision today?"
+    "I'm doing great, thank you for asking! 😊 What question would you like to ask from your textbook today?",
+    "I'm doing wonderful, thanks! 🌟 Feel free to ask me any question from your chapters or lessons.",
+    "All good here, thank you! 😊 Which question from your book can I help you with today?"
   ],
   HOW_ARE_YOU_HI: [
-    "मैं बिल्कुल ठीक हूँ, पूछने के लिए धन्यवाद! 😊 आपकी पढ़ाई कैसी चल रही है? आप मुझसे अपनी किताब या पाठ से कोई भी सवाल पूछ सकते हैं।",
-    "सब कुछ बहुत बढ़िया है, धन्यवाद! 🌟 आज आप क्या सीखना या पूछना चाहते हैं? अपनी किताब का कोई भी सवाल पूछें।"
+    "मैं बिल्कुल ठीक हूँ, पूछने के लिए धन्यवाद! 😊 आप मुझसे अपनी किताब या पाठ से कोई भी सवाल पूछ सकते हैं।",
+    "सब कुछ बहुत बढ़िया है, धन्यवाद! 🌟 अपनी किताब का कोई भी सवाल पूछें, मैं उत्तर दूँगा।"
   ],
   TIME_MORNING: [
-    "Good morning! ☀️ Wishing you a wonderful day of learning. What would you like to study or ask today?",
-    "Good morning! 🌅 Ready to explore something exciting today? Ask me any question from your lessons!"
+    "Good morning! ☀️ Wishing you a wonderful day of learning. What question would you like to ask today?",
+    "Good morning! 🌅 Ready to learn? Ask me any question from your lessons!"
   ],
   TIME_MORNING_HI: [
     "शुभ प्रभात! ☀️ आपका आज का दिन ज्ञान और खुशियों से भरा हो। आज आप किस पाठ या विषय का अभ्यास करना चाहते हैं?"
   ],
   TIME_AFTERNOON: [
-    "Good afternoon! 🌤️ Hope your day is going great. What question can I help you with today?"
+    "Good afternoon! 🌤️ Which question from your book can I help you with today?"
   ],
   TIME_AFTERNOON_HI: [
     "शुभ दोपहर! 🌤️ आज मैं आपकी पढ़ाई में क्या सहायता कर सकता हूँ?"
   ],
   TIME_EVENING: [
-    "Good evening! 🌙 Ready for some revision or homework help? What would you like to study today?"
+    "Good evening! 🌙 What question would you like to ask from your lessons today?",
+    "Good evening! 🌙 Ready to study? Ask me any question from your chapter!"
   ],
   TIME_EVENING_HI: [
     "शुभ संध्या! 🌙 आज आप किस विषय या पाठ का अभ्यास करना चाहते हैं? बेझिझक पूछें।"
   ],
   TIME_NIGHT: [
-    "Good night! 🌙 Sleep well and rest up! If you have any last-minute questions before sleeping, I'm right here.",
+    "Good night! 🌙 Sleep well and rest up! If you have any last questions from your book before sleeping, I'm right here.",
     "Good night! 😴 Have sweet dreams and recharge for tomorrow's learning adventure!"
   ],
   TIME_NIGHT_HI: [
@@ -101,6 +112,45 @@ const RESPONSES = {
   ],
   TIME_DAY: [
     "Thank you! Wishing you a wonderful and productive day too! 🌟 What question can I help you with today?"
+  ],
+  REVISION_EN: [
+    "Sure! To revise this chapter, you can:\n• 💬 Ask me any question from this chapter to get instant answers and explanations.\n• 🎯 Click the **Quiz** button in the top bar to test your knowledge.\n• 📝 Click **Worksheet** or **Mind Map** for quick concept revision.\n\nWhich question or topic would you like to start with?"
+  ],
+  REVISION_HI: [
+    "ज़रूर! इस पाठ का रिवीजन (Revision) करने के लिए आप:\n• 💬 मुझसे इस पाठ का कोई भी सवाल पूछ सकते हैं।\n• 🎯 ऊपर दिए गए **Quiz** बटन पर क्लिक करके टेस्ट दे सकते हैं।\n• 📝 **Worksheet** या **Mind Map** से मुख्य बिंदु दोहरा सकते हैं।\n\nआप कौन सा सवाल पूछना चाहते हैं?"
+  ],
+  HOMEWORK_EN: [
+    "I'm ready to help with your homework! 📚 Please type the exact question or exercise from your book, and I'll explain the solution step-by-step."
+  ],
+  HOMEWORK_HI: [
+    "मैं आपके होमवर्क में मदद करने के लिए तैयार हूँ! 📚 कृपया अपनी किताब का वह सवाल यहाँ टाइप करें, मैं आपको उसका सही उत्तर और व्याख्या समझाऊँगा।"
+  ],
+  QUIZ_EN: [
+    "You can take an interactive chapter quiz right now! 🎯 Just click the **Quiz** button in the top bar to start your test, or type any question to practice."
+  ],
+  QUIZ_HI: [
+    "आप अभी इंटरैक्टिव क्विज़ खेल सकते हैं! 🎯 ऊपर दिए गए **Quiz** बटन पर क्लिक करें और अपनी तैयारी टेस्ट करें।"
+  ],
+  WORKSHEET_EN: [
+    "You can generate and print practice worksheets anytime! 📝 Just click the **Worksheet** button in the top bar."
+  ],
+  WORKSHEET_HI: [
+    "आप अभ्यास वर्कशीट कभी भी तैयार कर सकते हैं! 📝 ऊपर दिए गए **Worksheet** बटन पर क्लिक करें।"
+  ],
+  MIND_MAP_EN: [
+    "You can explore the visual concept mind map! 🗺️ Just click the **Mind Map** button in the top bar."
+  ],
+  MIND_MAP_HI: [
+    "आप इस पाठ का विज़ुअल कॉन्सेप्ट मैप देख सकते हैं! 🗺️ ऊपर दिए गए **Mind Map** बटन पर क्लिक करें।"
+  ],
+  TEST_PAPER_EN: [
+    "You can generate a formal school examination paper! 📑 Just click the **Test Paper** button in the top bar."
+  ],
+  LESSON_PLAN_EN: [
+    "You can view the pedagogical lesson plan! 📋 Just click the **Lesson Plan** button in the top bar."
+  ],
+  NOTES_EN: [
+    "You can print and export all answered textbook questions as study notes! 📄 Just click the **Notes** button in the top bar."
   ],
   GENERAL_GREETING_EN: [
     "Hello! 😊 How can I help you today? You can ask me any question from your chapters, lessons, or books.",
@@ -258,7 +308,65 @@ function checkGreeting(rawQuery) {
     };
   }
 
-  // 8. Basic greetings ("Hi", "Hello", "Hey", "Namaste", etc.)
+  // 8. Academic requests (revision, homework, quiz, worksheet, mind map, etc.)
+  if (REVISION.test(cleaned)) {
+    return {
+      isGreeting: true,
+      category: 'REVISION',
+      reply: isHindi ? pickRandom(RESPONSES.REVISION_HI) : pickRandom(RESPONSES.REVISION_EN)
+    };
+  }
+  if (HOMEWORK.test(cleaned)) {
+    return {
+      isGreeting: true,
+      category: 'HOMEWORK',
+      reply: isHindi ? pickRandom(RESPONSES.HOMEWORK_HI) : pickRandom(RESPONSES.HOMEWORK_EN)
+    };
+  }
+  if (QUIZ.test(cleaned)) {
+    return {
+      isGreeting: true,
+      category: 'QUIZ',
+      reply: isHindi ? pickRandom(RESPONSES.QUIZ_HI) : pickRandom(RESPONSES.QUIZ_EN)
+    };
+  }
+  if (WORKSHEET.test(cleaned)) {
+    return {
+      isGreeting: true,
+      category: 'WORKSHEET',
+      reply: isHindi ? pickRandom(RESPONSES.WORKSHEET_HI) : pickRandom(RESPONSES.WORKSHEET_EN)
+    };
+  }
+  if (MIND_MAP.test(cleaned)) {
+    return {
+      isGreeting: true,
+      category: 'MIND_MAP',
+      reply: isHindi ? pickRandom(RESPONSES.MIND_MAP_HI) : pickRandom(RESPONSES.MIND_MAP_EN)
+    };
+  }
+  if (TEST_PAPER.test(cleaned)) {
+    return {
+      isGreeting: true,
+      category: 'TEST_PAPER',
+      reply: pickRandom(RESPONSES.TEST_PAPER_EN)
+    };
+  }
+  if (LESSON_PLAN.test(cleaned)) {
+    return {
+      isGreeting: true,
+      category: 'LESSON_PLAN',
+      reply: pickRandom(RESPONSES.LESSON_PLAN_EN)
+    };
+  }
+  if (NOTES.test(cleaned)) {
+    return {
+      isGreeting: true,
+      category: 'NOTES',
+      reply: pickRandom(RESPONSES.NOTES_EN)
+    };
+  }
+
+  // 9. Basic greetings ("Hi", "Hello", "Hey", "Namaste", etc.)
   if (isGeneralGreeting(cleaned)) {
     const isHindiGreeting = isHindi || /^(?:namaste|namaskar|pranam|radhe\s+radhe|ram\s+ram|jai\s+shri\s+ram)/i.test(cleaned);
     return {
