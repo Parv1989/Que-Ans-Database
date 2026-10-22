@@ -500,12 +500,16 @@ async function getHierarchy() {
     hierarchy[c][b].add(ch);
   });
 
-  // Convert sets to arrays
+  // Convert sets to arrays with natural numeric sorting (e.g. Chapter 2 before Chapter 10)
+  function naturalCompare(a, b) {
+    return String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' });
+  }
+
   const formatted = {};
-  Object.keys(hierarchy).sort().forEach((cls) => {
+  Object.keys(hierarchy).sort(naturalCompare).forEach((cls) => {
     formatted[cls] = {};
-    Object.keys(hierarchy[cls]).sort().forEach((bk) => {
-      formatted[cls][bk] = Array.from(hierarchy[cls][bk]).sort();
+    Object.keys(hierarchy[cls]).sort(naturalCompare).forEach((bk) => {
+      formatted[cls][bk] = Array.from(hierarchy[cls][bk]).sort(naturalCompare);
     });
   });
 

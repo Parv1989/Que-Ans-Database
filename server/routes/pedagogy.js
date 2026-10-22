@@ -118,13 +118,6 @@ router.get('/admin/chapters', requireAdmin, async (req, res) => {
           },
           questionCount: { $sum: 1 }
         }
-      },
-      {
-        $sort: {
-          '_id.className': 1,
-          '_id.bookName': 1,
-          '_id.chapterName': 1
-        }
       }
     ]);
 
@@ -139,11 +132,13 @@ router.get('/admin/chapters', requireAdmin, async (req, res) => {
       });
     });
 
+    const seenKeys = new Set();
     const result = hierarchy.map((item) => {
       const c = item._id.className || 'General';
       const b = item._id.bookName || 'General';
       const ch = item._id.chapterName || 'General';
       const key = `${c}___${b}___${ch}`.toLowerCase();
+      seenKeys.add(key);
       const st = statusMap.get(key) || { hasLessonPlan: false, hasMindMap: false };
       return {
         className: c,
@@ -153,6 +148,36 @@ router.get('/admin/chapters', requireAdmin, async (req, res) => {
         hasLessonPlan: st.hasLessonPlan,
         hasMindMap: st.hasMindMap
       };
+    });
+
+    // Also include any chapters saved in Pedagogy that don't have QA questions yet
+    pedagogies.forEach((p) => {
+      const key = `${p.className}___${p.bookName}___${p.chapterName}`.toLowerCase();
+      if (!seenKeys.has(key)) {
+        const st = statusMap.get(key) || { hasLessonPlan: false, hasMindMap: false };
+        result.push({
+          className: p.className || 'General',
+          bookName: p.bookName || 'General',
+          chapterName: p.chapterName || 'General',
+          questionCount: 0,
+          hasLessonPlan: st.hasLessonPlan,
+          hasMindMap: st.hasMindMap
+        });
+        seenKeys.add(key);
+      }
+    });
+
+    // Natural numeric sorting for classes, books, and chapters (e.g. Chapter 2 before Chapter 10)
+    function naturalCompare(a, b) {
+      return String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    result.sort((a, b) => {
+      const c = naturalCompare(a.className, b.className);
+      if (c !== 0) return c;
+      const bk = naturalCompare(a.bookName, b.bookName);
+      if (bk !== 0) return bk;
+      return naturalCompare(a.chapterName, b.chapterName);
     });
 
     res.json({ chapters: result });

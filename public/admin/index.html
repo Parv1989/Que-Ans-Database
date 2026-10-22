@@ -228,12 +228,52 @@
           </div>
         </header>
 
-        <!-- Chapter Selector & Status Banner -->
+        <!-- Pedagogy Stats Strip -->
+        <div class="qa-stats-strip pedagogy-stats-strip">
+          <div class="qa-stat-pill"><span class="pill-icon">🏫</span> <span><strong id="pedStatClasses">0</strong> Classes</span></div>
+          <div class="qa-stat-pill"><span class="pill-icon">📚</span> <span><strong id="pedStatBooks">0</strong> Books</span></div>
+          <div class="qa-stat-pill"><span class="pill-icon">🔖</span> <span><strong id="pedStatChapters">0</strong> Chapters</span></div>
+          <div class="qa-stat-pill"><span class="pill-icon">🟢</span> <span><strong id="pedStatCompleted">0</strong> / <span id="pedStatTotal">0</span> Ready (<span id="pedStatPercent">0%</span>)</span></div>
+        </div>
+
+        <!-- Hierarchical Filter & Chapter Navigation Toolbar -->
         <div class="pedagogy-toolbar-card">
-          <div class="pedagogy-select-row">
-            <div class="field-wrap">
-              <label for="pedagogyChapterSelect">Select Class &amp; Chapter:</label>
-              <select id="pedagogyChapterSelect" class="filter-select"></select>
+          <div class="pedagogy-filters-bar">
+            <div class="pedagogy-filter-controls">
+              <div class="pedagogy-search-wrap">
+                <input type="text" id="pedagogySearch" class="search-input" placeholder="🔍 Search chapter..." title="Quick filter chapters" />
+              </div>
+              <select id="pedagogyClassFilter" class="filter-select" title="Filter by Class">
+                <option value="All">All Classes</option>
+              </select>
+              <select id="pedagogyBookFilter" class="filter-select" title="Filter by Book">
+                <option value="All">All Books</option>
+              </select>
+              <select id="pedagogyStatusFilter" class="filter-select" title="Filter by Status">
+                <option value="All">All Status (सभी चैप्टर्स)</option>
+                <option value="completed">🟢 Ready (Plan / Mind Map Available)</option>
+                <option value="pending">⚪ Pending (Needs Plan / Mind Map)</option>
+              </select>
+              <select id="pedagogySortBy" class="filter-select" title="Sort Order">
+                <option value="chapter_order">🔢 Chapter Order (1, 2, 3...)</option>
+                <option value="alphabetical">🔤 Alphabetical (A-Z)</option>
+                <option value="pending_first">⚪ Pending First (अधूरे पहले)</option>
+                <option value="completed_first">🟢 Completed First (तैयार पहले)</option>
+                <option value="questions">💬 Most Questions First</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Quick 1-click Book Navigation Chips -->
+          <div id="pedagogyBookChips" class="book-quick-chips" style="margin-top: 0.85rem; margin-bottom: 0;"></div>
+
+          <!-- Active Chapter Selector & Status Badge Row -->
+          <div class="pedagogy-active-chapter-row" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--line); display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+            <div class="field-wrap" style="flex: 1; min-width: 300px;">
+              <label for="pedagogyChapterSelect" style="display: flex; align-items: center; gap: 0.4rem; font-weight: 700; color: var(--ink);">
+                <span>📖</span> Selected Chapter:
+              </label>
+              <select id="pedagogyChapterSelect" class="filter-select" style="flex: 1; font-weight: 600;"></select>
             </div>
             <div id="pedagogyStatusBadge" class="pedagogy-status-badge">Checking status...</div>
           </div>

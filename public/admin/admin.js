@@ -1132,7 +1132,18 @@ if (refreshAnalyticsBtn) {
 let currentPedagogyData = null;
 let currentPedagogyChapters = [];
 
+// Natural numeric string comparison (e.g., Chapter 2 before Chapter 10, Class 2 before Class 10)
+function naturalCompare(a, b) {
+  return String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' });
+}
+
 const pedagogyChapterSelect = document.getElementById('pedagogyChapterSelect');
+const pedagogyClassFilter = document.getElementById('pedagogyClassFilter');
+const pedagogyBookFilter = document.getElementById('pedagogyBookFilter');
+const pedagogyStatusFilter = document.getElementById('pedagogyStatusFilter');
+const pedagogySortBy = document.getElementById('pedagogySortBy');
+const pedagogySearch = document.getElementById('pedagogySearch');
+const pedagogyBookChips = document.getElementById('pedagogyBookChips');
 const pedagogyStatusBadge = document.getElementById('pedagogyStatusBadge');
 const pedagogyRefreshBtn = document.getElementById('pedagogyRefreshBtn');
 const pedagogySaveBtn = document.getElementById('pedagogySaveBtn');
@@ -1175,6 +1186,246 @@ document.querySelectorAll('.pedagogy-subtab').forEach((tab) => {
   });
 });
 
+function updatePedagogyStats(allChapters) {
+  const classes = new Set();
+  const books = new Set();
+  let completedCount = 0;
+
+  allChapters.forEach((ch) => {
+    if (ch.className) classes.add(ch.className.trim());
+    if (ch.bookName) books.add(`${ch.className}:::${ch.bookName}`);
+    if (ch.hasLessonPlan || ch.hasMindMap) completedCount++;
+  });
+
+  const total = allChapters.length;
+  const pct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+
+  const pedStatClasses = document.getElementById('pedStatClasses');
+  const pedStatBooks = document.getElementById('pedStatBooks');
+  const pedStatChapters = document.getElementById('pedStatChapters');
+  const pedStatCompleted = document.getElementById('pedStatCompleted');
+  const pedStatTotal = document.getElementById('pedStatTotal');
+  const pedStatPercent = document.getElementById('pedStatPercent');
+
+  if (pedStatClasses) pedStatClasses.textContent = classes.size;
+  if (pedStatBooks) pedStatBooks.textContent = books.size;
+  if (pedStatChapters) pedStatChapters.textContent = total;
+  if (pedStatCompleted) pedStatCompleted.textContent = completedCount;
+  if (pedStatTotal) pedStatTotal.textContent = total;
+  if (pedStatPercent) pedStatPercent.textContent = `${pct}%`;
+}
+
+function populatePedagogyFilters(allChapters) {
+  if (!pedagogyClassFilter || !pedagogyBookFilter) return;
+
+  // 1. Classes
+  const classes = new Set();
+  allChapters.forEach((ch) => {
+    if (ch.className && ch.className.trim()) classes.add(ch.className.trim());
+  });
+  const sortedClasses = Array.from(classes).sort(naturalCompare);
+
+  const prevClassVal = pedagogyClassFilter.value || 'All';
+  pedagogyClassFilter.innerHTML = `<option value="All">All Classes (${sortedClasses.length})</option>` +
+    sortedClasses.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  if (classes.has(prevClassVal)) {
+    pedagogyClassFilter.value = prevClassVal;
+  } else {
+    pedagogyClassFilter.value = 'All';
+  }
+
+  updatePedagogyBookFilterOptions(allChapters);
+}
+
+function updatePedagogyBookFilterOptions(allChapters) {
+  if (!pedagogyBookFilter) return;
+  const currentClassVal = pedagogyClassFilter ? pedagogyClassFilter.value : 'All';
+
+  const books = new Set();
+  allChapters.forEach((ch) => {
+    const itemClass = (ch.className || '').trim();
+    if (currentClassVal === 'All' || itemClass.toLowerCase() === currentClassVal.toLowerCase()) {
+      if (ch.bookName && ch.bookName.trim()) books.add(ch.bookName.trim());
+    }
+  });
+  const sortedBooks = Array.from(books).sort(naturalCompare);
+
+  const prevBookVal = pedagogyBookFilter.value || 'All';
+  pedagogyBookFilter.innerHTML = `<option value="All">All Books (${sortedBooks.length})</option>` +
+    sortedBooks.map((b) => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+  if (books.has(prevBookVal)) {
+    pedagogyBookFilter.value = prevBookVal;
+  } else {
+    pedagogyBookFilter.value = 'All';
+  }
+}
+
+function renderPedagogyBookChips(allChapters) {
+  if (!pedagogyBookChips) return;
+  const currentClassVal = pedagogyClassFilter ? pedagogyClassFilter.value : 'All';
+  const currentBookVal = pedagogyBookFilter ? pedagogyBookFilter.value : 'All';
+
+  const bookStats = new Map();
+  let totalCount = 0;
+
+  allChapters.forEach((ch) => {
+    const cls = ch.className || 'General';
+    const bk = ch.bookName || 'General';
+    if (currentClassVal !== 'All' && cls.toLowerCase() !== currentClassVal.toLowerCase()) return;
+
+    const key = `${cls} • ${bk}`;
+    if (!bookStats.has(key)) {
+      bookStats.set(key, { cls, bk, total: 0, completed: 0 });
+    }
+    const stat = bookStats.get(key);
+    stat.total++;
+    totalCount++;
+    if (ch.hasLessonPlan || ch.hasMindMap) stat.completed++;
+  });
+
+  if (bookStats.size <= 1) {
+    pedagogyBookChips.innerHTML = '';
+    return;
+  }
+
+  let html = `
+    <button type="button" class="book-chip ${currentBookVal === 'All' ? 'active' : ''}" data-class="All" data-book="All">
+      All Books <span class="chip-count">${totalCount}</span>
+    </button>
+  `;
+
+  bookStats.forEach((stat) => {
+    const isActive = currentBookVal === stat.bk && (currentClassVal === 'All' || currentClassVal === stat.cls);
+    const badge = stat.completed === stat.total ? '🟢' : `${stat.completed}/${stat.total}`;
+    html += `
+      <button type="button" class="book-chip ${isActive ? 'active' : ''}" data-class="${escapeHtml(stat.cls)}" data-book="${escapeHtml(stat.bk)}">
+        📚 ${escapeHtml(stat.bk)} <small style="opacity:0.75; font-size:0.75rem;">(${escapeHtml(stat.cls)})</small>
+        <span class="chip-count" style="font-size:0.75rem; background:rgba(0,0,0,0.06); padding:1px 6px; border-radius:999px;">${badge}</span>
+      </button>
+    `;
+  });
+
+  pedagogyBookChips.innerHTML = html;
+
+  pedagogyBookChips.querySelectorAll('.book-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const b = chip.dataset.book;
+      const c = chip.dataset.class;
+      if (pedagogyClassFilter && c !== 'All') pedagogyClassFilter.value = c;
+      if (pedagogyBookFilter) {
+        updatePedagogyBookFilterOptions(currentPedagogyChapters);
+        pedagogyBookFilter.value = b;
+      }
+      renderPedagogyBookChips(currentPedagogyChapters);
+      renderPedagogyChapterSelect();
+    });
+  });
+}
+
+function renderPedagogyChapterSelect() {
+  if (!pedagogyChapterSelect) return;
+
+  const currentClassVal = pedagogyClassFilter ? pedagogyClassFilter.value : 'All';
+  const currentBookVal = pedagogyBookFilter ? pedagogyBookFilter.value : 'All';
+  const currentStatusVal = pedagogyStatusFilter ? pedagogyStatusFilter.value : 'All';
+  const currentSortVal = pedagogySortBy ? pedagogySortBy.value : 'chapter_order';
+  const query = (pedagogySearch ? pedagogySearch.value : '').trim().toLowerCase();
+
+  const prevSelectedValue = pedagogyChapterSelect.value;
+
+  // 1. Filter
+  let filtered = currentPedagogyChapters.filter((ch) => {
+    if (currentClassVal !== 'All' && ch.className.toLowerCase() !== currentClassVal.toLowerCase()) return false;
+    if (currentBookVal !== 'All' && ch.bookName.toLowerCase() !== currentBookVal.toLowerCase()) return false;
+    if (currentStatusVal === 'completed' && !ch.hasLessonPlan && !ch.hasMindMap) return false;
+    if (currentStatusVal === 'pending' && (ch.hasLessonPlan || ch.hasMindMap)) return false;
+
+    if (query) {
+      const haystack = `${ch.className} ${ch.bookName} ${ch.chapterName}`.toLowerCase();
+      if (!haystack.includes(query)) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    pedagogyChapterSelect.innerHTML = '<option value="">No matching chapters found</option>';
+    if (pedagogyStatusBadge) {
+      pedagogyStatusBadge.className = 'pedagogy-status-badge status-empty';
+      pedagogyStatusBadge.textContent = '⚪ No matching chapters';
+    }
+    return;
+  }
+
+  // 2. Sort
+  filtered.sort((a, b) => {
+    if (currentSortVal === 'alphabetical') {
+      return naturalCompare(a.chapterName, b.chapterName);
+    } else if (currentSortVal === 'pending_first') {
+      const aDone = a.hasLessonPlan || a.hasMindMap ? 1 : 0;
+      const bDone = b.hasLessonPlan || b.hasMindMap ? 1 : 0;
+      if (aDone !== bDone) return aDone - bDone;
+      return naturalCompare(a.className, b.className) || naturalCompare(a.bookName, b.bookName) || naturalCompare(a.chapterName, b.chapterName);
+    } else if (currentSortVal === 'completed_first') {
+      const aDone = a.hasLessonPlan || a.hasMindMap ? 1 : 0;
+      const bDone = b.hasLessonPlan || b.hasMindMap ? 1 : 0;
+      if (aDone !== bDone) return bDone - aDone;
+      return naturalCompare(a.className, b.className) || naturalCompare(a.bookName, b.bookName) || naturalCompare(a.chapterName, b.chapterName);
+    } else if (currentSortVal === 'questions') {
+      return (b.questionCount || 0) - (a.questionCount || 0);
+    } else {
+      // chapter_order
+      return naturalCompare(a.className, b.className) || naturalCompare(a.bookName, b.bookName) || naturalCompare(a.chapterName, b.chapterName);
+    }
+  });
+
+  // 3. Render: If "All Books" is selected and order is chapter_order, group by <optgroup>
+  let html = '';
+  const isMultiBook = currentBookVal === 'All';
+
+  if (isMultiBook && currentSortVal === 'chapter_order') {
+    const groups = new Map();
+    filtered.forEach((ch) => {
+      const grpKey = `${ch.className} • ${ch.bookName}`;
+      if (!groups.has(grpKey)) groups.set(grpKey, []);
+      groups.get(grpKey).push(ch);
+    });
+
+    groups.forEach((chapters, grpLabel) => {
+      html += `<optgroup label="📚 ${escapeHtml(grpLabel)}">`;
+      chapters.forEach((ch) => {
+        const key = `${ch.className}:::${ch.bookName}:::${ch.chapterName}`;
+        const statusIcon = (ch.hasLessonPlan || ch.hasMindMap) ? '🟢' : '⚪';
+        const optTitle = isMultiBook
+          ? `${statusIcon} ${escapeHtml(ch.chapterName)} • ${escapeHtml(ch.bookName)} (${ch.questionCount} Qs)`
+          : `${statusIcon} ${escapeHtml(ch.chapterName)} (${ch.questionCount} Qs)`;
+        html += `<option value="${key}">${optTitle}</option>`;
+      });
+      html += `</optgroup>`;
+    });
+  } else {
+    html = filtered.map((ch) => {
+      const key = `${ch.className}:::${ch.bookName}:::${ch.chapterName}`;
+      const statusIcon = (ch.hasLessonPlan || ch.hasMindMap) ? '🟢' : '⚪';
+      const label = isMultiBook
+        ? `${statusIcon} ${escapeHtml(ch.className)} • ${escapeHtml(ch.bookName)} • ${escapeHtml(ch.chapterName)} (${ch.questionCount} Qs)`
+        : `${statusIcon} ${escapeHtml(ch.chapterName)} (${ch.questionCount} Qs)`;
+      return `<option value="${key}">${label}</option>`;
+    }).join('');
+  }
+
+  pedagogyChapterSelect.innerHTML = html;
+
+  // Restore selection if still in filtered list, otherwise default to first available
+  const optionValues = Array.from(pedagogyChapterSelect.querySelectorAll('option')).map((opt) => opt.value);
+  if (prevSelectedValue && optionValues.includes(prevSelectedValue)) {
+    pedagogyChapterSelect.value = prevSelectedValue;
+  } else if (optionValues.length > 0 && optionValues[0]) {
+    pedagogyChapterSelect.value = optionValues[0];
+  }
+
+  onPedagogyChapterChange();
+}
+
 async function loadPedagogyChaptersList() {
   if (!pedagogyChapterSelect) return;
   pedagogyChapterSelect.innerHTML = '<option value="">Loading chapters...</option>';
@@ -1189,15 +1440,10 @@ async function loadPedagogyChaptersList() {
       return;
     }
 
-    pedagogyChapterSelect.innerHTML = currentPedagogyChapters
-      .map((ch) => {
-        const key = `${ch.className}:::${ch.bookName}:::${ch.chapterName}`;
-        const statusIcon = ch.hasLessonPlan ? '🟢' : '⚪';
-        return `<option value="${key}">${statusIcon} ${ch.className} • ${ch.bookName} • ${ch.chapterName} (${ch.questionCount} Qs)</option>`;
-      })
-      .join('');
-
-    onPedagogyChapterChange();
+    updatePedagogyStats(currentPedagogyChapters);
+    populatePedagogyFilters(currentPedagogyChapters);
+    renderPedagogyBookChips(currentPedagogyChapters);
+    renderPedagogyChapterSelect();
   } catch (err) {
     console.error('Failed to load pedagogy chapters:', err);
     pedagogyChapterSelect.innerHTML = '<option value="">Error loading chapters</option>';
@@ -1212,6 +1458,39 @@ if (pedagogyChapterSelect) {
   pedagogyChapterSelect.addEventListener('change', onPedagogyChapterChange);
 }
 
+if (pedagogyClassFilter) {
+  pedagogyClassFilter.addEventListener('change', () => {
+    updatePedagogyBookFilterOptions(currentPedagogyChapters);
+    renderPedagogyBookChips(currentPedagogyChapters);
+    renderPedagogyChapterSelect();
+  });
+}
+
+if (pedagogyBookFilter) {
+  pedagogyBookFilter.addEventListener('change', () => {
+    renderPedagogyBookChips(currentPedagogyChapters);
+    renderPedagogyChapterSelect();
+  });
+}
+
+if (pedagogyStatusFilter) {
+  pedagogyStatusFilter.addEventListener('change', () => {
+    renderPedagogyChapterSelect();
+  });
+}
+
+if (pedagogySortBy) {
+  pedagogySortBy.addEventListener('change', () => {
+    renderPedagogyChapterSelect();
+  });
+}
+
+if (pedagogySearch) {
+  pedagogySearch.addEventListener('input', () => {
+    renderPedagogyChapterSelect();
+  });
+}
+
 function getSelectedChapterObj() {
   if (!pedagogyChapterSelect || !pedagogyChapterSelect.value) return null;
   const [className, bookName, chapterName] = pedagogyChapterSelect.value.split(':::');
@@ -1220,7 +1499,13 @@ function getSelectedChapterObj() {
 
 async function onPedagogyChapterChange() {
   const ch = getSelectedChapterObj();
-  if (!ch) return;
+  if (!ch) {
+    if (pedagogyStatusBadge) {
+      pedagogyStatusBadge.className = 'pedagogy-status-badge status-empty';
+      pedagogyStatusBadge.textContent = '⚪ Select a Chapter';
+    }
+    return;
+  }
 
   if (pedagogyStatusBadge) {
     pedagogyStatusBadge.className = 'pedagogy-status-badge';
