@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PublisherBot &amp; Smart Pedagogy Ecosystem — Enterprise Product Presentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-subtle: #f1f5f9;
+      --border: #e2e8f0;
+      --border-focus: #818cf8;
+      --primary: #4338ca;
+      --primary-hover: #3730a3;
+      --primary-light: #eef2ff;
+      --primary-glow: rgba(67, 56, 202, 0.12);
+      --accent: #047857;
+      --accent-light: #ecfdf5;
+      --amber: #b45309;
+      --amber-light: #fffbeb;
+      --rose: #be123c;
+      --rose-light: #fff1f2;
+      --cyan: #0369a1;
+      --cyan-light: #f0f9ff;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #94a3b8;
+      --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.07);
+      --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.11);
+      --font: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-display: 'Baloo 2', cursive, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Ambient background gradient accents */
+    .ambient-bg {
+      position: fixed;
+      pointer-events: none;
+      border-radius: 50%;
+      filter: blur(110px);
+      z-index: 0;
+      opacity: 0.65;
+    }
+    .ambient-1 {
+      top: -10%;
+      left: -5%;
+      width: 45vw;
+      height: 45vw;
+      background: radial-gradient(circle, #e0e7ff 0%, transparent 70%);
+    }
+    .ambient-2 {
+      bottom: -15%;
+      right: -5%;
+      width: 50vw;
+      height: 50vw;
+      background: radial-gradient(circle, #dcfce7 0%, transparent 70%);
+    }
+
+    /* Presentation Deck Structure */
+    .presentation-deck {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top presentation navigation bar */
+    .deck-topbar {
+      height: 64px;
+      padding: 0 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(16px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand-logo {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      letter-spacing: -0.3px;
+    }
+
+    .brand-badge {
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      background: #eef2ff;
+      color: var(--primary);
+      border: 1px solid #c7d2fe;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      padding: 0.42rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+
+    .icon-btn:hover {
+      background: var(--primary-light);
+      color: var(--primary);
+      border-color: #c7d2fe;
+    }
+
+    .icon-btn.primary {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    .icon-btn.primary:hover {
+      background: var(--primary-hover);
+      color: #ffffff;
+    }
+
+    /* Main Slide Canvas */
+    .slides-viewport {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem 2.5rem;
+    }
+
+    .slide {
+      position: absolute;
+      width: min(1340px, 94vw);
+      height: min(730px, 84vh);
+      opacity: 0;
+      transform: translateX(40px) scale(0.98);
+      pointer-events: none;
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .slide.active {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+      pointer-events: all;
+    }
+
+    .slide.prev {
+      transform: translateX(-40px) scale(0.98);
+    }
+
+    /* Slide Typography */
+    .slide-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--primary);
+      background: var(--primary-light);
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid #c7d2fe;
+      margin-bottom: 0.45rem;
+      align-self: flex-start;
+    }
+
+    .slide-title {
+      font-family: var(--font-display);
+      font-size: 2.25rem;
+      font-weight: 800;
+      line-height: 1.18;
+      color: var(--text-main);
+      margin-bottom: 0.45rem;
+      letter-spacing: -0.3px;
+    }
+
+    .slide-subtitle {
+      font-size: 0.98rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+      max-width: 960px;
+      margin-bottom: 1.25rem;
+    }
+
+    /* 2-Column Presentation Layout (Details + Live Screenshot) */
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 1.75rem;
+      align-items: center;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .split-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      overflow-y: auto;
+      max-height: 100%;
+      padding-right: 0.5rem;
+    }
+
+    .split-left::-webkit-scrollbar {
+      width: 5px;
+    }
+    .split-left::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .split-left::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    .split-right {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 0;
+    }
+
+    /* Screenshot Browser Mockup Frame */
+    .screenshot-frame {
+      width: 100%;
+      max-height: 520px;
+      background: #ffffff;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      cursor: zoom-in;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+
+    .screenshot-frame:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 20px 48px rgba(15, 23, 42, 0.16);
+      border-color: var(--border-focus);
+    }
+
+    .screenshot-topbar {
+      height: 32px;
+      background: #f1f5f9;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 0.85rem;
+      gap: 0.45rem;
+    }
+
+    .mock-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .mock-red { background: #f87171; }
+    .mock-yellow { background: #fbbf24; }
+    .mock-green { background: #34d399; }
+
+    .mock-url {
+      font-size: 0.72rem;
+      color: #64748b;
+      font-family: 'Fira Code', monospace;
+      margin-left: 0.5rem;
+      background: #ffffff;
+      padding: 0.12rem 0.65rem;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+      flex: 1;
+      max-width: 480px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .screenshot-img {
+      width: 100%;
+      height: auto;
+      max-height: 480px;
+      object-fit: cover;
+      object-position: top;
+      display: block;
+      background: #fafafa;
+    }
+
+    .zoom-hint {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      background: rgba(15, 23, 42, 0.82);
+      color: #ffffff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      backdrop-filter: blur(4px);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    /* Cards and Feature Blocks */
+    .info-card {
+      background: #ffffff;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.05rem 1.25rem;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s ease;
+    }
+
+    .info-card:hover {
+      border-color: var(--border-focus);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    .info-card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .info-card-icon {
+      font-size: 1.2rem;
+    }
+
+    .info-card-title {
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .info-card-desc {
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .feature-points {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      margin-top: 0.5rem;
+    }
+
+    .feature-point {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .feature-point-bullet {
+      color: var(--primary);
+      font-weight: 800;
+      flex-shrink: 0;
+      font-size: 0.95rem;
+    }
+
+    /* Grids */
+    .full-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+
+    .full-grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.15rem;
+    }
+
+    .feature-tile {
+      background: #ffffff;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s ease;
+    }
+
+    .feature-tile:hover {
+      border-color: var(--border-focus);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .feature-tile-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: var(--primary-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .feature-tile h4 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .feature-tile p {
+      font-size: 0.86rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Workflow Diagram */
+    .workflow-strip {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      margin-bottom: 1.5rem;
+      background: #ffffff;
+      padding: 1.25rem;
+      border-radius: 14px;
+      border: 1.5px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .step-box {
+      flex: 1;
+      background: #f8fafc;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .step-box:hover {
+      background: #ffffff;
+      border-color: var(--primary);
+      box-shadow: var(--shadow-md);
+    }
+
+    .step-num {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--primary);
+      letter-spacing: 0.5px;
+      margin-bottom: 0.2rem;
+    }
+
+    .step-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 0.25rem;
+    }
+
+    .step-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    .step-arrow {
+      font-size: 1.35rem;
+      color: var(--primary);
+      font-weight: 800;
+    }
+
+    /* Metric Pills (Slide 1 Hero) */
+    .metric-pill {
+      background: #ffffff;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      padding: 1.15rem 1.25rem;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s ease;
+    }
+
+    .metric-pill:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .metric-pill-val {
+      font-family: var(--font-display);
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--primary);
+      line-height: 1.1;
+      margin-bottom: 0.25rem;
+    }
+
+    .metric-pill-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Bottom Control Bar */
+    .deck-bottombar {
+      height: 64px;
+      padding: 0 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.03);
+    }
+
+    .slide-dots {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #cbd5e1;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .dot.active {
+      width: 28px;
+      background: var(--primary);
+    }
+
+    .slide-nav-btns {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      background: #ffffff;
+      border: 1.5px solid var(--border);
+      padding: 0.45rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .nav-btn:hover {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    .counter-display {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      font-family: 'Fira Code', monospace;
+    }
+
+    /* Lightbox Modal */
+    .lightbox-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: zoom-out;
+      padding: 2rem;
+    }
+
+    .lightbox-modal.active {
+      display: flex;
+    }
+
+    .lightbox-img {
+      max-width: 95vw;
+      max-height: 92vh;
+      border-radius: 12px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+      background: #fff;
+    }
+
+    @media print {
+      body {
+        overflow: visible;
+        background: #fff;
+      }
+      .deck-topbar, .deck-bottombar, .ambient-bg {
+        display: none !important;
+      }
+      .slide {
+        position: relative !important;
+        opacity: 1 !important;
+        transform: none !important;
+        page-break-after: always;
+        height: 100vh;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="ambient-bg ambient-1"></div>
+  <div class="ambient-bg ambient-2"></div>
+
+  <!-- Image Lightbox Modal for High-Resolution Zoom -->
+  <div id="lightboxModal" class="lightbox-modal" title="Click anywhere or press Esc to close">
+    <img id="lightboxImg" class="lightbox-img" src="" alt="Enlarged User Interface Preview" />
+  </div>
+
+  <div class="presentation-deck">
+    <!-- Top Navigation Header -->
+    <header class="deck-topbar">
+      <div class="brand-group">
+        <span class="brand-logo">🤖 PublisherBot AI</span>
+        <span class="brand-badge">Enterprise Executive Presentation • Light Edition</span>
+      </div>
+      <div class="topbar-actions">
+        <a class="icon-btn" href="/admin" target="_blank" title="Open Live Admin Console">⚙️ Live Admin Console ↗</a>
+        <button class="icon-btn" id="fsBtn" title="Toggle Fullscreen (F)">⛶ Fullscreen</button>
+        <button class="icon-btn primary" id="printBtn" title="Export as PDF Document">🖨️ Export PDF</button>
+      </div>
+    </header>
+
+    <!-- Main Slides Viewport -->
+    <main class="slides-viewport">
+
+      <!-- SLIDE 1: Title & Hero Executive Overview -->
+      <section class="slide active" data-index="0">
+        <div style="text-align: center; max-width: 940px; margin: 0 auto;">
+          <div class="slide-badge" style="align-self: center; margin-bottom: 1rem;">
+            <span>✨</span> Enterprise EdTech &amp; Publishing Intelligence Ecosystem
+          </div>
+          <h1 class="slide-title" style="font-size: 3.1rem; margin-bottom: 0.85rem;">
+            PublisherBot &amp; Smart Pedagogy Ecosystem
+          </h1>
+          <p class="slide-subtitle" style="font-size: 1.15rem; margin: 0 auto 2.25rem; max-width: 860px; line-height: 1.6;">
+            A cloud-native cognitive education platform engineered to transform physical K-12 textbooks into <strong>24/7 Interactive Curriculum Companions</strong>. Integrating real-time student doubt resolution, automated CBSE lesson plans, differentiated assessment generators, and publisher business telemetry.
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.15rem;">
+            <div class="metric-pill">
+              <div class="metric-pill-val">9-in-1</div>
+              <div class="metric-pill-label">Pedagogy Tool Suite</div>
+            </div>
+            <div class="metric-pill">
+              <div class="metric-pill-val">&lt; 10ms</div>
+              <div class="metric-pill-label">In-Memory Match Speed</div>
+            </div>
+            <div class="metric-pill">
+              <div class="metric-pill-val">100%</div>
+              <div class="metric-pill-label">NEP 2020 &amp; CBSE Aligned</div>
+            </div>
+            <div class="metric-pill">
+              <div class="metric-pill-val">1-Line</div>
+              <div class="metric-pill-label">Zero-Code Web Embed</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 2: Strategic Positioning — What is PublisherBot? -->
+      <section class="slide" data-index="1">
+        <div class="slide-badge">Strategic Value Proposition</div>
+        <h2 class="slide-title">What is PublisherBot? The Unified Publishing Bridge</h2>
+        <p class="slide-subtitle">
+          PublisherBot is an end-to-end cognitive educational infrastructure connecting educational book publishers, institutional school networks, classroom educators, and K-12 students.
+        </p>
+
+        <div class="full-grid-4">
+          <div class="feature-tile">
+            <div class="feature-tile-icon" style="background:#e0e7ff; color:#4338ca;">🏢</div>
+            <h4>Educational Publishers</h4>
+            <p>Elevates printed manuscripts into copyright-protected digital ecosystems. Secures institutional book adoptions and establishes technological moats against unauthorized printing.</p>
+          </div>
+          <div class="feature-tile">
+            <div class="feature-tile-icon" style="background:#ecfdf5; color:#047857;">🏫</div>
+            <h4>K-12 School Leadership</h4>
+            <p>Delivers turnkey NEP 2020 compliance with standardized, high-efficacy pedagogical frameworks across all branches, raising institutional reputation and student achievement.</p>
+          </div>
+          <div class="feature-tile">
+            <div class="feature-tile-icon" style="background:#fffbeb; color:#b45309;">👩‍🏫</div>
+            <h4>Classroom Educators</h4>
+            <p>Eliminates 15+ hours of weekly administrative overhead through 1-click automated 4-Period lesson plans, Bloom’s taxonomy mapping, and exam blueprint generation.</p>
+          </div>
+          <div class="feature-tile">
+            <div class="feature-tile-icon" style="background:#f0f9ff; color:#0369a1;">🧑‍🎓</div>
+            <h4>Students &amp; Parents</h4>
+            <p>Provides an on-demand, curriculum-bounded "Study Buddy" capable of sub-10ms textbook doubt resolution, natural audio read-aloud, and step-by-step formula explanations.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 3: System Pipeline — How Does the Platform Function? -->
+      <section class="slide" data-index="2">
+        <div class="slide-badge">Operational Architecture</div>
+        <h2 class="slide-title">End-to-End System Architecture &amp; Pipeline</h2>
+        <p class="slide-subtitle">
+          From raw curriculum manuscripts to instant student query resolution — a continuous 5-stage automated intelligence workflow:
+        </p>
+
+        <div class="workflow-strip">
+          <div class="step-box">
+            <div class="step-num">Stage 1</div>
+            <div class="step-title">📥 Manuscript Ingestion</div>
+            <div class="step-desc">Bulk CSV, JSON, or chapter PDFs uploaded via publisher portal.</div>
+          </div>
+          <div class="step-arrow">➔</div>
+          <div class="step-box">
+            <div class="step-num">Stage 2</div>
+            <div class="step-title">🧠 Cognitive Structuring</div>
+            <div class="step-desc">Gemini AI synthesizes 4-period lesson plans and concept mind maps.</div>
+          </div>
+          <div class="step-arrow">➔</div>
+          <div class="step-box">
+            <div class="step-num">Stage 3</div>
+            <div class="step-title">⚡ In-Memory Indexing</div>
+            <div class="step-desc">Sub-10ms inverted token index and fuzzy distance caches initialized.</div>
+          </div>
+          <div class="step-arrow">➔</div>
+          <div class="step-box">
+            <div class="step-num">Stage 4</div>
+            <div class="step-title">🌐 Headless Deployment</div>
+            <div class="step-desc">Lightweight script tag deploys responsive widget to any school web portal.</div>
+          </div>
+          <div class="step-arrow">➔</div>
+          <div class="step-box">
+            <div class="step-num">Stage 5</div>
+            <div class="step-title">📊 Continuous Telemetry</div>
+            <div class="step-desc">Missing questions aggregate in real-time for immediate editorial triage.</div>
+          </div>
+        </div>
+
+        <div class="full-grid-3">
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-icon">⚡</span>
+              <strong class="info-card-title">Tier 1: Sub-10ms In-Memory Matching</strong>
+            </div>
+            <p class="info-card-desc">Token-based inverted index cached in server memory delivers instant answers with zero cloud LLM latency or per-query token cost.</p>
+          </div>
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-icon">🎯</span>
+              <strong class="info-card-title">Tier 2: Typo-Tolerant Fuzzy Engine</strong>
+            </div>
+            <p class="info-card-desc">Advanced Levenshtein distance and domain-specific synonym aliasing resolve spelling errors and student terminology variances.</p>
+          </div>
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-icon">🍃</span>
+              <strong class="info-card-title">Tier 3: Stateful Telemetry &amp; Cloud Scale</strong>
+            </div>
+            <p class="info-card-desc">Backed by MongoDB Atlas with compound multi-tenant indexing, supporting millions of curriculum items and high-concurrency requests.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 4: Feature Module 1 - Student Chatbot Widget -->
+      <section class="slide" data-index="3">
+        <div class="slide-badge">Student Experience</div>
+        <h2 class="slide-title">1. Curriculum-Bounded Interactive Chatbot ("Study Buddy")</h2>
+        <p class="slide-subtitle">
+          An embedded, distraction-free study companion designed to resolve homework doubts directly from verified publisher textbooks without hallucinations.
+        </p>
+
+        <div class="split-layout">
+          <div class="split-left">
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">💬</span>
+                <strong class="info-card-title">Strict Curriculum Guardrails (Zero Hallucination)</strong>
+              </div>
+              <p class="info-card-desc">Answers are rigorously bounded to publisher textbook context, preventing out-of-syllabus inaccuracies or generic internet search noise.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">🔊</span>
+                <strong class="info-card-title">Multi-Modal Voice Engine (Text-to-Speech)</strong>
+              </div>
+              <p class="info-card-desc">Integrated speech synthesis with natural accent pacing and variable playback speed (1.0x, 1.2x, 1.5x) for auditory and ESL learners.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">💡</span>
+                <strong class="info-card-title">Cognitive Breakdown &amp; Practice Quizzes</strong>
+              </div>
+              <p class="info-card-desc">Features 1-click simplified breakdowns for complex concepts, accompanied by interactive chapter-level self-assessment quizzes.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">⚡</span>
+                <strong class="info-card-title">Contextual Quick-Action Navigation Chips</strong>
+              </div>
+              <p class="info-card-desc">One-click micro-chips: <code>📑 Test Paper</code>, <code>📋 Lesson Plan</code>, <code>🎙️ Oral Test</code>, <code>🗺️ Mind Map</code>, <code>📝 Worksheet</code>, <code>🎯 Quiz</code>, and <code>📄 Notes</code>.</p>
+            </div>
+          </div>
+
+          <div class="split-right">
+            <div class="screenshot-frame zoomable-frame" data-src="/screenshots/chatbot_widget.png">
+              <div class="screenshot-topbar">
+                <span class="mock-dot mock-red"></span>
+                <span class="mock-dot mock-yellow"></span>
+                <span class="mock-dot mock-green"></span>
+                <span class="mock-url">https://publisher.com/widget/chat.html (Study Buddy Live Client)</span>
+              </div>
+              <img class="screenshot-img" src="/screenshots/chatbot_widget.png" alt="Student Chatbot Widget Interface" />
+              <div class="zoom-hint">🔍 Click to zoom full-screen</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 5: Feature Module 2 - Smart Pedagogy (Lesson Plans & Mind Maps) -->
+      <section class="slide" data-index="4">
+        <div class="slide-badge">Academic Pedagogy &amp; CBSE Standards</div>
+        <h2 class="slide-title">2. Automated 4-Period CBSE Lesson Plans &amp; Concept Maps</h2>
+        <p class="slide-subtitle">
+          Transforms raw textbook chapters into rigorous pedagogical documentation adhering to National Education Policy (NEP 2020) and Bloom's Taxonomy.
+        </p>
+
+        <div class="split-layout">
+          <div class="split-left">
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">✨</span>
+                <strong class="info-card-title">Cognitive Chapter Extraction Engine</strong>
+              </div>
+              <p class="info-card-desc">Gemini AI synthesizes raw chapter PDFs to auto-populate learning outcomes, prerequisite competencies, and pedagogical approaches in seconds.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">📋</span>
+                <strong class="info-card-title">Structured 4-Period Instructional Breakdown</strong>
+              </div>
+              <ul class="feature-points">
+                <li class="feature-point"><span class="feature-point-bullet">✔</span> <strong>Period 1</strong>: Foundational Anchor &amp; Real-World Hook (Inquiry Initiation)</li>
+                <li class="feature-point"><span class="feature-point-bullet">✔</span> <strong>Period 2</strong>: Deep Conceptual Exploration &amp; Core Terminology Deconstruction</li>
+                <li class="feature-point"><span class="feature-point-bullet">✔</span> <strong>Period 3</strong>: Collaborative Inquiry, Laboratory Exercises &amp; Hands-on Activity</li>
+                <li class="feature-point"><span class="feature-point-bullet">✔</span> <strong>Period 4</strong>: Formative Assessment, Objective Evaluation &amp; Homework</li>
+              </ul>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">🗺️</span>
+                <strong class="info-card-title">Visual Concept Mind Maps &amp; Classroom Posters</strong>
+              </div>
+              <p class="info-card-desc">Hierarchical relational tree graphs illustrating concept dependencies for interactive whiteboard projection and student review.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">🔄</span>
+                <strong class="info-card-title">Cascading Natural Sorting &amp; Status Badges</strong>
+              </div>
+              <p class="info-card-desc">Class ➔ Book ➔ Chapter cascading selectors with natural numeric ordering and live readiness indicators (🟢 Ready / ⚪ Pending).</p>
+            </div>
+          </div>
+
+          <div class="split-right">
+            <div class="screenshot-frame zoomable-frame" data-src="/screenshots/lesson_plans.png">
+              <div class="screenshot-topbar">
+                <span class="mock-dot mock-red"></span>
+                <span class="mock-dot mock-yellow"></span>
+                <span class="mock-dot mock-green"></span>
+                <span class="mock-url">https://publisher.com/admin#tab-pedagogy (Pedagogy &amp; Mind Map Console)</span>
+              </div>
+              <img class="screenshot-img" src="/screenshots/lesson_plans.png" alt="Smart Pedagogy Admin Panel" />
+              <div class="zoom-hint">🔍 Click to zoom full-screen</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 6: Feature Module 3 - Multi-Book Hierarchical Question Bank -->
+      <section class="slide" data-index="5">
+        <div class="slide-badge">Curriculum Management System</div>
+        <h2 class="slide-title">3. Multi-Book Hierarchical Question Bank &amp; Repository</h2>
+        <p class="slide-subtitle">
+          Enterprise curriculum management infrastructure organizing tens of thousands of questions across multi-grade, multi-subject textbook catalogs.
+        </p>
+
+        <div class="split-layout">
+          <div class="split-left">
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">📚</span>
+                <strong class="info-card-title">Relational Hierarchy &amp; Accordion Architecture</strong>
+              </div>
+              <p class="info-card-desc">Organized by <code>Grade ➔ Subject ➔ Book Title ➔ Chapter ➔ Item Level</code> with collapsible drawers and real-time item count badges.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">⚡</span>
+                <strong class="info-card-title">Instant Book Quick-Navigation Chips</strong>
+              </div>
+              <p class="info-card-desc">Top-level micro-chips enable instant single-click jumping directly to any book drawer (e.g. <code>📚 Ripples English (Grade 3)</code>).</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">📥</span>
+                <strong class="info-card-title">High-Throughput Bulk CSV/JSON Ingestion</strong>
+              </div>
+              <p class="info-card-desc">Enterprise data pipeline supporting mass ingestion of thousands of questions in seconds, with 1-click offline backup export.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">🧪</span>
+                <strong class="info-card-title">Scientific Formula Parsing &amp; Media Embeds</strong>
+              </div>
+              <p class="info-card-desc">Real-time rendering for chemistry sub-scripts (<code>H~2~O</code> ➔ H₂O), exponents (<code>x^2^</code> ➔ x²), diagram attachments, and synonym tags.</p>
+            </div>
+          </div>
+
+          <div class="split-right">
+            <div class="screenshot-frame zoomable-frame" data-src="/screenshots/qa_database.png">
+              <div class="screenshot-topbar">
+                <span class="mock-dot mock-red"></span>
+                <span class="mock-dot mock-yellow"></span>
+                <span class="mock-dot mock-green"></span>
+                <span class="mock-url">https://publisher.com/admin#tab-qa (Curriculum QA Management)</span>
+              </div>
+              <img class="screenshot-img" src="/screenshots/qa_database.png" alt="Question Bank Interface" />
+              <div class="zoom-hint">🔍 Click to zoom full-screen</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 7: Feature Module 4 - Granular Book Feature Governance -->
+      <section class="slide" data-index="6">
+        <div class="slide-badge">Governance &amp; Modular Control</div>
+        <h2 class="slide-title">4. Granular Book Feature Governance &amp; Modular Activation</h2>
+        <p class="slide-subtitle">
+          Empowers administrators to selectively govern digital tool visibility per book or grade level—delivering custom feature configurations effortlessly.
+        </p>
+
+        <div class="split-layout">
+          <div class="split-left">
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">⚙️</span>
+                <strong class="info-card-title">Per-Title 9-Feature Modular Switches</strong>
+              </div>
+              <p class="info-card-desc">Independent toggles for Chatbot Doubts, Lesson Plans, Mind Maps, Exam Papers, Worksheets, Oral Viva, Quiz, Notes, and Voice TTS.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">📐</span>
+                <strong class="info-card-title">High-Density 3-Column Micro-Pill Matrix</strong>
+              </div>
+              <p class="info-card-desc">Reduced vertical screen footprint by 75% via compact micro-toggles, allowing administrators to manage multiple books simultaneously without scrolling fatigue.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">🏫</span>
+                <strong class="info-card-title">Grade-Level Clustering &amp; Bulk Operations</strong>
+              </div>
+              <p class="info-card-desc">Textbooks grouped under academic grade banners with live status ratios (e.g. <code>9/9 Active</code>) and 1-click <code>All ON</code> / <code>All OFF</code> actions.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">💾</span>
+                <strong class="info-card-title">Transactional "Save All Changes" Engine</strong>
+              </div>
+              <p class="info-card-desc">Supports both per-card instant persistence and an overarching top-level batch synchronization engine with visual confirmation feedback.</p>
+            </div>
+          </div>
+
+          <div class="split-right">
+            <div class="screenshot-frame zoomable-frame" data-src="/screenshots/book_features.png">
+              <div class="screenshot-topbar">
+                <span class="mock-dot mock-red"></span>
+                <span class="mock-dot mock-yellow"></span>
+                <span class="mock-dot mock-green"></span>
+                <span class="mock-url">https://publisher.com/admin#tab-features (Book Feature Governance)</span>
+              </div>
+              <img class="screenshot-img" src="/screenshots/book_features.png" alt="Book Feature Management Panel" />
+              <div class="zoom-hint">🔍 Click to zoom full-screen</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 8: Feature Module 5 - Learning Telemetry & Unanswered Queue -->
+      <section class="slide" data-index="7">
+        <div class="slide-badge">Business Intelligence &amp; Telemetry</div>
+        <h2 class="slide-title">5. Student Learning Telemetry &amp; Curriculum Gap Triage</h2>
+        <p class="slide-subtitle">
+          Real-time behavioral telemetry identifying student learning bottlenecks and automating publisher curriculum enrichment in real time.
+        </p>
+
+        <div class="split-layout">
+          <div class="split-left">
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">📊</span>
+                <strong class="info-card-title">Executive Performance KPI Dashboard</strong>
+              </div>
+              <p class="info-card-desc">Live analytics tracking Total Student Queries, Resolution Rate %, Unanswered Missing Questions, and Active Textbook Catalogs.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">🎯</span>
+                <strong class="info-card-title">Unanswered Question Triage Queue</strong>
+              </div>
+              <p class="info-card-desc">Student queries with zero database match are automatically captured and ranked by frequency. Editors can click <strong>"+ Add to QA"</strong> to answer and deploy live in 10 seconds.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">🔥</span>
+                <strong class="info-card-title">Concept Difficulty Heatmaps</strong>
+              </div>
+              <p class="info-card-desc">Identifies high-friction academic topics across schools, providing publishers with empirical data to refine future print manuscript editions.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">🕒</span>
+                <strong class="info-card-title">Transparent Operational Audit Trail</strong>
+              </div>
+              <p class="info-card-desc">Complete chronological activity log capturing timestamps, grade, textbook ID, and resolution status for compliance and quality assurance.</p>
+            </div>
+          </div>
+
+          <div class="split-right">
+            <div class="screenshot-frame zoomable-frame" data-src="/screenshots/analytics_tab.png">
+              <div class="screenshot-topbar">
+                <span class="mock-dot mock-red"></span>
+                <span class="mock-dot mock-yellow"></span>
+                <span class="mock-dot mock-green"></span>
+                <span class="mock-url">https://publisher.com/admin#tab-analytics (Telemetry &amp; Telemetry Triage)</span>
+              </div>
+              <img class="screenshot-img" src="/screenshots/analytics_tab.png" alt="Analytics and Telemetry Panel" />
+              <div class="zoom-hint">🔍 Click to zoom full-screen</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 9: Feature Module 6 - 1-Line Universal Headless Web Integration -->
+      <section class="slide" data-index="8">
+        <div class="slide-badge">Zero-Code Deployment</div>
+        <h2 class="slide-title">6. Universal Headless Web Integration (1-Line Embed)</h2>
+        <p class="slide-subtitle">
+          Frictionless web embed requiring zero infrastructure modification, compatible with any publisher website, school portal, or LMS.
+        </p>
+
+        <div class="split-layout">
+          <div class="split-left">
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">📋</span>
+                <strong class="info-card-title">Single Script Drop-in Integration</strong>
+              </div>
+              <p class="info-card-desc">Paste this single lightweight script before the closing <code>&lt;/body&gt;</code> tag on any web page:</p>
+              <pre style="background:#f1f5f9; padding:0.65rem 0.85rem; border-radius:6px; font-size:0.78rem; font-family:'Fira Code', monospace; color:#334155; margin-top:0.4rem; border:1px solid #cbd5e1; overflow-x:auto;">&lt;script src="https://yourpublisher.com/widget/embed.js"&gt;&lt;/script&gt;</pre>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">🌐</span>
+                <strong class="info-card-title">Universal Platform &amp; LMS Compatibility</strong>
+              </div>
+              <p class="info-card-desc">100% compatible with WordPress, Shopify, Webflow, custom PHP, React, Angular, Next.js, Moodle, Blackboard, and Google Sites.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">📱</span>
+                <strong class="info-card-title">Adaptive Multi-Device Viewport Handling</strong>
+              </div>
+              <p class="info-card-desc">Seamlessly adapts between a compact floating bottom-right dock on desktop screens and an ergonomic full-height sheet on mobile devices.</p>
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-header">
+                <span class="info-card-icon">🔒</span>
+                <strong class="info-card-title">Enterprise Origin Whitelist &amp; Rate Limiting</strong>
+              </div>
+              <p class="info-card-desc">Protected by domain origin verification and sliding-window rate limiters to prevent API abuse and unauthorized hotlinking.</p>
+            </div>
+          </div>
+
+          <div class="split-right">
+            <div class="screenshot-frame zoomable-frame" data-src="/screenshots/embed_tab.png">
+              <div class="screenshot-topbar">
+                <span class="mock-dot mock-red"></span>
+                <span class="mock-dot mock-yellow"></span>
+                <span class="mock-dot mock-green"></span>
+                <span class="mock-url">https://publisher.com/admin#tab-embed (Widget Embed Integration)</span>
+              </div>
+              <img class="screenshot-img" src="/screenshots/embed_tab.png" alt="Get Widget Code Interface" />
+              <div class="zoom-hint">🔍 Click to zoom full-screen</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 10: Teacher Productivity Suite -->
+      <section class="slide" data-index="9">
+        <div class="slide-badge">Classroom Productivity Suite</div>
+        <h2 class="slide-title">Teacher Productivity Suite: Exams, Worksheets &amp; Viva</h2>
+        <p class="slide-subtitle">
+          Empowering academic faculty with instant blueprint-driven examination design and formative classroom assessment tools in under 10 seconds.
+        </p>
+
+        <div class="full-grid-3">
+          <div class="feature-tile">
+            <div class="feature-tile-icon" style="background:#e0e7ff; color:#4338ca;">📑</div>
+            <h4>Standardized Examination Papers</h4>
+            <p>Generates balanced assessments structured across Section A (Objective/MCQ 1-mark), Section B (Short Answer 2-3 marks), and Section C (Comprehensive 5-marks) with editable school headers and print-ready formatting.</p>
+          </div>
+          <div class="feature-tile">
+            <div class="feature-tile-icon" style="background:#ecfdf5; color:#047857;">📝</div>
+            <h4>Curriculum Revision Worksheets</h4>
+            <p>Printable chapter review sheets combining conceptual reasoning, fill-in-the-blanks, and matching activities for weekly homework assignments and holiday practice packages.</p>
+          </div>
+          <div class="feature-tile">
+            <div class="feature-tile-icon" style="background:#fffbeb; color:#b45309;">🎙️</div>
+            <h4>Voice-Enabled Viva Voce Module</h4>
+            <p>Interactive oral evaluation engine facilitating language pronunciation drills, conversational English checks, and automated viva voce oral questioning in the classroom.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 11: Production Architecture & Security Checklist -->
+      <section class="slide" data-index="10">
+        <div class="slide-badge">Infrastructure &amp; Compliance</div>
+        <h2 class="slide-title">Enterprise Architecture &amp; Production Readiness</h2>
+        <p class="slide-subtitle">
+          Engineered to institutional software specifications—delivering high availability, data governance, and high-concurrency cloud scaling.
+        </p>
+
+        <div class="full-grid-3">
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-icon">🛡️</span>
+              <strong class="info-card-title">Security &amp; Access Governance</strong>
+            </div>
+            <ul class="feature-points">
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> Stateless JSON Web Tokens (JWT)</li>
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> Bcrypt password encryption (10 rounds)</li>
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> Express sliding-window IP rate limiting</li>
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> Sanitized Multer file upload validation</li>
+            </ul>
+          </div>
+
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-icon">⚡</span>
+              <strong class="info-card-title">High-Concurrency Performance</strong>
+            </div>
+            <ul class="feature-points">
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> Sub-10ms in-memory inverted cache</li>
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> Compound B-tree indexes in MongoDB Atlas</li>
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> Zero frontend build bloat (< 25 KB payload)</li>
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> Resilient multi-tenant data isolation</li>
+            </ul>
+          </div>
+
+          <div class="info-card">
+            <div class="info-card-header">
+              <span class="info-card-icon">🚀</span>
+              <strong class="info-card-title">DevOps &amp; Cloud Deployment</strong>
+            </div>
+            <ul class="feature-points">
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> PM2 cluster mode process management</li>
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> Nginx reverse proxy with SSL termination</li>
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> Automated daily cloud database snapshots</li>
+              <li class="feature-point"><span class="feature-point-bullet">✔</span> Environment parameterization (.env config)</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 12: Commercial Value Proposition & Institutional ROI -->
+      <section class="slide" data-index="11">
+        <div class="slide-badge">Commercial Impact &amp; ROI</div>
+        <h2 class="slide-title">Commercial Return on Investment (ROI) &amp; Institutional Impact</h2>
+        <p class="slide-subtitle">
+          More than an AI chatbot—a strategic revenue multiplier for educational publishers and an institutional excellence driver for K-12 schools.
+        </p>
+
+        <div class="split-layout">
+          <div class="info-card" style="background: linear-gradient(145deg, #ffffff, #f0fdf4); border-color:#86efac;">
+            <div class="info-card-header">
+              <span class="info-card-icon">🏆</span>
+              <strong class="info-card-title" style="color:#047857; font-size:1.15rem;">Educational Publisher Advantages</strong>
+            </div>
+            <ul class="feature-points" style="margin-top:0.75rem;">
+              <li class="feature-point"><span class="feature-point-bullet" style="color:#059669;">★</span> <strong>School Adoption Superiority</strong>: Outperforms competitors in school procurement bids by offering bundled digital tutors alongside printed editions.</li>
+              <li class="feature-point"><span class="feature-point-bullet" style="color:#059669;">★</span> <strong>Anti-Counterfeiting Barrier</strong>: Physical pirated photocopies are rendered obsolete as full digital pedagogy access is bound to authentic publisher credentials.</li>
+              <li class="feature-point"><span class="feature-point-bullet" style="color:#059669;">★</span> <strong>Expanded Margin Realization</strong>: Enables 20% to 35% pricing uplift for bundled print-digital educational packages.</li>
+              <li class="feature-point"><span class="feature-point-bullet" style="color:#059669;">★</span> <strong>Data-Driven Manuscript Iteration</strong>: Real-world query telemetry pinpoints exact conceptual gaps, guiding precise revisions for future print editions.</li>
+            </ul>
+          </div>
+
+          <div class="info-card" style="background: linear-gradient(145deg, #ffffff, #eff6ff); border-color:#93c5fd;">
+            <div class="info-card-header">
+              <span class="info-card-icon">🎓</span>
+              <strong class="info-card-title" style="color:#1d4ed8; font-size:1.15rem;">Institutional School Advantages</strong>
+            </div>
+            <ul class="feature-points" style="margin-top:0.75rem;">
+              <li class="feature-point"><span class="feature-point-bullet" style="color:#2563eb;">★</span> <strong>Turnkey NEP 2020 Compliance</strong>: Fulfills national experiential and digital learning mandates without additional IT infrastructure investment.</li>
+              <li class="feature-point"><span class="feature-point-bullet" style="color:#2563eb;">★</span> <strong>Faculty Time Reclamation</strong>: Reduces teacher non-instructional preparation time by up to 80%, directly improving classroom engagement.</li>
+              <li class="feature-point"><span class="feature-point-bullet" style="color:#2563eb;">★</span> <strong>Standardized Educational Quality</strong>: Guarantees identical, elite pedagogical delivery across all school branches and teacher experience levels.</li>
+              <li class="feature-point"><span class="feature-point-bullet" style="color:#2563eb;">★</span> <strong>Elevated Parental Satisfaction</strong>: Provides students with reliable, distraction-free home academic support, eliminating private tutoring dependencies.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Slide Controls & Indicators -->
+    <footer class="deck-bottombar">
+      <div class="counter-display">
+        SLIDE <span id="currentSlideNum">01</span> / <span id="totalSlidesNum">12</span>
+      </div>
+      <div class="slide-dots" id="slideDots"></div>
+      <div class="slide-nav-btns">
+        <button class="nav-btn" id="prevBtn">← Previous</button>
+        <button class="nav-btn" id="nextBtn">Next →</button>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+    let currentIndex = 0;
+
+    const currentSlideNum = document.getElementById('currentSlideNum');
+    const totalSlidesNum = document.getElementById('totalSlidesNum');
+    const slideDotsContainer = document.getElementById('slideDots');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const fsBtn = document.getElementById('fsBtn');
+    const printBtn = document.getElementById('printBtn');
+    const lightboxModal = document.getElementById('lightboxModal');
+    const lightboxImg = document.getElementById('lightboxImg');
+
+    totalSlidesNum.textContent = String(totalSlides).padStart(2, '0');
+
+    // Create Navigation Dots
+    slides.forEach((_, idx) => {
+      const dot = document.createElement('div');
+      dot.className = `dot ${idx === 0 ? 'active' : ''}`;
+      dot.title = `Navigate to Slide ${idx + 1}`;
+      dot.addEventListener('click', () => goToSlide(idx));
+      slideDotsContainer.appendChild(dot);
+    });
+
+    const dots = document.querySelectorAll('.dot');
+
+    function goToSlide(index) {
+      if (index < 0) index = 0;
+      if (index >= totalSlides) index = totalSlides - 1;
+
+      slides.forEach((s, idx) => {
+        s.classList.remove('active', 'prev');
+        if (idx === index) {
+          s.classList.add('active');
+        } else if (idx < index) {
+          s.classList.add('prev');
+        }
+      });
+
+      dots.forEach((d, idx) => {
+        d.classList.toggle('active', idx === index);
+      });
+
+      currentIndex = index;
+      currentSlideNum.textContent = String(currentIndex + 1).padStart(2, '0');
+    }
+
+    prevBtn.addEventListener('click', () => goToSlide(currentIndex - 1));
+    nextBtn.addEventListener('click', () => goToSlide(currentIndex + 1));
+
+    // Keyboard navigation
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        goToSlide(currentIndex + 1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        goToSlide(currentIndex - 1);
+      } else if (e.key === 'Home') {
+        goToSlide(0);
+      } else if (e.key === 'End') {
+        goToSlide(totalSlides - 1);
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      } else if (e.key === 'Escape' && lightboxModal.classList.contains('active')) {
+        lightboxModal.classList.remove('active');
+      }
+    });
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => console.log(err));
+      } else {
+        document.exitFullscreen().catch(err => console.log(err));
+      }
+    }
+
+    if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
+    if (printBtn) printBtn.addEventListener('click', () => window.print());
+
+    // Lightbox image zoom handler
+    document.querySelectorAll('.zoomable-frame').forEach((frame) => {
+      frame.addEventListener('click', () => {
+        const src = frame.dataset.src;
+        if (src && lightboxImg && lightboxModal) {
+          lightboxImg.src = src;
+          lightboxModal.classList.add('active');
+        }
+      });
+    });
+
+    if (lightboxModal) {
+      lightboxModal.addEventListener('click', () => {
+        lightboxModal.classList.remove('active');
+      });
+    }
+  </script>
+</body>
+</html>
