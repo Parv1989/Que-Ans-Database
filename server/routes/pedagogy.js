@@ -481,12 +481,6 @@ router.get('/admin/book-features', requireAdmin, async (req, res) => {
           chapterCount: { $addToSet: '$chapterName' },
           questionCount: { $sum: 1 }
         }
-      },
-      {
-        $sort: {
-          '_id.className': 1,
-          '_id.bookName': 1
-        }
       }
     ]);
 
@@ -509,10 +503,12 @@ router.get('/admin/book-features', requireAdmin, async (req, res) => {
       voiceTts: true
     };
 
+    const seenKeys = new Set();
     const result = booksAgg.map((item) => {
       const c = item._id.className || 'General';
       const b = item._id.bookName || 'General';
       const key = `${c}___${b}`.toLowerCase();
+      seenKeys.add(key);
       const customFeatures = configMap.get(key);
 
       return {
@@ -522,6 +518,32 @@ router.get('/admin/book-features', requireAdmin, async (req, res) => {
         questionCount: item.questionCount,
         features: customFeatures ? { ...defaultFeatures, ...customFeatures } : { ...defaultFeatures }
       };
+    });
+
+    // Also include any books configured in BookFeature that might not be in QA yet
+    existingConfigs.forEach((c) => {
+      const key = `${c.className}___${c.bookName}`.toLowerCase();
+      if (!seenKeys.has(key)) {
+        result.push({
+          className: c.className || 'General',
+          bookName: c.bookName || 'General',
+          chaptersCount: 0,
+          questionCount: 0,
+          features: c.features ? { ...defaultFeatures, ...c.features } : { ...defaultFeatures }
+        });
+        seenKeys.add(key);
+      }
+    });
+
+    // Natural numeric sorting: Class 1, Class 2, ... Class 10; then Book Name
+    function naturalCompare(a, b) {
+      return String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' });
+    }
+
+    result.sort((a, b) => {
+      const c = naturalCompare(a.className, b.className);
+      if (c !== 0) return c;
+      return naturalCompare(a.bookName, b.bookName);
     });
 
     res.json({ books: result });

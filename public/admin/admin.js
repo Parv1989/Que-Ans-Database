@@ -2123,18 +2123,63 @@ if (pedagogySaveBtn) {
 
 const bookFeaturesContainer = document.getElementById('bookFeaturesContainer');
 const refreshFeaturesBtn = document.getElementById('refreshFeaturesBtn');
+const featClassFilter = document.getElementById('featClassFilter');
+const featSortBy = document.getElementById('featSortBy');
+const featSearch = document.getElementById('featSearch');
+const featSaveAllBtn = document.getElementById('featSaveAllBtn');
+
+let rawBookFeaturesList = [];
 
 const ALL_FEATURES_META = [
-  { key: 'lessonPlan', label: '📋 Smart Lesson Plans', desc: 'Direct lesson plan sheet & PDF view' },
-  { key: 'mindMap', label: '🗺️ Concept Mind Maps', desc: 'Interactive concept map & visual diagrams' },
-  { key: 'testPaper', label: '📑 Examination Papers', desc: 'School examination generator & live editor' },
-  { key: 'worksheet', label: '📝 Practice Worksheets', desc: 'Printable chapter question worksheets' },
-  { key: 'oralTest', label: '🎙️ Robot Voice Viva', desc: 'Oral test & speaking dialogue with robot' },
-  { key: 'quiz', label: '🎯 Interactive Quiz', desc: 'MCQ & memory flashcards module' },
-  { key: 'notes', label: '📄 Study Revision Notes', desc: 'Chapter notes export & print' },
-  { key: 'explainSimply', label: '💡 Explain Simply', desc: 'Step-by-step breakdown chip on answers' },
-  { key: 'voiceTts', label: '🔊 Robot Voice / TTS', desc: 'Speech audio synthesis & voice speed controls' }
+  { key: 'lessonPlan', icon: '📋', label: 'Smart Lesson Plans', shortLabel: 'Lesson Plans', desc: 'Direct lesson plan sheet & PDF view' },
+  { key: 'mindMap', icon: '🗺️', label: 'Concept Mind Maps', shortLabel: 'Mind Maps', desc: 'Interactive concept map & visual diagrams' },
+  { key: 'testPaper', icon: '📑', label: 'Examination Papers', shortLabel: 'Test Papers', desc: 'School examination generator & live editor' },
+  { key: 'worksheet', icon: '📝', label: 'Practice Worksheets', shortLabel: 'Worksheets', desc: 'Printable chapter question worksheets' },
+  { key: 'oralTest', icon: '🎙️', label: 'Robot Voice Viva', shortLabel: 'Voice Viva', desc: 'Oral test & speaking dialogue with robot' },
+  { key: 'quiz', icon: '🎯', label: 'Interactive Quiz', shortLabel: 'Quiz & MCQs', desc: 'MCQ & memory flashcards module' },
+  { key: 'notes', icon: '📄', label: 'Revision Notes', shortLabel: 'Study Notes', desc: 'Chapter notes export & print' },
+  { key: 'explainSimply', icon: '💡', label: 'Explain Simply', shortLabel: 'Explain Simply', desc: 'Step-by-step breakdown chip on answers' },
+  { key: 'voiceTts', icon: '🔊', label: 'Robot Voice / TTS', shortLabel: 'Robot Voice', desc: 'Speech audio synthesis & voice speed controls' }
 ];
+
+function updateBookFeaturesStats(books) {
+  const classes = new Set();
+  let totalActiveFeat = 0;
+
+  books.forEach((b) => {
+    if (b.className) classes.add(b.className.trim());
+    ALL_FEATURES_META.forEach((feat) => {
+      if (b.features && b.features[feat.key] !== false) totalActiveFeat++;
+    });
+  });
+
+  const featStatClasses = document.getElementById('featStatClasses');
+  const featStatBooks = document.getElementById('featStatBooks');
+  const featStatActive = document.getElementById('featStatActive');
+
+  if (featStatClasses) featStatClasses.textContent = classes.size;
+  if (featStatBooks) featStatBooks.textContent = books.length;
+  if (featStatActive) featStatActive.textContent = totalActiveFeat;
+}
+
+function populateBookFeaturesFilters(books) {
+  if (!featClassFilter) return;
+
+  const classes = new Set();
+  books.forEach((b) => {
+    if (b.className && b.className.trim()) classes.add(b.className.trim());
+  });
+  const sortedClasses = Array.from(classes).sort(naturalCompare);
+
+  const prevClassVal = featClassFilter.value || 'All';
+  featClassFilter.innerHTML = `<option value="All">All Classes (${sortedClasses.length})</option>` +
+    sortedClasses.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  if (classes.has(prevClassVal)) {
+    featClassFilter.value = prevClassVal;
+  } else {
+    featClassFilter.value = 'All';
+  }
+}
 
 async function loadBookFeaturesList() {
   if (!bookFeaturesContainer) return;
@@ -2143,14 +2188,16 @@ async function loadBookFeaturesList() {
   try {
     const res = await authedFetch(`${API_BASE}/pedagogy/admin/book-features`);
     const data = await res.json();
-    const books = data.books || [];
+    rawBookFeaturesList = data.books || [];
 
-    if (books.length === 0) {
+    if (rawBookFeaturesList.length === 0) {
       bookFeaturesContainer.innerHTML = '<div class="muted" style="padding: 2rem; text-align: center;">No textbooks found in the database.</div>';
       return;
     }
 
-    renderBookFeaturesGrid(books);
+    updateBookFeaturesStats(rawBookFeaturesList);
+    populateBookFeaturesFilters(rawBookFeaturesList);
+    renderBookFeaturesGrid();
   } catch (err) {
     console.error('Failed to load book features:', err);
     bookFeaturesContainer.innerHTML = `<div class="muted" style="padding: 2rem; text-align: center; color:#dc2626;">Error loading book features: ${escapeHtml(err.message)}</div>`;
@@ -2161,54 +2208,119 @@ if (refreshFeaturesBtn) {
   refreshFeaturesBtn.addEventListener('click', loadBookFeaturesList);
 }
 
-function renderBookFeaturesGrid(books) {
+if (featClassFilter) {
+  featClassFilter.addEventListener('change', () => renderBookFeaturesGrid());
+}
+
+if (featSortBy) {
+  featSortBy.addEventListener('change', () => renderBookFeaturesGrid());
+}
+
+if (featSearch) {
+  featSearch.addEventListener('input', () => renderBookFeaturesGrid());
+}
+
+function renderBookFeaturesGrid() {
   if (!bookFeaturesContainer) return;
 
-  bookFeaturesContainer.innerHTML = books
-    .map((book, bIdx) => {
-      const featTogglesHtml = ALL_FEATURES_META.map((feat) => {
+  const currentClassVal = featClassFilter ? featClassFilter.value : 'All';
+  const currentSortVal = featSortBy ? featSortBy.value : 'class_asc';
+  const query = (featSearch ? featSearch.value : '').trim().toLowerCase();
+
+  // 1. Filter
+  let filtered = rawBookFeaturesList.filter((b) => {
+    if (currentClassVal !== 'All' && (b.className || '').toLowerCase() !== currentClassVal.toLowerCase()) return false;
+    if (query) {
+      const haystack = `${b.className || ''} ${b.bookName || ''}`.toLowerCase();
+      if (!haystack.includes(query)) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    bookFeaturesContainer.innerHTML = '<div class="muted" style="padding: 2rem; text-align: center;">No matching books found.</div>';
+    return;
+  }
+
+  // 2. Sort
+  filtered.sort((a, b) => {
+    if (currentSortVal === 'book_asc') {
+      return naturalCompare(a.bookName, b.bookName) || naturalCompare(a.className, b.className);
+    } else if (currentSortVal === 'chapters') {
+      return (b.chaptersCount || 0) - (a.chaptersCount || 0);
+    } else if (currentSortVal === 'questions') {
+      return (b.questionCount || 0) - (a.questionCount || 0);
+    } else {
+      // class_asc
+      return naturalCompare(a.className, b.className) || naturalCompare(a.bookName, b.bookName);
+    }
+  });
+
+  // 3. Group by Class
+  const classGroups = new Map();
+  filtered.forEach((b) => {
+    const cls = b.className || 'General';
+    if (!classGroups.has(cls)) classGroups.set(cls, []);
+    classGroups.get(cls).push(b);
+  });
+
+  let html = '';
+  classGroups.forEach((booksInClass, clsName) => {
+    const booksCardsHtml = booksInClass.map((book) => {
+      let activeFeatCount = 0;
+      const featPillsHtml = ALL_FEATURES_META.map((feat) => {
         const isChecked = book.features && book.features[feat.key] !== false;
+        if (isChecked) activeFeatCount++;
         return `
-          <div class="feature-toggle-item">
-            <label>
-              <div class="feature-label-text">
-                <span>${feat.label}</span>
-                <span style="font-size: 0.75rem; font-weight: normal; color: var(--ink-soft);">(${feat.desc})</span>
-              </div>
-              <input type="checkbox" class="feature-checkbox" data-feat="${feat.key}" ${isChecked ? 'checked' : ''} />
-            </label>
-          </div>
+          <label class="compact-feat-pill ${isChecked ? 'active' : ''}" title="${feat.desc}">
+            <input type="checkbox" class="feature-checkbox" data-feat="${feat.key}" ${isChecked ? 'checked' : ''} />
+            <span class="feat-pill-icon">${feat.icon}</span>
+            <span class="feat-pill-label">${escapeHtml(feat.shortLabel)}</span>
+          </label>
         `;
       }).join('');
 
       return `
-        <div class="book-feature-card" data-idx="${bIdx}" data-class="${escapeHtml(book.className)}" data-book="${escapeHtml(book.bookName)}">
-          <div class="book-card-header">
-            <div>
-              <h3 class="book-card-title">${escapeHtml(book.className)} • ${escapeHtml(book.bookName)}</h3>
-              <div class="book-card-meta">📚 ${book.chaptersCount || 0} Chapters &bull; ❓ ${book.questionCount || 0} Questions</div>
+        <div class="compact-book-card" data-class="${escapeHtml(book.className)}" data-book="${escapeHtml(book.bookName)}">
+          <div class="compact-book-header">
+            <div class="compact-book-info">
+              <span class="compact-book-title">📚 ${escapeHtml(book.bookName)}</span>
+              <span class="compact-book-counts">🔖 ${book.chaptersCount || 0} Ch &bull; 💬 ${book.questionCount || 0} Qs</span>
+              <span class="compact-book-active-badge"><strong class="active-feat-num">${activeFeatCount}</strong>/${ALL_FEATURES_META.length} Active</span>
             </div>
-            <div class="book-card-bulk-actions">
-              <button type="button" class="ghost-btn select-all-feat-btn" style="font-size:0.75rem; padding:0.2rem 0.5rem;">All ON</button>
-              <button type="button" class="ghost-btn clear-all-feat-btn" style="font-size:0.75rem; padding:0.2rem 0.5rem;">All OFF</button>
+            <div class="compact-book-actions">
+              <span class="book-save-status"></span>
+              <button type="button" class="ghost-btn-xs select-all-feat-btn" title="Enable all features for this book">All ON</button>
+              <button type="button" class="ghost-btn-xs clear-all-feat-btn" title="Disable all features for this book">All OFF</button>
+              <button type="button" class="primary-btn-xs save-book-feat-btn" title="Save this book's settings">💾 Save</button>
             </div>
           </div>
-
-          <div class="feature-toggles-list">
-            ${featTogglesHtml}
-          </div>
-
-          <div class="book-card-actions">
-            <span class="book-save-status"></span>
-            <button type="button" class="primary-btn save-book-feat-btn" style="padding:0.45rem 1rem; font-size:0.85rem;">Save Book Settings</button>
+          <div class="compact-feat-grid">
+            ${featPillsHtml}
           </div>
         </div>
       `;
-    })
-    .join('');
+    }).join('');
 
-  // Attach card event listeners
-  bookFeaturesContainer.querySelectorAll('.book-feature-card').forEach((card) => {
+    html += `
+      <div class="feat-class-group">
+        <div class="feat-class-header">
+          <div class="feat-class-title">
+            <span>🏫 ${escapeHtml(clsName)}</span>
+            <span class="feat-class-badge">${booksInClass.length} ${booksInClass.length === 1 ? 'Book' : 'Books'}</span>
+          </div>
+        </div>
+        <div class="feat-books-list">
+          ${booksCardsHtml}
+        </div>
+      </div>
+    `;
+  });
+
+  bookFeaturesContainer.innerHTML = html;
+
+  // 4. Attach event listeners
+  bookFeaturesContainer.querySelectorAll('.compact-book-card').forEach((card) => {
     const className = card.dataset.class;
     const bookName = card.dataset.book;
     const checkboxes = card.querySelectorAll('.feature-checkbox');
@@ -2216,16 +2328,51 @@ function renderBookFeaturesGrid(books) {
     const statusSpan = card.querySelector('.book-save-status');
     const selectAllBtn = card.querySelector('.select-all-feat-btn');
     const clearAllBtn = card.querySelector('.clear-all-feat-btn');
+    const activeBadgeNum = card.querySelector('.active-feat-num');
+
+    function updateActiveCount() {
+      let count = 0;
+      checkboxes.forEach((cb) => {
+        const pill = cb.closest('.compact-feat-pill');
+        if (cb.checked) {
+          count++;
+          if (pill) pill.classList.add('active');
+        } else {
+          if (pill) pill.classList.remove('active');
+        }
+      });
+      if (activeBadgeNum) activeBadgeNum.textContent = count;
+    }
+
+    checkboxes.forEach((cb) => {
+      cb.addEventListener('change', () => {
+        updateActiveCount();
+        if (statusSpan) {
+          statusSpan.textContent = '● Unsaved';
+          statusSpan.style.color = '#d97706';
+        }
+      });
+    });
 
     if (selectAllBtn) {
       selectAllBtn.addEventListener('click', () => {
         checkboxes.forEach((cb) => (cb.checked = true));
+        updateActiveCount();
+        if (statusSpan) {
+          statusSpan.textContent = '● Unsaved';
+          statusSpan.style.color = '#d97706';
+        }
       });
     }
 
     if (clearAllBtn) {
       clearAllBtn.addEventListener('click', () => {
         checkboxes.forEach((cb) => (cb.checked = false));
+        updateActiveCount();
+        if (statusSpan) {
+          statusSpan.textContent = '● Unsaved';
+          statusSpan.style.color = '#d97706';
+        }
       });
     }
 
@@ -2237,8 +2384,10 @@ function renderBookFeaturesGrid(books) {
         });
 
         saveBtn.disabled = true;
-        statusSpan.textContent = 'Saving...';
-        statusSpan.style.color = 'var(--ink-soft)';
+        if (statusSpan) {
+          statusSpan.textContent = 'Saving...';
+          statusSpan.style.color = 'var(--ink-soft)';
+        }
 
         try {
           const res = await authedFetch(`${API_BASE}/pedagogy/admin/book-features`, {
@@ -2249,19 +2398,78 @@ function renderBookFeaturesGrid(books) {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || 'Failed to save');
 
-          statusSpan.textContent = '✔ Saved!';
-          statusSpan.style.color = '#059669';
-          setTimeout(() => { statusSpan.textContent = ''; }, 3000);
+          // Update local memory data
+          const localItem = rawBookFeaturesList.find(b => b.className === className && b.bookName === bookName);
+          if (localItem) localItem.features = features;
+          updateBookFeaturesStats(rawBookFeaturesList);
+
+          if (statusSpan) {
+            statusSpan.textContent = '✔ Saved!';
+            statusSpan.style.color = '#059669';
+            setTimeout(() => { statusSpan.textContent = ''; }, 3000);
+          }
         } catch (err) {
           console.error('Error saving book features:', err);
-          statusSpan.textContent = '❌ Error';
-          statusSpan.style.color = '#dc2626';
+          if (statusSpan) {
+            statusSpan.textContent = '❌ Error';
+            statusSpan.style.color = '#dc2626';
+          }
           alert('Could not save feature settings: ' + err.message);
         } finally {
           saveBtn.disabled = false;
         }
       });
     }
+  });
+}
+
+// Save All button handler
+if (featSaveAllBtn) {
+  featSaveAllBtn.addEventListener('click', async () => {
+    const cards = bookFeaturesContainer.querySelectorAll('.compact-book-card');
+    if (cards.length === 0) return;
+
+    featSaveAllBtn.disabled = true;
+    const originalText = featSaveAllBtn.textContent;
+    featSaveAllBtn.textContent = '💾 Saving All...';
+
+    let successCount = 0;
+    for (const card of cards) {
+      const className = card.dataset.class;
+      const bookName = card.dataset.book;
+      const checkboxes = card.querySelectorAll('.feature-checkbox');
+      const statusSpan = card.querySelector('.book-save-status');
+
+      const features = {};
+      checkboxes.forEach((cb) => {
+        features[cb.dataset.feat] = cb.checked;
+      });
+
+      try {
+        const res = await authedFetch(`${API_BASE}/pedagogy/admin/book-features`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ className, bookName, features })
+        });
+        if (res.ok) {
+          successCount++;
+          const localItem = rawBookFeaturesList.find(b => b.className === className && b.bookName === bookName);
+          if (localItem) localItem.features = features;
+          if (statusSpan) {
+            statusSpan.textContent = '✔ Saved!';
+            statusSpan.style.color = '#059669';
+            setTimeout(() => { statusSpan.textContent = ''; }, 3000);
+          }
+        }
+      } catch (err) {
+        console.error(`Failed to save features for ${className} ${bookName}:`, err);
+      }
+    }
+
+    updateBookFeaturesStats(rawBookFeaturesList);
+    featSaveAllBtn.disabled = false;
+    featSaveAllBtn.textContent = originalText;
+    alert(`✔ Successfully saved feature settings for ${successCount} book(s)!`);
   });
 }
 

@@ -541,10 +541,37 @@
           </div>
           <div class="header-actions">
             <button id="refreshFeaturesBtn" class="ghost-btn" title="Reload books">🔄 Refresh</button>
+            <button id="featSaveAllBtn" class="primary-btn" style="background: #059669;" title="Save all modified book feature settings">💾 Save All</button>
           </div>
         </header>
 
-        <div id="bookFeaturesContainer" class="book-features-grid">
+        <!-- Book Features Stats Strip -->
+        <div class="qa-stats-strip features-stats-strip">
+          <div class="qa-stat-pill"><span class="pill-icon">🏫</span> <span><strong id="featStatClasses">0</strong> Classes</span></div>
+          <div class="qa-stat-pill"><span class="pill-icon">📚</span> <span><strong id="featStatBooks">0</strong> Books</span></div>
+          <div class="qa-stat-pill"><span class="pill-icon">⚡</span> <span><strong id="featStatActive">0</strong> Active Features</span></div>
+        </div>
+
+        <!-- Book Features Filter & Search Toolbar -->
+        <div class="qa-toolbar features-toolbar" style="margin-bottom: 1.25rem;">
+          <div class="qa-search-wrap">
+            <input type="text" id="featSearch" class="search-input" placeholder="🔍 Search book name or class..." />
+          </div>
+          <div class="qa-filter-group">
+            <select id="featClassFilter" class="filter-select" title="Filter by Class">
+              <option value="All">All Classes</option>
+            </select>
+            <select id="featSortBy" class="filter-select" title="Sort Order">
+              <option value="class_asc">🏫 Class &amp; Book Order</option>
+              <option value="book_asc">🔤 Book Name (A-Z)</option>
+              <option value="chapters">🔖 Most Chapters First</option>
+              <option value="questions">💬 Most Questions First</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Compact Book Features List Container -->
+        <div id="bookFeaturesContainer" class="book-features-container">
           <div class="muted" style="padding: 2rem; text-align: center;">Loading books and feature settings...</div>
         </div>
       </section>
