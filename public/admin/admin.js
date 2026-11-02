@@ -407,7 +407,7 @@ function renderQuestionCardHTML(item, qNum = null) {
         <div class="q">${formatText(item.question)}</div>
         <div class="a">${formatText(item.answer)}</div>
         ${item.detailedAnswer ? `<div class="detailed-a" style="font-size:0.8rem; color:#4b5563; background:#f9fafb; border-left:3px solid #10b981; padding:0.3rem 0.55rem; margin-top:0.35rem; border-radius:4px;"><strong>💡 Detailed Answer (Explain simply):</strong> ${formatText(item.detailedAnswer)}</div>` : ''}
-        ${item.imageUrl ? `<div class="item-thumb"><img src="${escapeHtml(item.imageUrl)}" alt="Diagram" loading="lazy" /></div>` : ''}
+        ${renderAdminMediaThumb(item.imageUrl)}
         ${item.keywords && item.keywords.length ? `<div class="tags">${item.keywords.map((k) => `<span class="tag">${escapeHtml(k)}</span>`).join('')}</div>` : ''}
       </div>
       <div class="item-actions">
@@ -743,7 +743,9 @@ function openQAModal(item = null, prefill = null) {
   document.getElementById('qaChapterName').value = item ? (item.chapterName || 'Chapter 1') : (prefill ? prefill.chapterName || 'Chapter 1' : 'Chapter 1');
   document.getElementById('qaKeywords').value = item && item.keywords ? item.keywords.join(', ') : '';
   document.getElementById('qaCategory').value = item ? item.category : '';
-  document.getElementById('qaImageUrl').value = item ? (item.imageUrl || '') : '';
+  const mediaUrlVal = item ? (item.imageUrl || '') : '';
+  document.getElementById('qaImageUrl').value = mediaUrlVal;
+  updateQAMediaPreview(mediaUrlVal);
 
   updateFormulaPreview('qaQuestion', 'qaQuestionPreview');
   updateFormulaPreview('qaAnswer', 'qaAnswerPreview');
@@ -808,6 +810,180 @@ qaForm.addEventListener('submit', async (e) => {
   qaModal.classList.add('hidden');
   loadQAList(document.getElementById('qaSearch').value);
 });
+
+// ---------- QA Media (Image / Video / YouTube / Vimeo) Helpers & Upload ----------
+function getYouTubeId(url) {
+  if (!url) return null;
+  const match = url.match(/(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=|(?:shorts\/))|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
+  return match && match[1] ? match[1] : null;
+}
+
+function getVimeoId(url) {
+  if (!url) return null;
+  const match = url.match(/(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/i);
+  return match && match[1] ? match[1] : null;
+}
+
+function renderAdminMediaThumb(url) {
+  if (!url || !url.trim()) return '';
+  const clean = url.trim();
+  const ytId = getYouTubeId(clean);
+  const vimeoId = getVimeoId(clean);
+  const isVideo = /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(clean);
+
+  if (ytId) {
+    return `<div class="item-thumb video-thumb" title="YouTube Video: ${escapeHtml(clean)}">
+      <img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg" alt="YouTube Thumbnail" loading="lazy" />
+      <span class="video-play-tag yt-tag">▶ YouTube</span>
+    </div>`;
+  }
+  if (vimeoId) {
+    return `<div class="item-thumb video-thumb" title="Vimeo Video: ${escapeHtml(clean)}">
+      <div class="video-placeholder-box vimeo-box">▶ Vimeo Video</div>
+    </div>`;
+  }
+  if (isVideo) {
+    return `<div class="item-thumb video-thumb" title="Video File: ${escapeHtml(clean)}">
+      <div class="video-placeholder-box mp4-box">📹 Video (${clean.split('.').pop().split('?')[0].toUpperCase()})</div>
+    </div>`;
+  }
+  return `<div class="item-thumb"><img src="${escapeHtml(clean)}" alt="Diagram" loading="lazy" /></div>`;
+}
+
+function updateQAMediaPreview(url) {
+  const container = document.getElementById('qaMediaLivePreview');
+  const content = document.getElementById('qaMediaPreviewContent');
+  if (!container || !content) return;
+
+  if (!url || !url.trim()) {
+    container.style.display = 'none';
+    content.innerHTML = '';
+    return;
+  }
+
+  const clean = url.trim();
+  const ytId = getYouTubeId(clean);
+  const vimeoId = getVimeoId(clean);
+  const isVideo = /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(clean);
+
+  container.style.display = 'block';
+
+  if (ytId) {
+    content.innerHTML = `
+      <div style="position:relative; padding-bottom:56.25%; height:0; border-radius:8px; overflow:hidden; background:#000;">
+        <iframe src="https://www.youtube-nocookie.com/embed/${ytId}?rel=0" frameborder="0" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%;"></iframe>
+      </div>
+      <div style="font-size:0.75rem; color:#dc2626; font-weight:700; margin-top:0.35rem; display:flex; align-items:center; gap:0.3rem;">
+        ▶ <span>YouTube Video linked</span>
+      </div>
+    `;
+    return;
+  }
+
+  if (vimeoId) {
+    content.innerHTML = `
+      <div style="position:relative; padding-bottom:56.25%; height:0; border-radius:8px; overflow:hidden; background:#000;">
+        <iframe src="https://player.vimeo.com/video/${vimeoId}" frameborder="0" allowfullscreen style="position:absolute; top:0; left:0; width:100%; height:100%;"></iframe>
+      </div>
+      <div style="font-size:0.75rem; color:#0284c7; font-weight:700; margin-top:0.35rem; display:flex; align-items:center; gap:0.3rem;">
+        ▶ <span>Vimeo Video linked</span>
+      </div>
+    `;
+    return;
+  }
+
+  if (isVideo) {
+    content.innerHTML = `
+      <div style="border-radius:8px; overflow:hidden; background:#000;">
+        <video controls playsinline preload="metadata" src="${clean}" style="max-height:180px; width:100%; display:block;"></video>
+      </div>
+      <div style="font-size:0.75rem; color:#6d28d9; font-weight:700; margin-top:0.35rem; display:flex; align-items:center; gap:0.3rem;">
+        📹 <span>Video File Ready</span>
+      </div>
+    `;
+    return;
+  }
+
+  // Fallback: image
+  content.innerHTML = `
+    <div style="border-radius:8px; overflow:hidden; text-align:center; background:#f1f5f9; padding:0.4rem;">
+      <img src="${escapeHtml(clean)}" alt="Preview" style="max-height:160px; max-width:100%; object-fit:contain; border-radius:6px;" onerror="this.parentElement.innerHTML='<span style=\\'color:#ef4444; font-size:0.75rem;\\'>⚠️ Could not load image from this URL</span>'" />
+    </div>
+    <div style="font-size:0.75rem; color:#475569; font-weight:700; margin-top:0.35rem; display:flex; align-items:center; gap:0.3rem;">
+      🖼️ <span>Image / Diagram Preview</span>
+    </div>
+  `;
+}
+
+const qaImageUrlEl = document.getElementById('qaImageUrl');
+const qaMediaFileInput = document.getElementById('qaMediaFileInput');
+const qaClearMediaBtn = document.getElementById('qaClearMediaBtn');
+const qaUploadStatus = document.getElementById('qaUploadStatus');
+
+if (qaImageUrlEl) {
+  let mediaDebounce;
+  qaImageUrlEl.addEventListener('input', (e) => {
+    clearTimeout(mediaDebounce);
+    mediaDebounce = setTimeout(() => {
+      updateQAMediaPreview(e.target.value);
+    }, 250);
+  });
+}
+
+if (qaClearMediaBtn) {
+  qaClearMediaBtn.addEventListener('click', () => {
+    if (qaImageUrlEl) qaImageUrlEl.value = '';
+    updateQAMediaPreview('');
+  });
+}
+
+if (qaMediaFileInput) {
+  qaMediaFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    if (qaUploadStatus) {
+      qaUploadStatus.style.display = 'block';
+      qaUploadStatus.textContent = `⏳ Uploading "${file.name}"... Please wait.`;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await authedFetch(`${API_BASE}/admin/qa/upload-media`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Upload failed');
+      }
+
+      const data = await res.json();
+      if (qaImageUrlEl) {
+        qaImageUrlEl.value = data.fileUrl;
+      }
+      updateQAMediaPreview(data.fileUrl);
+
+      if (qaUploadStatus) {
+        qaUploadStatus.textContent = `✅ Successfully uploaded ${data.fileName}!`;
+        setTimeout(() => {
+          if (qaUploadStatus) qaUploadStatus.style.display = 'none';
+        }, 3000);
+      }
+    } catch (err) {
+      console.error('QA media upload failed:', err);
+      if (qaUploadStatus) {
+        qaUploadStatus.style.display = 'block';
+        qaUploadStatus.textContent = `❌ Upload failed: ${err.message}`;
+      }
+    } finally {
+      qaMediaFileInput.value = '';
+    }
+  });
+}
 
 let searchDebounce;
 document.getElementById('qaSearch').addEventListener('input', (e) => {

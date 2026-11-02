@@ -1,0 +1,24 @@
+{
+  "name": "q-a-database_v2",
+  "version": "1.0.0",
+  "description": "Ek smart Q&A chatbot: admin backend se questions/answers add karta hai, students sirf apna sawaal type karte hain aur unhe fuzzy + synonym matching se best answer milta hai. Kisi bhi Node.js-supporting host (Render, Railway, VPS, cPanel with Node, Heroku, etc.) par chal sakta hai — sirf MongoDB connection chahiye (MongoDB Atlas ka free tier bhi kaam karega).",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Parv1989/Que-Ans-Database.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Parv1989/Que-Ans-Database/issues"
+  },
+  "homepage": "https://github.com/Parv1989/Que-Ans-Database#readme",
+  "dependencies": {
+    "playwright": "^1.64.1"
+  }
+}

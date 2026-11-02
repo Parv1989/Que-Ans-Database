@@ -648,8 +648,128 @@ muteBtn.addEventListener('click', () => {
   }
 });
 
-// ---------- Chat Messages ----------
+// ---------- Chat Messages & Media Rendering ----------
 let lastUserQuestion = '';
+
+function getYouTubeVideoId(url) {
+  if (!url) return null;
+  const match = url.match(/(?:youtube(?:-nocookie)?\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=|(?:shorts\/))|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
+  return match && match[1] ? match[1] : null;
+}
+
+function getVimeoVideoId(url) {
+  if (!url) return null;
+  const match = url.match(/(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/i);
+  return match && match[1] ? match[1] : null;
+}
+
+function isDirectVideoFile(url) {
+  if (!url) return false;
+  return /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(url.trim());
+}
+
+function renderChatMediaCard(url) {
+  if (!url || !url.trim()) return null;
+  const clean = url.trim();
+  const ytId = getYouTubeVideoId(clean);
+  const vimeoId = getVimeoVideoId(clean);
+  const isVideo = isDirectVideoFile(clean);
+
+  const card = document.createElement('div');
+  card.className = 'chat-media-card';
+
+  if (ytId) {
+    card.classList.add('media-video-card');
+    card.innerHTML = `
+      <div class="video-responsive-wrap">
+        <iframe src="https://www.youtube-nocookie.com/embed/${ytId}?rel=0" 
+                title="YouTube Video Explanation" 
+                frameborder="0" 
+                loading="lazy"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                allowfullscreen>
+        </iframe>
+      </div>
+      <div class="media-caption">
+        <span class="media-badge yt-badge">▶ YouTube Video</span>
+        <a href="${clean}" target="_blank" rel="noopener noreferrer" class="media-external-link" title="Open YouTube video">Open ↗</a>
+      </div>
+    `;
+    setTimeout(() => scrollToBottom(true), 150);
+    return card;
+  }
+
+  if (vimeoId) {
+    card.classList.add('media-video-card');
+    card.innerHTML = `
+      <div class="video-responsive-wrap">
+        <iframe src="https://player.vimeo.com/video/${vimeoId}?title=0&byline=0&portrait=0" 
+                title="Vimeo Video Explanation" 
+                frameborder="0" 
+                loading="lazy"
+                allow="autoplay; fullscreen; picture-in-picture" 
+                allowfullscreen>
+        </iframe>
+      </div>
+      <div class="media-caption">
+        <span class="media-badge vimeo-badge">▶ Vimeo Video</span>
+        <a href="${clean}" target="_blank" rel="noopener noreferrer" class="media-external-link" title="Open Vimeo video">Open ↗</a>
+      </div>
+    `;
+    setTimeout(() => scrollToBottom(true), 150);
+    return card;
+  }
+
+  if (isVideo) {
+    card.classList.add('media-video-card');
+    card.innerHTML = `
+      <div class="video-responsive-wrap">
+        <video controls playsinline preload="metadata" style="background:#000;">
+          <source src="${clean}">
+          Your browser does not support HTML5 video playback.
+        </video>
+      </div>
+      <div class="media-caption">
+        <span class="media-badge video-badge">📹 Video Player</span>
+        <a href="${clean}" target="_blank" download class="media-external-link" title="Open or download video">Download ⤓</a>
+      </div>
+    `;
+    const v = card.querySelector('video');
+    if (v) {
+      v.addEventListener('loadedmetadata', () => scrollToBottom(true));
+    }
+    return card;
+  }
+
+  // Default: image diagram / photo
+  card.classList.add('media-image-card');
+  const img = document.createElement('img');
+  img.src = clean;
+  img.alt = 'Question diagram';
+  img.loading = 'lazy';
+  img.title = 'Click to zoom in full view';
+  img.onload = () => scrollToBottom(true);
+  img.addEventListener('click', () => {
+    if (typeof openLightbox === 'function') openLightbox(img.src);
+  });
+
+  const cap = document.createElement('div');
+  cap.className = 'media-caption';
+  cap.innerHTML = `
+    <span class="media-badge img-badge">🔍 Diagram / Illustration</span>
+    <button type="button" class="media-external-link zoom-btn" title="Zoom in full view">Zoom ⛶</button>
+  `;
+  const zoomBtn = cap.querySelector('.zoom-btn');
+  if (zoomBtn) {
+    zoomBtn.addEventListener('click', () => {
+      if (typeof openLightbox === 'function') openLightbox(img.src);
+    });
+  }
+
+  card.appendChild(img);
+  card.appendChild(cap);
+  return card;
+}
 
 function addMessage(text, sender, imageUrl = '', shouldSpeak = true, isAi = false, relatedQuestion = '', detailedAnswer = '', isRealAnswer = false) {
   const div = document.createElement('div');
@@ -675,12 +795,8 @@ function addMessage(text, sender, imageUrl = '', shouldSpeak = true, isAi = fals
   div.appendChild(p);
 
   if (imageUrl && imageUrl.trim()) {
-    const img = document.createElement('img');
-    img.src = imageUrl.trim();
-    img.alt = 'Question diagram';
-    img.loading = 'lazy';
-    img.onload = () => scrollToBottom(true);
-    div.appendChild(img);
+    const mediaEl = renderChatMediaCard(imageUrl);
+    if (mediaEl) div.appendChild(mediaEl);
   }
 
   // Add "Explain simply" helper chip only on answered QA messages from database
@@ -778,6 +894,18 @@ function addMessage(text, sender, imageUrl = '', shouldSpeak = true, isAi = fals
     explainWrap.appendChild(explainBtn);
     div.appendChild(explainWrap);
   }
+
+  // WhatsApp-style Meta (Timestamp & Double Ticks)
+  const meta = document.createElement('div');
+  meta.className = `msg-meta ${sender}-meta`;
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  if (sender === 'user') {
+    meta.innerHTML = `<span class="msg-time">${timeStr}</span><span class="msg-ticks" title="Delivered"><svg class="wa-check" viewBox="0 0 16 11" fill="none"><path d="M11 1L5 8.2L1.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.5 1L8.5 8.2L7 6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
+  } else {
+    meta.innerHTML = `<span class="msg-time">${timeStr}</span>`;
+  }
+  div.appendChild(meta);
 
   messagesEl.appendChild(div);
   scrollToBottom();
@@ -932,6 +1060,13 @@ form.addEventListener('submit', (e) => {
   const question = input.value.trim();
   if (!question) return;
   unlockAudioContext();
+
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.classList.add('pop-press');
+    setTimeout(() => submitBtn.classList.remove('pop-press'), 300);
+  }
+
   input.value = '';
   sendQuestion(question);
 });

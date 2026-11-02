@@ -426,6 +426,55 @@ code {
   display: block;
 }
 
+.item-thumb.video-thumb {
+  position: relative;
+  display: inline-block;
+  max-width: 170px;
+}
+
+.item-thumb.video-thumb .video-play-tag {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.item-thumb.video-thumb .video-play-tag.yt-tag {
+  background: rgba(220, 38, 38, 0.92);
+}
+
+.item-thumb.video-thumb .video-placeholder-box {
+  width: 150px;
+  height: 85px;
+  background: #1e1b4b;
+  color: #c7d2fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+}
+
+.item-thumb.video-thumb .video-placeholder-box.vimeo-box {
+  background: #0369a1;
+  color: #e0f2fe;
+}
+
+.item-thumb.video-thumb .video-placeholder-box.mp4-box {
+  background: #4338ca;
+  color: #e0e7ff;
+}
+
 .item-card .q {
   font-weight: 700;
   font-size: 0.98rem;

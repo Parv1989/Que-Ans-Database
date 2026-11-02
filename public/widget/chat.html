@@ -9,6 +9,11 @@
 </head>
 
 <body>
+  <!-- Ambient Frosted Glass Mesh Backlights -->
+  <div class="ambient-glow glow-cyan" aria-hidden="true"></div>
+  <div class="ambient-glow glow-lavender" aria-hidden="true"></div>
+  <div class="ambient-glow glow-pink" aria-hidden="true"></div>
+
   <div class="chat-shell">
     <header class="chat-header">
       <div class="chat-header-info">
@@ -58,6 +63,7 @@
 
     <!-- Modern Cute AI Robot Mascot -->
     <div class="robot-stage">
+      <div class="mascot-halo-disc" aria-hidden="true"></div>
       <svg id="robot" class="robot" viewBox="0 0 240 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
           <!-- Gradient definitions for sleek 3D look -->
@@ -148,11 +154,15 @@
           </g>
         </g>
       </svg>
+      <div class="robot-glass-blur-bottom" aria-hidden="true"></div>
     </div>
 
     <div id="messages" class="chat-messages">
       <div class="msg bot">
         <p>Hi! You can ask me anything related to this book. I'll answer you instantly.</p>
+        <div class="msg-meta bot-meta">
+          <span class="msg-time">Just now</span>
+        </div>
       </div>
     </div>
 
@@ -163,8 +173,13 @@
           <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
         </svg>
       </button>
-      <input id="chatInput" type="text" placeholder="Type or click mic to speak..." autocomplete="off" required />
-      <button type="submit" aria-label="Send">&#10148;</button>
+      <input id="chatInput" type="text" placeholder="Ask a question about this book..." autocomplete="off" required />
+      <button type="submit" id="sendBtn" class="send-btn" aria-label="Send">
+        <svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
     </form>
   </div>
 

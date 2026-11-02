@@ -1,12 +1,46 @@
 const express = require('express');
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { parse } = require('csv-parse/sync');
 const router = express.Router();
 const QA = require('../models/QA');
 const { requireAdmin } = require('../middleware/auth');
 const { invalidateQACache } = require('../utils/matcher');
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// Setup upload directory for general QA media (images, diagrams, and video files)
+const mediaUploadDir = path.join(__dirname, '..', '..', 'public', 'uploads', 'media');
+if (!fs.existsSync(mediaUploadDir)) {
+  fs.mkdirSync(mediaUploadDir, { recursive: true });
+}
+
+const mediaStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, mediaUploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const safeName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+    cb(null, `qa_${Date.now()}_${safeName}${ext}`);
+  }
+});
+
+const mediaUpload = multer({
+  storage: mediaStorage,
+  limits: { fileSize: 60 * 1024 * 1024 }, // up to 60MB for images & videos
+  fileFilter: (req, file, cb) => {
+    const mime = (file.mimetype || '').toLowerCase();
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.mp4', '.webm', '.ogg', '.mov', '.m4v'];
+    if (mime.startsWith('image/') || mime.startsWith('video/') || allowedExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (jpg, png, webp, svg) and video files (mp4, webm, ogg, mov) are allowed!'));
+    }
+  }
+});
 
 router.use(requireAdmin);
 
@@ -145,7 +179,9 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
     const imageUrl = getField(row, [
       'Image link', 'Image Link', 'image link', 'image_link',
       'imageUrl', 'Image URL', 'Image url', 'image_url', 'image url',
-      'Image', 'image', 'img', 'photo', 'picture', 'answer_image', 'answerImage'
+      'Image', 'image', 'img', 'photo', 'picture', 'answer_image', 'answerImage',
+      'videoUrl', 'Video link', 'video_link', 'video', 'Video URL', 'video url',
+      'Media URL', 'mediaUrl', 'Media link', 'media_link', 'media', 'youtube'
     ]);
     const questionImageUrl = getField(row, [
       'questionImageUrl', 'Question Image', 'Question image', 'question_image', 'questionImage', 'q_image'
@@ -164,6 +200,27 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
     insertedCount: inserted.length,
     skippedCount: skipped.length,
     skipped
+  });
+});
+
+// POST /api/admin/qa/upload-media - upload image or video file for QA
+router.post('/upload-media', (req, res) => {
+  mediaUpload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('QA media upload error:', err);
+      return res.status(400).json({ error: err.message || 'File upload failed' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file was uploaded' });
+    }
+    const fileUrl = `/uploads/media/${req.file.filename}`;
+    const mime = (req.file.mimetype || '').toLowerCase();
+    const isVideo = mime.startsWith('video/') || /\.(mp4|webm|ogg|mov|m4v)$/i.test(req.file.filename);
+    res.json({
+      fileUrl,
+      fileName: req.file.originalname,
+      mediaType: isVideo ? 'video' : 'image'
+    });
   });
 });
 
