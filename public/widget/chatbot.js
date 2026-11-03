@@ -1072,7 +1072,7 @@ form.addEventListener('submit', (e) => {
 });
 
 // ---------- Export & Print Study Notes ----------
-function exportStudyNotes() {
+async function exportStudyNotes() {
   if (!messagesEl) return;
   const answerElements = messagesEl.querySelectorAll('.msg.bot[data-is-answer="true"]');
   const qaMap = new Map();
@@ -1102,10 +1102,31 @@ function exportStudyNotes() {
     }
   });
 
-  const qaPairs = Array.from(qaMap.values());
+  let qaPairs = Array.from(qaMap.values());
+
+  // If no chat answers yet, auto-fetch chapter textbook Q&As so Notes export ALWAYS works
+  if (qaPairs.length === 0) {
+    try {
+      const qRes = await fetch(`${API_URL}/worksheet-questions?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`);
+      const qData = await qRes.json();
+      const qs = qData.questions || [];
+      qs.forEach(q => {
+        if (q.question && q.answer) {
+          qaPairs.push({
+            question: q.question,
+            answer: q.answer,
+            isAi: false,
+            imageUrl: q.imageUrl || q.questionImageUrl || ''
+          });
+        }
+      });
+    } catch (err) {
+      console.warn('Error fetching default notes:', err);
+    }
+  }
 
   if (qaPairs.length === 0) {
-    alert('Abhi tak chat me koi verified answer nahi mila hai. Pehle sawaalo ke jawab prapt karein (database ya AI Tutor se), fir notes export karein!');
+    alert('Abhi tak is book/chapter ke liye koi verified questions nahi mile hain.');
     return;
   }
 
@@ -1367,10 +1388,14 @@ async function initContextEngine() {
   updateContextBadge();
   fetchAndApplyBookFeatures(currentClass, currentBook);
 
-  // STOP auto-dismiss: The "Select Class & Book" modal must stay visible
-  // so the user can verify/choose and click "Start Chatting 🚀"
+  // If user has not chosen class & book before, show selector modal; otherwise keep hidden
+  const hasSavedContext = localStorage.getItem('bot_selected_class') && localStorage.getItem('bot_selected_book');
   if (contextModal) {
-    contextModal.classList.remove('hidden');
+    if (!hasSavedContext) {
+      contextModal.classList.remove('hidden');
+    } else {
+      contextModal.classList.add('hidden');
+    }
   }
 }
 
@@ -1828,10 +1853,19 @@ async function loadMultiChaptersList() {
   tpChapterPillsList.innerHTML = '<div style="font-size:0.8rem; color:#888;">Loading chapters...</div>';
 
   try {
-    const url = `${API_URL}/chapters?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    availableBookChapters = (data.chapters || []).filter(ch => ch && ch !== 'All Chapters');
+    let rawChapters = [];
+    if (hierarchyData && hierarchyData[currentClass] && hierarchyData[currentClass][currentBook]) {
+      rawChapters = hierarchyData[currentClass][currentBook];
+    } else {
+      const res = await fetch(HIERARCHY_API_URL);
+      if (res.ok) {
+        hierarchyData = await res.json();
+        if (hierarchyData && hierarchyData[currentClass] && hierarchyData[currentClass][currentBook]) {
+          rawChapters = hierarchyData[currentClass][currentBook];
+        }
+      }
+    }
+    availableBookChapters = (rawChapters || []).filter(ch => ch && ch.toLowerCase() !== 'all chapters' && ch.toLowerCase() !== 'general');
 
     tpChapterPillsList.innerHTML = '';
     if (availableBookChapters.length === 0) {
@@ -2757,11 +2791,46 @@ async function openLessonPlanModal() {
     if (activeDbPedagogy && activeDbPedagogy.lessonPlan && (activeDbPedagogy.lessonPlan.unitTitle || activeDbPedagogy.lessonPlan.pdfUrl)) {
       renderLessonPlanDocument();
     } else {
-      if (lessonPlanEmptyNotice) {
-        lessonPlanEmptyNotice.classList.remove('hidden');
-        const emptyTxt = document.getElementById('lessonPlanEmptyText');
-        if (emptyTxt) {
-          emptyTxt.textContent = `Lesson Plan has not been configured yet for ${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}.`;
+      // Auto-synthesize standard CBSE/NEP lesson plan from chapter questions
+      try {
+        const qRes = await fetch(`${API_URL}/worksheet-questions?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`);
+        const qData = await qRes.json();
+        const qs = qData.questions || [];
+        const unitTitle = (currentChapter && currentChapter !== 'All Chapters') ? currentChapter : (currentBook || 'Curriculum Unit');
+        activeDbPedagogy = {
+          chapterName: unitTitle,
+          lessonPlan: {
+            unitTitle: unitTitle,
+            periodsCount: 4,
+            pedagogicalMethodology: '5E Inquiry Model, Visual Learning & Concept Discussions (CBSE & NEP 2020)',
+            learningOutcomes: [
+              `Understand core definitions, principles, and applications of ${unitTitle}.`,
+              `Develop scientific inquiry and practical problem-solving through textbook questions.`,
+              `Enhance concept recall with diagrams, viva voce, and collaborative group discussions.`
+            ],
+            priorKnowledge: `Foundational concepts of ${currentBook} and natural phenomena from earlier grades.`,
+            essentialQuestions: qs.length > 0 ? qs.slice(0, 3).map(q => q.question) : [
+              `What are the most essential concepts in ${unitTitle}?`,
+              `How does this chapter connect to real-life observations?`
+            ],
+            teachingAids: 'Interactive Digital Board, Study Buddy AI Bot, Diagrams & Student Worksheets',
+            fiveEPlan: {
+              engage: `Hook students with an interactive real-world question regarding ${unitTitle}.`,
+              explore: 'Students examine textbook diagrams and brainstorm core question prompts.',
+              explain: 'Teacher and Study Buddy provide clear definitions, clearing common misconceptions.',
+              elaborate: 'Students solve worksheets and practice viva questions in pairs.',
+              evaluate: 'Formative assessment using the built-in 7 Smart Tools (Quiz, Oral Test & Test Paper).'
+            }
+          }
+        };
+        renderLessonPlanDocument();
+      } catch (synthErr) {
+        if (lessonPlanEmptyNotice) {
+          lessonPlanEmptyNotice.classList.remove('hidden');
+          const emptyTxt = document.getElementById('lessonPlanEmptyText');
+          if (emptyTxt) {
+            emptyTxt.textContent = `Lesson Plan has not been configured yet for ${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}.`;
+          }
         }
       }
     }
@@ -4344,12 +4413,33 @@ async function openMindMapModal() {
         if (mindMapEmptyNotice) mindMapEmptyNotice.classList.remove('hidden');
       }
     } else {
-      if (mindMapEmptyNotice) {
-        mindMapEmptyNotice.classList.remove('hidden');
-        const emptyTxt = document.getElementById('mindMapEmptyText');
-        if (emptyTxt) {
-          emptyTxt.textContent = `Mind Map is not configured yet for ${currentClass || 'Class 3'} • ${currentBook || 'Ripples'}${chapLabel}.`;
+      // Auto-generate mind map from chapter questions
+      try {
+        const qRes = await fetch(`${API_URL}/worksheet-questions?className=${encodeURIComponent(currentClass || 'Class 3')}&bookName=${encodeURIComponent(currentBook || 'Ripples')}&chapterName=${encodeURIComponent(currentChapter || 'All Chapters')}`);
+        const qData = await qRes.json();
+        const qs = qData.questions || [];
+        const rawBranches = categorizeMindMapData(qs);
+        if (rawBranches && rawBranches.length > 0) {
+          activeDbMindMap = {
+            unitTitle: (currentChapter && currentChapter !== 'All Chapters') ? currentChapter : (currentBook || 'Mind Map'),
+            branches: rawBranches.map(b => ({
+              id: b.id,
+              title: b.name,
+              color: b.color,
+              subtopics: (b.items || []).map(it => ({
+                name: it.shortTitle,
+                detail: it.answer || it.question
+              }))
+            }))
+          };
+          if (mindMapEmptyNotice) mindMapEmptyNotice.classList.add('hidden');
+          if (mindMapCanvasWrap) mindMapCanvasWrap.classList.remove('hidden');
+          renderConceptMindMap();
+        } else {
+          if (mindMapEmptyNotice) mindMapEmptyNotice.classList.remove('hidden');
         }
+      } catch (e2) {
+        if (mindMapEmptyNotice) mindMapEmptyNotice.classList.remove('hidden');
       }
     }
   } catch (err) {
@@ -4839,6 +4929,181 @@ window.addEventListener('keydown', (e) => {
     closeMindMapModal();
   }
 });
+
+// ==========================================================================
+// Karlo Videk Mobile Navigation Animation (CodePen aNYWKE)
+// ==========================================================================
+// Karlo Videk Navigation Animation (CodePen aNYWKE)
+// GreenSock TimelineMax & TweenMax Implementation
+// ==========================================================================
+function initKarloVidekNavigation() {
+  const openTrigger = document.getElementById('academicMenuTrigger');
+  const stripClickable = document.getElementById('academicStripClickable');
+  const closeTrigger = document.getElementById('academicCloseTrigger');
+  const menuOverlay = document.getElementById('academicMenuOverlay');
+  if (!openTrigger || !closeTrigger || !menuOverlay) return;
+
+  const menuContentCard = menuOverlay.querySelector('.menu-content-card');
+  if (!menuContentCard) return;
+
+  const openTriggerTop = openTrigger.querySelector('.menu-trigger-bar.top');
+  const openTriggerMiddle = openTrigger.querySelector('.menu-trigger-bar.middle');
+  const openTriggerBottom = openTrigger.querySelector('.menu-trigger-bar.bottom');
+  const closeTriggerBars = closeTrigger.querySelectorAll('.close-trigger-bar');
+
+  const sliceTop = document.getElementById('academicSliceTop');
+  const sliceMid = document.getElementById('academicSliceMid');
+  const sliceBot = document.getElementById('academicSliceBot');
+
+  if (typeof TimelineMax === 'undefined') {
+    console.warn('TimelineMax / GSAP not loaded');
+    return;
+  }
+
+  const menuActionLinks = menuOverlay.querySelectorAll('.menu-action-link');
+
+  const tlOpen = new TimelineMax({
+    paused: true,
+    onStart: function() {
+      menuOverlay.style.display = 'block';
+      menuOverlay.style.visibility = 'visible';
+      menuOverlay.style.opacity = '1';
+      menuOverlay.style.pointerEvents = 'auto';
+      menuOverlay.classList.add('is-active');
+      openTrigger.style.visibility = 'hidden';
+    }
+  });
+
+  const tlClose = new TimelineMax({
+    paused: true,
+    onComplete: function() {
+      menuOverlay.classList.remove('is-active');
+      menuOverlay.style.display = 'none';
+      menuOverlay.style.visibility = 'hidden';
+      menuOverlay.style.pointerEvents = 'none';
+      openTrigger.style.visibility = 'visible';
+      TweenMax.set([openTriggerTop, openTriggerMiddle, openTriggerBottom], { x: 0, y: 0, clearProps: "transform" });
+      TweenMax.set(sliceTop, { x: 0, y: 0, clearProps: "transform" });
+      TweenMax.set(sliceBot, { x: 0, y: 0, clearProps: "transform" });
+      TweenMax.set(sliceMid, { x: 0, y: 0, opacity: 1, clearProps: "transform,opacity" });
+      TweenMax.set(closeTriggerBars, { scale: 1, clearProps: "transform" });
+      TweenMax.set(menuContentCard, { clearProps: "transform,opacity,visibility,scale" });
+      TweenMax.set(menuActionLinks, { clearProps: "transform,opacity" });
+    }
+  });
+
+  // OPEN TIMELINE: Hamburger bars fly out, 3 diagonal slices slide seamlessly, card & close trigger reveal
+  tlOpen
+    .to(openTriggerTop, 0.28, { x: 45, y: -45, ease: Power2.easeIn }, 0)
+    .to(openTriggerMiddle, 0.28, { x: 45, y: -45, ease: Power2.easeIn }, 0.04)
+    .to(openTriggerBottom, 0.28, { x: 45, y: -45, ease: Power2.easeIn }, 0.08)
+    .fromTo(sliceTop, 0.6, { x: -110, y: -110 }, { x: 0, y: 0, ease: Cubic.easeOut }, 0.06)
+    .fromTo(sliceBot, 0.6, { x: 110, y: 110 }, { x: 0, y: 0, ease: Cubic.easeOut }, 0.06)
+    .fromTo(sliceMid, 0.65, { x: 100, y: -80, opacity: 0.8 }, { x: 0, y: 0, opacity: 1, ease: Cubic.easeOut }, 0.08)
+    .fromTo(menuContentCard, 0.45, { y: 20, opacity: 0, visibility: 'hidden', scale: 0.96 }, { y: 0, opacity: 1, visibility: 'visible', scale: 1, ease: Back.easeOut.config(1.2) }, 0.32)
+    .staggerFromTo(menuActionLinks, 0.35, { y: 12, opacity: 0 }, { y: 0, opacity: 1, ease: Power2.easeOut }, 0.035, 0.36)
+    .fromTo(closeTriggerBars, 0.35, { scale: 0 }, { scale: 1, ease: Back.easeOut.config(1.4) }, 0.38);
+
+  // CLOSE TIMELINE: Card fades, slices slide away, close trigger hides, hamburger returns
+  tlClose
+    .to(menuContentCard, 0.25, { y: 15, opacity: 0, scale: 0.97, ease: Power2.easeIn }, 0)
+    .to(closeTriggerBars, 0.2, { scale: 0, ease: Power2.easeIn }, 0)
+    .to(sliceMid, 0.42, { x: 100, y: -80, opacity: 0.8, ease: Cubic.easeIn }, 0.05)
+    .to(sliceTop, 0.42, { x: -110, y: -110, ease: Cubic.easeIn }, 0.05)
+    .to(sliceBot, 0.42, { x: 110, y: 110, ease: Cubic.easeIn }, 0.05)
+    .to(openTriggerTop, 0.28, { x: 0, y: 0, ease: Power2.easeOut }, 0.2)
+    .to(openTriggerMiddle, 0.28, { x: 0, y: 0, ease: Power2.easeOut }, 0.24)
+    .to(openTriggerBottom, 0.28, { x: 0, y: 0, ease: Power2.easeOut }, 0.28);
+
+  const openMenu = () => {
+    const ctxSub = document.getElementById('academicMenuContext');
+    if (ctxSub) {
+      const cls = currentClass || localStorage.getItem('bot_selected_class') || 'Class 3';
+      const bk = currentBook || localStorage.getItem('bot_selected_book') || 'Ripples';
+      ctxSub.textContent = `${cls} • ${bk}`;
+    }
+    tlClose.pause();
+    tlOpen.restart();
+  };
+
+  const closeMenu = () => {
+    tlOpen.pause();
+    tlClose.restart();
+  };
+
+  function dismissMenuInstant() {
+    tlOpen.pause();
+    tlClose.pause();
+    menuOverlay.classList.remove('is-active');
+    menuOverlay.style.display = 'none';
+    menuOverlay.style.visibility = 'hidden';
+    menuOverlay.style.pointerEvents = 'none';
+    openTrigger.style.visibility = 'visible';
+    TweenMax.set([openTriggerTop, openTriggerMiddle, openTriggerBottom], { x: 0, y: 0, clearProps: "transform" });
+    TweenMax.set(sliceTop, { x: 0, y: 0, clearProps: "transform" });
+    TweenMax.set(sliceBot, { x: 0, y: 0, clearProps: "transform" });
+    TweenMax.set(sliceMid, { x: 0, y: 0, opacity: 1, clearProps: "transform,opacity" });
+    TweenMax.set(closeTriggerBars, { scale: 1, clearProps: "transform" });
+    TweenMax.set(menuContentCard, { clearProps: "transform,opacity,visibility,scale" });
+    TweenMax.set(menuActionLinks, { clearProps: "transform,opacity" });
+  }
+
+  openTrigger.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    openMenu();
+  });
+
+  if (stripClickable) {
+    stripClickable.addEventListener('click', (e) => {
+      e.preventDefault();
+      openMenu();
+    });
+  }
+
+  closeTrigger.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeMenu();
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menuOverlay.classList.contains('is-active')) {
+      closeMenu();
+    }
+  });
+
+  // When clicking any tool link inside menu, dismiss menu immediately and launch tool cleanly
+  const toolLinks = menuOverlay.querySelectorAll('.menu-action-link');
+  toolLinks.forEach((link) => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dismissMenuInstant();
+      const action = link.getAttribute('id');
+      if (action === 'testPaperBtn') openTestPaperModal();
+      else if (action === 'lessonPlanBtn') openLessonPlanModal();
+      else if (action === 'oralTestBtn') openOralTestModal();
+      else if (action === 'mindMapBtn') openMindMapModal();
+      else if (action === 'worksheetBtn') openWorksheetModal();
+      else if (action === 'quizBtn') openQuizModal();
+      else if (action === 'exportNotesBtn') {
+        unlockAudioContext();
+        exportStudyNotes();
+      }
+    });
+  });
+
+  window.openAcademicMenu = openMenu;
+  window.closeAcademicMenu = closeMenu;
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initKarloVidekNavigation);
+} else {
+  initKarloVidekNavigation();
+}
 
 
 

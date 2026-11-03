@@ -21,7 +21,8 @@
         <div class="chat-header-sub">Ask me anything, whatever you want to know about the book</div>
       </div>
       <div class="chat-header-actions">
-        <button id="themeToggleBtn" class="theme-toggle-btn" type="button" aria-label="Toggle Dark Mode" title="Toggle Dark Mode">🌙</button>
+        <button id="themeToggleBtn" class="theme-toggle-btn" type="button" aria-label="Toggle Dark Mode"
+          title="Toggle Dark Mode">🌙</button>
         <select id="voiceSpeedSelect" class="speed-select" aria-label="Voice Speed" title="Voice Speed">
           <option value="0.8">0.8x</option>
           <option value="1" selected>1.0x</option>
@@ -48,16 +49,105 @@
       </div>
     </div>
 
-    <!-- Smart Academic Suite Quick Bar -->
-    <div class="academic-tools-strip">
-      <div class="tools-scroll">
-        <button id="testPaperBtn" class="tool-chip test-chip" type="button" title="Formal School Examination Paper">📑 Test Paper</button>
-        <button id="lessonPlanBtn" class="tool-chip lesson-chip" type="button" title="Smart Pedagogical Lesson Plan">📋 Lesson Plan</button>
-        <button id="oralTestBtn" class="tool-chip oral-chip" type="button" title="Voice Viva / Oral Test with Robot">🎙️ Oral Test</button>
-        <button id="mindMapBtn" class="tool-chip map-chip" type="button" title="Visual Concept Mind Map">🗺️ Mind Map</button>
-        <button id="worksheetBtn" class="tool-chip worksheet-chip" type="button" title="Printable Practice Worksheet">📝 Worksheet</button>
-        <button id="quizBtn" class="tool-chip quiz-chip" type="button" title="Interactive Chapter Quiz">🎯 Quiz</button>
-        <button id="exportNotesBtn" class="tool-chip notes-chip" type="button" title="Print / Export Study Notes">📄 Notes</button>
+    <!-- Academic Suite Bar (Karlo Videk Animated Trigger) -->
+    <div class="academic-nav-strip" id="academicNavStrip">
+      <div class="nav-strip-left" id="academicStripClickable" title="Click to open Academic Features Menu">
+        <span class="nav-strip-icon">☰</span>
+        <div class="nav-strip-meta">
+          <!-- <span class="nav-strip-title">☰</span> -->
+          <!-- <span class="nav-strip-sub">7 Smart Tools • Test, Lesson, Viva, Mind Map...</span> -->
+        </div>
+      </div>
+      <div class="nav-strip-trigger-wrap" id="academicMenuTriggerWrap">
+        <span class="menu-trigger" id="academicMenuTrigger" title="Open Academic Suite">
+          <i class="menu-trigger-bar top"></i>
+          <i class="menu-trigger-bar middle"></i>
+          <i class="menu-trigger-bar bottom"></i>
+        </span>
+      </div>
+    </div>
+
+    <!-- Full-Screen Diagonal Slicing Menu Overlay (Karlo Videk Pen aNYWKE) -->
+    <div class="academic-menu-overlay" id="academicMenuOverlay">
+      <!-- Seamless Diagonal Curtains (with generous overlap to prevent any subpixel rasterization gap) -->
+      <svg class="academic-slicing-svg" viewBox="0 0 100 100" preserveAspectRatio="none"
+        shape-rendering="geometricPrecision" aria-hidden="true">
+        <!-- Top Slice: reaches (89, -2) and (-2, 69) -->
+        <polygon id="academicSliceTop" class="academic-slice-polygon top" points="-2,-2 89,-2 -2,69" />
+        <!-- Middle Slice: reaches (81, -2) to (102, 38) and (11, 102) to (-2, 61) -->
+        <polygon id="academicSliceMid" class="academic-slice-polygon middle"
+          points="81,-2 102,-2 102,38 11,102 -2,102 -2,61" />
+        <!-- Bottom Slice: reaches (102, 31) and (16, 102) -->
+        <polygon id="academicSliceBot" class="academic-slice-polygon bottom" points="102,31 102,102 16,102" />
+      </svg>
+
+      <!-- Karlo Videk Close Trigger (strictly contained inside overlay so it never overlaps the header) -->
+      <span class="close-trigger" id="academicCloseTrigger" aria-label="Close Academic Features" title="Close Menu">
+        <i class="close-trigger-bar left"></i>
+        <i class="close-trigger-bar right"></i>
+      </span>
+
+      <div class="menu-container">
+        <div class="menu-content-card">
+          <div class="menu-brand">
+            <span class="menu-brand-icon">🎓</span>
+            <div class="menu-brand-titles">
+              <span class="menu-brand-main">Academic Suite</span>
+              <span class="menu-brand-sub" id="academicMenuContext">Class 3 • Ripples</span>
+            </div>
+          </div>
+          <ul class="menu" id="academicMenuList">
+            <li>
+              <a href="#" id="testPaperBtn" class="menu-action-link" data-title="Test Paper">
+                <span class="m-icon">📑</span>
+                <span class="m-name">Test Paper</span>
+                <span class="m-pill">Exam</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" id="lessonPlanBtn" class="menu-action-link" data-title="Lesson Plan">
+                <span class="m-icon">📋</span>
+                <span class="m-name">Lesson Plan</span>
+                <span class="m-pill">Pedagogy</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" id="oralTestBtn" class="menu-action-link" data-title="Oral Test">
+                <span class="m-icon">🎙️</span>
+                <span class="m-name">Oral Test</span>
+                <span class="m-pill">Voice Viva</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" id="mindMapBtn" class="menu-action-link" data-title="Mind Map">
+                <span class="m-icon">🗺️</span>
+                <span class="m-name">Mind Map</span>
+                <span class="m-pill">Visual</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" id="worksheetBtn" class="menu-action-link" data-title="Worksheet">
+                <span class="m-icon">📝</span>
+                <span class="m-name">Worksheet</span>
+                <span class="m-pill">Practice</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" id="quizBtn" class="menu-action-link" data-title="Quiz">
+                <span class="m-icon">🎯</span>
+                <span class="m-name">Quiz</span>
+                <span class="m-pill">Challenge</span>
+              </a>
+            </li>
+            <li>
+              <a href="#" id="exportNotesBtn" class="menu-action-link" data-title="Notes">
+                <span class="m-icon">📄</span>
+                <span class="m-name">Notes</span>
+                <span class="m-pill">Revision</span>
+              </a>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -169,13 +259,15 @@
     <form id="chatForm" class="chat-input-row">
       <button id="micBtn" class="mic-btn" type="button" aria-label="Voice question input" title="Speak your question">
         <svg class="mic-icon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-          <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+          <path
+            d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
         </svg>
       </button>
       <input id="chatInput" type="text" placeholder="Ask a question about this book..." autocomplete="off" required />
       <button type="submit" id="sendBtn" class="send-btn" aria-label="Send">
-        <svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"
+          stroke-linecap="round" stroke-linejoin="round">
           <line x1="22" y1="2" x2="11" y2="13"></line>
           <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
         </svg>
@@ -184,10 +276,11 @@
   </div>
 
   <!-- Class / Book / Chapter Selector Modal Overlay -->
-  <div id="contextModal" class="context-modal-overlay">
+  <div id="contextModal" class="context-modal-overlay hidden">
     <div class="context-modal-card">
       <button id="closeContextModalBtn" class="context-modal-close-btn" type="button" aria-label="Close" title="Close">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
           <line x1="2" y1="2" x2="12" y2="12"></line>
           <line x1="12" y1="2" x2="2" y2="12"></line>
         </svg>
@@ -237,7 +330,8 @@
           <div class="worksheet-modal-icon">📝</div>
           <h3>Worksheet Generator</h3>
           <p>Generate a clean, ready-to-print practice test worksheet based on your current book & chapter!</p>
-          <button id="closeWorksheetConfigBtn" class="worksheet-close-btn" type="button" aria-label="Close worksheet generator">&times;</button>
+          <button id="closeWorksheetConfigBtn" class="worksheet-close-btn" type="button"
+            aria-label="Close worksheet generator">&times;</button>
         </div>
 
         <div class="worksheet-config-body">
@@ -259,13 +353,15 @@
 
             <div class="form-group">
               <label for="worksheetSchoolInput">School / Institute Name (Optional):</label>
-              <input id="worksheetSchoolInput" type="text" class="worksheet-text-input" placeholder="e.g. Delhi Public School" />
+              <input id="worksheetSchoolInput" type="text" class="worksheet-text-input"
+                placeholder="e.g. Delhi Public School" />
             </div>
 
             <div class="form-group">
               <label for="worksheetCountInput">Number of questions in worksheet:</label>
               <div class="worksheet-count-row">
-                <input id="worksheetCountInput" type="number" min="1" max="50" value="5" class="worksheet-number-input" />
+                <input id="worksheetCountInput" type="number" min="1" max="50" value="5"
+                  class="worksheet-number-input" />
                 <div class="worksheet-preset-chips" id="worksheetPresetChips">
                   <button type="button" class="preset-chip" data-count="3">3 Qs</button>
                   <button type="button" class="preset-chip" data-count="5">5 Qs</button>
@@ -301,13 +397,18 @@
         <!-- Interactive Top Control Toolbar (hidden on print) -->
         <div class="worksheet-toolbar no-print">
           <div class="toolbar-left">
-            <button id="worksheetBackBtn" type="button" class="tool-btn secondary" title="Back to settings">⬅️ Settings</button>
-            <button id="worksheetShuffleAllBtn" type="button" class="tool-btn secondary" title="Shuffle with different questions">🔀 Shuffle All</button>
-            <button id="worksheetToggleAnswerKeyBtn" type="button" class="tool-btn secondary" title="Toggle answer visibility">👁️ Toggle Answers</button>
+            <button id="worksheetBackBtn" type="button" class="tool-btn secondary" title="Back to settings">⬅️
+              Settings</button>
+            <button id="worksheetShuffleAllBtn" type="button" class="tool-btn secondary"
+              title="Shuffle with different questions">🔀 Shuffle All</button>
+            <button id="worksheetToggleAnswerKeyBtn" type="button" class="tool-btn secondary"
+              title="Toggle answer visibility">👁️ Toggle Answers</button>
           </div>
           <div class="toolbar-right">
-            <button id="worksheetPrintBtn" type="button" class="tool-btn primary" title="Print or save as PDF">🖨️ Print / Save PDF</button>
-            <button id="closeWorksheetPreviewBtn" class="tool-btn close" type="button" aria-label="Close worksheet preview">&times;</button>
+            <button id="worksheetPrintBtn" type="button" class="tool-btn primary" title="Print or save as PDF">🖨️ Print
+              / Save PDF</button>
+            <button id="closeWorksheetPreviewBtn" class="tool-btn close" type="button"
+              aria-label="Close worksheet preview">&times;</button>
           </div>
         </div>
 
@@ -380,7 +481,8 @@
           <div class="testpaper-modal-icon">📑</div>
           <h3>Test Paper Generator</h3>
           <p>Generate formal school examination papers with Auto & Manual Question Selection modes!</p>
-          <button id="closeTestPaperConfigBtn" class="testpaper-close-btn" type="button" aria-label="Close test paper generator">&times;</button>
+          <button id="closeTestPaperConfigBtn" class="testpaper-close-btn" type="button"
+            aria-label="Close test paper generator">&times;</button>
         </div>
 
         <div class="testpaper-config-body">
@@ -429,11 +531,13 @@
             <div class="form-row-2col">
               <div class="form-group">
                 <label for="testPaperSchoolInput">School / Institute Name:</label>
-                <input id="testPaperSchoolInput" type="text" class="testpaper-text-input" placeholder="e.g. St. Xavier's Senior Secondary School" />
+                <input id="testPaperSchoolInput" type="text" class="testpaper-text-input"
+                  placeholder="e.g. St. Xavier's Senior Secondary School" />
               </div>
               <div class="form-group">
                 <label for="testPaperExamTitleInput">Examination Title:</label>
-                <input id="testPaperExamTitleInput" type="text" class="testpaper-text-input" value="Periodic Assessment - I" placeholder="e.g. Unit Test / Term Exam" />
+                <input id="testPaperExamTitleInput" type="text" class="testpaper-text-input"
+                  value="Periodic Assessment - I" placeholder="e.g. Unit Test / Term Exam" />
               </div>
             </div>
 
@@ -501,8 +605,10 @@
               <div class="tp-filter-bar">
                 <div class="tp-search-wrap">
                   <span class="tp-search-icon">🔍</span>
-                  <input type="text" id="tpManualSearchInput" class="tp-search-input" placeholder="Search questions by keyword or topic..." />
-                  <button type="button" id="tpManualClearSearch" class="tp-search-clear hidden" aria-label="Clear search">&times;</button>
+                  <input type="text" id="tpManualSearchInput" class="tp-search-input"
+                    placeholder="Search questions by keyword or topic..." />
+                  <button type="button" id="tpManualClearSearch" class="tp-search-clear hidden"
+                    aria-label="Clear search">&times;</button>
                 </div>
                 <div class="tp-type-chips" id="tpFilterTypeChips">
                   <button type="button" class="tp-filter-chip active" data-type="all">All</button>
@@ -513,12 +619,14 @@
 
               <div class="manual-picker-header">
                 <div class="manual-summary-badge">
-                  <span id="manualSelectedCount">0</span> Selected | Total: <strong id="manualTotalMarks">0</strong> Marks
+                  <span id="manualSelectedCount">0</span> Selected | Total: <strong id="manualTotalMarks">0</strong>
+                  Marks
                 </div>
                 <div class="manual-quick-actions">
                   <button type="button" id="manualSelectAllBtn" class="manual-action-btn">Select All</button>
                   <button type="button" id="manualDeselectAllBtn" class="manual-action-btn">Deselect All</button>
-                  <button type="button" id="tpOpenAddCustomBtn" class="manual-action-btn add-q-btn">➕ Add Question</button>
+                  <button type="button" id="tpOpenAddCustomBtn" class="manual-action-btn add-q-btn">➕ Add
+                    Question</button>
                 </div>
               </div>
 
@@ -527,7 +635,8 @@
                 <div class="custom-card-title">➕ Add Your Custom Question</div>
                 <div class="form-group">
                   <label for="tpCustomQInput">Question Text:</label>
-                  <textarea id="tpCustomQInput" class="tp-custom-textarea" rows="2" placeholder="Write question here..."></textarea>
+                  <textarea id="tpCustomQInput" class="tp-custom-textarea" rows="2"
+                    placeholder="Write question here..."></textarea>
                 </div>
                 <div class="form-row-2col">
                   <div class="form-group">
@@ -541,16 +650,19 @@
                   </div>
                   <div class="form-group">
                     <label for="tpCustomMarksInput">Marks:</label>
-                    <input type="number" id="tpCustomMarksInput" class="testpaper-text-input" min="1" max="20" value="2" />
+                    <input type="number" id="tpCustomMarksInput" class="testpaper-text-input" min="1" max="20"
+                      value="2" />
                   </div>
                 </div>
                 <div class="form-group">
                   <label for="tpCustomAnsInput">Model Answer / Teacher Key (Optional):</label>
-                  <textarea id="tpCustomAnsInput" class="tp-custom-textarea" rows="2" placeholder="Teacher answer key..."></textarea>
+                  <textarea id="tpCustomAnsInput" class="tp-custom-textarea" rows="2"
+                    placeholder="Teacher answer key..."></textarea>
                 </div>
                 <div class="custom-card-actions">
                   <button type="button" id="tpCancelCustomQBtn" class="manual-action-btn">Cancel</button>
-                  <button type="button" id="tpSaveCustomQBtn" class="manual-action-btn save-btn">Add to Exam Paper ✓</button>
+                  <button type="button" id="tpSaveCustomQBtn" class="manual-action-btn save-btn">Add to Exam Paper
+                    ✓</button>
                 </div>
               </div>
 
@@ -576,8 +688,9 @@
       <div id="testPaperPreviewView" class="testpaper-preview-container hidden">
         <div class="testpaper-toolbar no-print">
           <div class="toolbar-left">
-            <button id="testPaperBackBtn" type="button" class="tool-btn secondary" title="Back to settings">⬅️ Settings</button>
-            
+            <button id="testPaperBackBtn" type="button" class="tool-btn secondary" title="Back to settings">⬅️
+              Settings</button>
+
             <!-- Multiple Sets Switcher -->
             <div class="tp-sets-group">
               <span class="tp-sets-label">Exam Set:</span>
@@ -586,19 +699,27 @@
               <button type="button" id="tpSetCBtn" class="tp-set-chip" data-set="C">Set C</button>
             </div>
 
-            <button id="testPaperShuffleBtn" type="button" class="tool-btn secondary" title="Shuffle questions">🔀 Shuffle</button>
-            <button id="testPaperToggleLayoutBtn" type="button" class="tool-btn secondary" title="Toggle Question Paper vs Ruled Answer Lines">✍️ Toggle Lines</button>
-            <button id="testPaperToggleKeyBtn" type="button" class="tool-btn secondary" title="Toggle Answer Key">👁️ Toggle Answer Key</button>
+            <button id="testPaperShuffleBtn" type="button" class="tool-btn secondary" title="Shuffle questions">🔀
+              Shuffle</button>
+            <button id="testPaperToggleLayoutBtn" type="button" class="tool-btn secondary"
+              title="Toggle Question Paper vs Ruled Answer Lines">✍️ Toggle Lines</button>
+            <button id="testPaperToggleKeyBtn" type="button" class="tool-btn secondary" title="Toggle Answer Key">👁️
+              Toggle Answer Key</button>
           </div>
           <div class="toolbar-right">
-            <button id="testPaperExportWordBtn" type="button" class="tool-btn word-btn" title="Download editable Word document (.doc)">📥 Word (.doc)</button>
-            <button id="testPaperPrintBtn" type="button" class="tool-btn primary" title="Print or save as PDF">🖨️ Print Exam Paper</button>
-            <button id="closeTestPaperPreviewBtn" class="tool-btn close" type="button" aria-label="Close">&times;</button>
+            <button id="testPaperExportWordBtn" type="button" class="tool-btn word-btn"
+              title="Download editable Word document (.doc)">📥 Word (.doc)</button>
+            <button id="testPaperPrintBtn" type="button" class="tool-btn primary" title="Print or save as PDF">🖨️ Print
+              Exam Paper</button>
+            <button id="closeTestPaperPreviewBtn" class="tool-btn close" type="button"
+              aria-label="Close">&times;</button>
           </div>
         </div>
 
         <div class="tp-edit-hint-banner no-print">
-          <span>💡 <strong>Live Interactive Paper:</strong> You can click directly on any title, question, or marks in the paper below to edit text before printing/exporting! Use ⬆️ ⬇️ to reorder, or 🗑️ to remove questions.</span>
+          <span>💡 <strong>Live Interactive Paper:</strong> You can click directly on any title, question, or marks in
+            the paper below to edit text before printing/exporting! Use ⬆️ ⬇️ to reorder, or 🗑️ to remove
+            questions.</span>
         </div>
 
         <div class="testpaper-scroll-wrap">
@@ -618,28 +739,38 @@
           <div class="toolbar-left">
             <span style="font-size: 1.15rem;">📋</span>
             <span style="font-weight: 800; font-size: 0.95rem;">Smart Lesson Plan</span>
-            <span id="lessonPlanContextDisplay" style="font-size: 0.8rem; background: rgba(255,255,255,0.18); padding: 0.2rem 0.6rem; border-radius: 999px;">Class 3 • Ripples</span>
-            <a id="lessonPlanPdfDownloadBtn" href="" target="_blank" class="tool-btn secondary hidden" style="background: #10b981; color: #ffffff; text-decoration: none; padding: 0.35rem 0.75rem; border-radius: 8px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;" download>
+            <span id="lessonPlanContextDisplay"
+              style="font-size: 0.8rem; background: rgba(255,255,255,0.18); padding: 0.2rem 0.6rem; border-radius: 999px;">Class
+              3 • Ripples</span>
+            <a id="lessonPlanPdfDownloadBtn" href="" target="_blank" class="tool-btn secondary hidden"
+              style="background: #10b981; color: #ffffff; text-decoration: none; padding: 0.35rem 0.75rem; border-radius: 8px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 0.35rem;"
+              download>
               <span>📥 Download PDF</span>
             </a>
           </div>
           <div class="toolbar-right">
-            <button id="lessonPlanPrintBtn" type="button" class="tool-btn primary" title="Print or save as PDF">🖨️ Print Lesson Plan</button>
-            <button id="closeLessonPlanPreviewBtn" class="tool-btn close" type="button" aria-label="Close">&times;</button>
+            <button id="lessonPlanPrintBtn" type="button" class="tool-btn primary" title="Print or save as PDF">🖨️
+              Print Lesson Plan</button>
+            <button id="closeLessonPlanPreviewBtn" class="tool-btn close" type="button"
+              aria-label="Close">&times;</button>
           </div>
         </div>
 
         <div class="lessonplan-scroll-wrap">
-          <div id="lessonPlanLoadingSpinner" class="lessonplan-loading hidden" style="padding: 3rem 1rem; text-align: center;">
+          <div id="lessonPlanLoadingSpinner" class="lessonplan-loading hidden"
+            style="padding: 3rem 1rem; text-align: center;">
             <div class="spinner-dot" style="margin: 0 auto 1rem;"></div>
             <span>Loading Lesson Plan from Curriculum Database...</span>
           </div>
 
-          <div id="lessonPlanEmptyNotice" class="lessonplan-empty-notice hidden" style="margin: 3rem auto; max-width: 480px; text-align: center; background: #ffffff; border-radius: 16px; padding: 2.5rem 1.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.06);">
+          <div id="lessonPlanEmptyNotice" class="lessonplan-empty-notice hidden"
+            style="margin: 3rem auto; max-width: 480px; text-align: center; background: #ffffff; border-radius: 16px; padding: 2.5rem 1.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.06);">
             <div class="notice-icon" style="font-size: 2.5rem; margin-bottom: 0.5rem;">📋</div>
             <h3 style="margin: 0 0 0.5rem; color: #1e293b;">Lesson Plan Not Available</h3>
-            <p id="lessonPlanEmptyText" class="muted" style="margin: 0 0 1.2rem; font-size: 0.9rem;">This chapter does not have a saved lesson plan yet in the database.</p>
-            <button type="button" id="closeLessonPlanEmptyBtn" class="tool-btn secondary" style="padding: 0.5rem 1.2rem;">Back to Chat</button>
+            <p id="lessonPlanEmptyText" class="muted" style="margin: 0 0 1.2rem; font-size: 0.9rem;">This chapter does
+              not have a saved lesson plan yet in the database.</p>
+            <button type="button" id="closeLessonPlanEmptyBtn" class="tool-btn secondary"
+              style="padding: 0.5rem 1.2rem;">Back to Chat</button>
           </div>
 
           <div id="printableLessonPlan" class="lessonplan-sheet">
@@ -658,8 +789,10 @@
         <div class="oraltest-modal-header">
           <div class="oraltest-modal-icon">🎙️</div>
           <h3>Oral Test / Voice Viva</h3>
-          <p>Practice speaking your answers aloud! The AI Mascot will ask questions and evaluate your spoken concepts.</p>
-          <button id="closeOralTestConfigBtn" class="oraltest-close-btn" type="button" aria-label="Close oral test">&times;</button>
+          <p>Practice speaking your answers aloud! The AI Mascot will ask questions and evaluate your spoken concepts.
+          </p>
+          <button id="closeOralTestConfigBtn" class="oraltest-close-btn" type="button"
+            aria-label="Close oral test">&times;</button>
         </div>
 
         <div class="oraltest-config-body">
@@ -719,7 +852,8 @@
           </div>
           <div class="viva-header-right">
             <span id="oralTestScoreBadge" class="viva-score-badge">Score: 0 / 0</span>
-            <button id="closeOralTestActiveBtn" class="oraltest-close-btn" type="button" aria-label="Exit Viva">&times;</button>
+            <button id="closeOralTestActiveBtn" class="oraltest-close-btn" type="button"
+              aria-label="Exit Viva">&times;</button>
           </div>
         </div>
 
@@ -754,11 +888,13 @@
           <!-- Student Voice Response Area -->
           <div class="oral-response-section">
             <div class="oral-mic-center">
-              <button id="oralMicBtn" type="button" class="oral-big-mic-btn" aria-label="Click to speak your answer" title="Click to speak your answer">
+              <button id="oralMicBtn" type="button" class="oral-big-mic-btn" aria-label="Click to speak your answer"
+                title="Click to speak your answer">
                 <div class="oral-mic-pulse"></div>
                 <svg class="oral-mic-icon" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                  <path
+                    d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
                 </svg>
               </button>
               <div id="oralMicStatus" class="oral-mic-status">Tap microphone and speak your answer</div>
@@ -767,7 +903,8 @@
             <!-- Real-time Spoken Answer Transcript -->
             <div class="oral-transcript-wrap">
               <label for="oralTranscriptInput" class="transcript-label">Your Spoken Answer (Editable):</label>
-              <textarea id="oralTranscriptInput" class="oral-transcript-input" rows="3" placeholder="Speak your answer, or type here if microphone is unavailable..."></textarea>
+              <textarea id="oralTranscriptInput" class="oral-transcript-input" rows="3"
+                placeholder="Speak your answer, or type here if microphone is unavailable..."></textarea>
             </div>
 
             <!-- Action buttons -->
@@ -865,12 +1002,16 @@
         </div>
 
         <div class="mindmap-header-controls">
-          <a id="mindMapPdfBtn" href="" target="_blank" class="tool-btn secondary hidden" style="background:#8b5cf6; color:#ffffff; text-decoration:none; font-size:0.8rem; font-weight:700; padding:0.35rem 0.7rem; border-radius:8px;" download>📥 PDF Poster</a>
+          <a id="mindMapPdfBtn" href="" target="_blank" class="tool-btn secondary hidden"
+            style="background:#8b5cf6; color:#ffffff; text-decoration:none; font-size:0.8rem; font-weight:700; padding:0.35rem 0.7rem; border-radius:8px;"
+            download>📥 PDF Poster</a>
           <button id="mindMapZoomInBtn" class="mindmap-ctrl-btn" type="button" title="Zoom In">➕</button>
           <button id="mindMapZoomOutBtn" class="mindmap-ctrl-btn" type="button" title="Zoom Out">➖</button>
           <button id="mindMapResetZoomBtn" class="mindmap-ctrl-btn" type="button" title="Fit to Screen">🎯</button>
-          <button id="mindMapPrintPosterBtn" class="mindmap-print-btn" type="button" title="Print Revision Poster">🖨️ Print Poster</button>
-          <button id="closeMindMapBtn" class="mindmap-close-btn" type="button" aria-label="Close Mind Map">&times;</button>
+          <button id="mindMapPrintPosterBtn" class="mindmap-print-btn" type="button" title="Print Revision Poster">🖨️
+            Print Poster</button>
+          <button id="closeMindMapBtn" class="mindmap-close-btn" type="button"
+            aria-label="Close Mind Map">&times;</button>
         </div>
       </div>
 
@@ -881,16 +1022,21 @@
           <span>Loading Chapter Mind Map...</span>
         </div>
 
-        <div id="mindMapEmptyNotice" class="lessonplan-empty-notice hidden" style="margin: 3rem auto; max-width: 440px; text-align: center; background: #ffffff; border-radius: 16px; padding: 2.5rem 1.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.06);">
+        <div id="mindMapEmptyNotice" class="lessonplan-empty-notice hidden"
+          style="margin: 3rem auto; max-width: 440px; text-align: center; background: #ffffff; border-radius: 16px; padding: 2.5rem 1.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.06);">
           <div class="notice-icon" style="font-size: 2.5rem; margin-bottom: 0.5rem;">🗺️</div>
           <h3 style="margin: 0 0 0.5rem; color: #1e293b;">Mind Map Not Available</h3>
-          <p id="mindMapEmptyText" class="muted" style="margin: 0 0 1.2rem; font-size: 0.9rem;">This chapter does not have a saved mind map yet in the database.</p>
-          <button type="button" id="closeMindMapEmptyBtn" class="tool-btn secondary" style="padding: 0.5rem 1.2rem;">Back to Chat</button>
+          <p id="mindMapEmptyText" class="muted" style="margin: 0 0 1.2rem; font-size: 0.9rem;">This chapter does not
+            have a saved mind map yet in the database.</p>
+          <button type="button" id="closeMindMapEmptyBtn" class="tool-btn secondary"
+            style="padding: 0.5rem 1.2rem;">Back to Chat</button>
         </div>
 
         <!-- Visual Image Poster View (if image uploaded) -->
-        <div id="mindMapPosterWrap" class="mindmap-poster-wrap hidden" style="width:100%; height:100%; overflow:auto; text-align:center; padding:1.5rem;">
-          <img id="mindMapPosterImg" src="" alt="Concept Mind Map Diagram" style="max-width:100%; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.25);" />
+        <div id="mindMapPosterWrap" class="mindmap-poster-wrap hidden"
+          style="width:100%; height:100%; overflow:auto; text-align:center; padding:1.5rem;">
+          <img id="mindMapPosterImg" src="" alt="Concept Mind Map Diagram"
+            style="max-width:100%; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.25);" />
         </div>
 
         <div id="mindMapCanvasWrap" class="mindmap-canvas-wrap">
@@ -990,7 +1136,8 @@
                 <div class="answer-label">Answer:</div>
                 <div id="quizRevealedAnswerText" class="answer-content"></div>
                 <div class="self-grade-actions">
-                  <button type="button" class="grade-btn got-it" id="quizGradeCorrectBtn">👍 I Got It Right (+1)</button>
+                  <button type="button" class="grade-btn got-it" id="quizGradeCorrectBtn">👍 I Got It Right
+                    (+1)</button>
                   <button type="button" class="grade-btn need-rev" id="quizGradeReviewBtn">🔄 Need Revision</button>
                 </div>
               </div>
@@ -1013,7 +1160,8 @@
           <p id="quizEncourageMsg" class="result-encourage">Brilliant work! You know your chapter very well.</p>
 
           <div class="result-actions">
-            <button id="quizPrintCertBtn" type="button" class="tool-btn secondary" title="Print achievement certificate">📜 Certificate</button>
+            <button id="quizPrintCertBtn" type="button" class="tool-btn secondary"
+              title="Print achievement certificate">📜 Certificate</button>
             <button id="quizRestartBtn" type="button" class="tool-btn primary">🔄 Play Again</button>
             <button id="quizFinishBtn" type="button" class="tool-btn secondary">💬 Back to Chat</button>
           </div>
@@ -1022,7 +1170,8 @@
     </div>
   </div>
 
-  <script src="chatbot.js?v=2.3"></script>
+  <script src="TweenMax.min.js"></script>
+  <script src="chatbot.js?v=2.4"></script>
 </body>
 
 </html>

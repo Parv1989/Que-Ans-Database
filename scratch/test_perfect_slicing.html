@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perfect Slicing Navigation Test</title>
+  <script src="../public/widget/TweenMax.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #eef2ff; height: 100vh; overflow: hidden; }
+
+    .app-screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-header {
+      height: 56px;
+      background: rgba(255, 255, 255, 0.7);
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.2rem;
+      z-index: 10;
+    }
+
+    .header-icons {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .speaker-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    /* Menu trigger button (3 bars) */
+    .menu-trigger {
+      display: inline-flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: 28px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .menu-trigger-bar {
+      display: block;
+      width: 100%;
+      height: 2.5px;
+      background: #6366f1;
+      border-radius: 2px;
+      transition: all 0.2s ease;
+    }
+    .menu-trigger-bar.top { width: 60%; }
+    .menu-trigger-bar.bottom { width: 60%; align-self: flex-end; }
+
+    /* ==========================================================================
+       Academic Overlay & Seamless Slicing Curtain
+       ========================================================================== */
+    .academic-menu-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 220;
+      overflow: hidden;
+      display: none;
+      pointer-events: none;
+    }
+
+    .academic-menu-overlay.is-active {
+      display: block;
+      pointer-events: auto;
+    }
+
+    /* SVG Slicing Layers */
+    .slicing-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .slice-polygon {
+      fill: #ffffff;
+      will-change: transform;
+    }
+    .slice-polygon.top {
+      fill: #fafbff;
+    }
+    .slice-polygon.middle {
+      fill: #ffffff;
+      filter: drop-shadow(0 0 25px rgba(99, 102, 241, 0.08));
+    }
+    .slice-polygon.bottom {
+      fill: #f5f7ff;
+    }
+
+    /* Close 'X' Trigger INSIDE overlay */
+    .close-trigger {
+      position: absolute;
+      top: 18px;
+      right: 22px;
+      width: 36px;
+      height: 36px;
+      cursor: pointer;
+      z-index: 250;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(99, 102, 241, 0.08);
+      border: 1px solid rgba(99, 102, 241, 0.15);
+      transition: all 0.2s ease;
+    }
+    .close-trigger:hover {
+      background: rgba(99, 102, 241, 0.15);
+      transform: scale(1.08);
+    }
+
+    .close-trigger-bar {
+      position: absolute;
+      width: 18px;
+      height: 2.5px;
+      background: #1e1b4b;
+      border-radius: 2px;
+    }
+    .close-trigger-bar.left {
+      transform: rotate(45deg);
+    }
+    .close-trigger-bar.right {
+      transform: rotate(-45deg);
+    }
+
+    /* Centered Menu Content Card */
+    .menu-container {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 230;
+      padding: 1.5rem;
+    }
+
+    .menu-content-card {
+      width: 100%;
+      max-width: 380px;
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 1.6rem 2rem;
+      box-shadow: 0 20px 60px rgba(99, 102, 241, 0.14), 0 2px 8px rgba(0,0,0,0.04);
+      border: 1px solid rgba(99, 102, 241, 0.12);
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .menu-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 1rem;
+      padding-bottom: 0.8rem;
+      border-bottom: 1.5px solid rgba(99, 102, 241, 0.12);
+    }
+    .menu-brand-icon {
+      font-size: 1.4rem;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      color: #fff;
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 12px;
+    }
+    .menu-brand-title {
+      font-weight: 800; font-size: 1.2rem; color: #1e1b4b; line-height: 1.1;
+    }
+    .menu-brand-sub {
+      font-size: 0.75rem; color: #6366f1; font-weight: 600;
+    }
+
+    .menu-list {
+      list-style: none;
+    }
+    .menu-list li {
+      margin: 4px 0;
+    }
+    .menu-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 10px;
+      text-decoration: none;
+      color: #1e1b4b;
+      font-weight: 700;
+      font-size: 0.98rem;
+      border-radius: 10px;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+    .menu-link:hover {
+      color: #4f46e5;
+      background: rgba(99, 102, 241, 0.06);
+      transform: translateX(6px);
+    }
+    .m-pill {
+      margin-left: auto;
+      font-size: 0.65rem;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.08);
+      color: #6366f1;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .menu-link:hover .m-pill {
+      background: #6366f1;
+      color: #fff;
+    }
+
+    /* Underline slide indicator */
+    .menu-link:before {
+      content: "";
+      position: absolute;
+      left: 10px; bottom: 2px;
+      width: 0; height: 2px;
+      background: #6366f1;
+      border-radius: 2px;
+      transition: width 0.25s ease;
+    }
+    .menu-link:hover:before {
+      width: calc(100% - 20px);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-screen">
+    <!-- Header with Speaker / Sound Icon on Right -->
+    <header class="app-header">
+      <div style="font-weight:800; color:#1e1b4b;">Study Buddy AI</div>
+      <div class="header-icons">
+        <div class="speaker-icon" title="Sound Mute">🔊</div>
+        <div class="menu-trigger" id="openMenuBtn" title="Academic Suite">
+          <span class="menu-trigger-bar top"></span>
+          <span class="menu-trigger-bar middle"></span>
+          <span class="menu-trigger-bar bottom"></span>
+        </div>
+      </div>
+    </header>
+
+    <div style="flex:1; display:flex; align-items:center; justify-content:center; color:#6366f1; font-weight:700;">
+      Chat Window Area (Interactive Canvas)
+    </div>
+
+    <!-- Academic Menu Overlay -->
+    <div class="academic-menu-overlay" id="menuOverlay">
+      <!-- Slicing SVG: 3 Diagonal Curtains covering 100% seamlessly -->
+      <svg class="slicing-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <!-- Top Slice (Polygon covering top-left diagonal) -->
+        <polygon id="sliceTop" class="slice-polygon top" points="0,0 85,0 0,65" />
+        <!-- Middle Slice (Polygon covering center diagonal band) -->
+        <polygon id="sliceMid" class="slice-polygon middle" points="85,0 100,0 100,35 15,100 0,100 0,65" />
+        <!-- Bottom Slice (Polygon covering bottom-right diagonal) -->
+        <polygon id="sliceBot" class="slice-polygon bottom" points="100,35 100,100 15,100" />
+      </svg>
+
+      <!-- Close Trigger INSIDE Overlay: Will NEVER overlap header when menu is closed! -->
+      <div class="close-trigger" id="closeMenuBtn" title="Close Menu">
+        <span class="close-trigger-bar left"></span>
+        <span class="close-trigger-bar right"></span>
+      </div>
+
+      <!-- Centered Menu Card -->
+      <div class="menu-container">
+        <div class="menu-content-card" id="menuCard">
+          <div class="menu-brand">
+            <span class="menu-brand-icon">🎓</span>
+            <div>
+              <div class="menu-brand-title">Academic Suite</div>
+              <div class="menu-brand-sub">Class 2 • Science</div>
+            </div>
+          </div>
+          <ul class="menu-list">
+            <li><a href="#" class="menu-link"><span>📑</span> <span>Test Paper</span> <span class="m-pill">Exam</span></a></li>
+            <li><a href="#" class="menu-link"><span>📋</span> <span>Lesson Plan</span> <span class="m-pill">Pedagogy</span></a></li>
+            <li><a href="#" class="menu-link"><span>🎙️</span> <span>Oral Test</span> <span class="m-pill">Viva</span></a></li>
+            <li><a href="#" class="menu-link"><span>🗺️</span> <span>Mind Map</span> <span class="m-pill">Visual</span></a></li>
+            <li><a href="#" class="menu-link"><span>📝</span> <span>Worksheet</span> <span class="m-pill">Practice</span></a></li>
+            <li><a href="#" class="menu-link"><span>🎯</span> <span>Quiz</span> <span class="m-pill">Challenge</span></a></li>
+            <li><a href="#" class="menu-link"><span>📄</span> <span>Notes</span> <span class="m-pill">Revision</span></a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const openBtn = document.getElementById('openMenuBtn');
+    const closeBtn = document.getElementById('closeMenuBtn');
+    const overlay = document.getElementById('menuOverlay');
+    const card = document.getElementById('menuCard');
+    const sTop = document.getElementById('sliceTop');
+    const sMid = document.getElementById('sliceMid');
+    const sBot = document.getElementById('sliceBot');
+
+    const openBars = openBtn.querySelectorAll('.menu-trigger-bar');
+    const closeBars = closeBtn.querySelectorAll('.close-trigger-bar');
+
+    // Build Open Timeline
+    const tlOpen = new TimelineMax({ paused: true });
+    tlOpen
+      .set(overlay, { display: 'block', pointerEvents: 'auto' })
+      .to(openBars[0], 0.35, { x: 40, y: -40, ease: Power3.easeIn }, 0)
+      .to(openBars[1], 0.35, { x: 40, y: -40, ease: Power3.easeIn }, 0.05)
+      .to(openBars[2], 0.35, { x: 40, y: -40, ease: Power3.easeIn }, 0.1)
+      .fromTo(sTop, 0.65, { x: -120, y: -120 }, { x: 0, y: 0, ease: Power4.easeInOut }, 0.1)
+      .fromTo(sBot, 0.65, { x: 120, y: 120 }, { x: 0, y: 0, ease: Power4.easeInOut }, 0.1)
+      .fromTo(sMid, 0.75, { scale: 0, transformOrigin: '50% 50%' }, { scale: 1, ease: Power4.easeInOut }, 0.15)
+      .fromTo(card, 0.5, { y: 25, opacity: 0, visibility: 'hidden' }, { y: 0, opacity: 1, visibility: 'visible', ease: Power3.easeOut }, 0.45)
+      .fromTo(closeBars, 0.4, { scale: 0, rotation: 0 }, { scale: 1, rotation: (i) => i === 0 ? 45 : -45, ease: Back.easeOut }, 0.4);
+
+    // Build Close Timeline
+    const tlClose = new TimelineMax({ paused: true });
+    tlClose
+      .to(card, 0.35, { y: 20, opacity: 0, ease: Power3.easeIn })
+      .to(sTop, 0.5, { x: -120, y: -120, ease: Power4.easeInOut }, 0.1)
+      .to(sBot, 0.5, { x: 120, y: 120, ease: Power4.easeInOut }, 0.1)
+      .to(sMid, 0.45, { scale: 0, transformOrigin: '50% 50%', ease: Power4.easeInOut }, 0.1)
+      .to(closeBars, 0.25, { scale: 0, ease: Power2.easeIn }, 0)
+      .to(openBars[0], 0.4, { x: 0, y: 0, ease: Power3.easeOut }, 0.3)
+      .to(openBars[1], 0.4, { x: 0, y: 0, ease: Power3.easeOut }, 0.35)
+      .to(openBars[2], 0.4, { x: 0, y: 0, ease: Power3.easeOut }, 0.4)
+      .set(overlay, { display: 'none', pointerEvents: 'none' });
+
+    openBtn.addEventListener('click', () => {
+      tlOpen.restart();
+    });
+
+    closeBtn.addEventListener('click', () => {
+      tlClose.restart();
+    });
+  </script>
+</body>
+</html>

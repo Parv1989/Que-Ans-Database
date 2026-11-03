@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smooth Slicing Test</title>
+  <script src="../public/widget/TweenMax.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f0f4ff; height: 100vh; overflow: hidden; }
+
+    .app-screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ambient-glow {
+      position: absolute;
+      width: 250px;
+      height: 250px;
+      border-radius: 50%;
+      filter: blur(60px);
+      pointer-events: none;
+    }
+    .glow-cyan { top: 20%; left: 30%; background: #06b6d4; opacity: 0.6; }
+
+    .chat-header {
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: rgba(255, 255, 255, 0.8);
+      z-index: 10;
+    }
+
+    .menu-trigger {
+      display: inline-flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: 28px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .menu-trigger-bar {
+      display: block;
+      width: 100%;
+      height: 2.5px;
+      background: #4f46e5;
+      border-radius: 2px;
+    }
+    .menu-trigger-bar.top { width: 55%; }
+    .menu-trigger-bar.bottom { width: 55%; align-self: flex-end; }
+
+    /* Overlay */
+    .academic-menu-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 220;
+      overflow: hidden;
+      display: none;
+      background: #ffffff;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .academic-menu-overlay.is-active {
+      display: block;
+      opacity: 1;
+    }
+
+    .academic-slicing-svg {
+      position: absolute;
+      inset: -5px;
+      width: calc(100% + 10px);
+      height: calc(100% + 10px);
+      pointer-events: none;
+      z-index: 221;
+    }
+
+    .academic-slice-polygon {
+      will-change: transform;
+      shape-rendering: geometricPrecision;
+    }
+    .academic-slice-polygon.top {
+      fill: #fafbff;
+      stroke: #fafbff;
+      stroke-width: 1.5;
+    }
+    .academic-slice-polygon.middle {
+      fill: #ffffff;
+      stroke: #ffffff;
+      stroke-width: 1.5;
+      filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.08));
+    }
+    .academic-slice-polygon.bottom {
+      fill: #f5f7ff;
+      stroke: #f5f7ff;
+      stroke-width: 1.5;
+    }
+
+    .close-trigger {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      width: 38px;
+      height: 38px;
+      cursor: pointer;
+      z-index: 260;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    }
+    .close-trigger-bar {
+      position: absolute;
+      width: 18px;
+      height: 2.5px;
+      background: #1e1b4b;
+      border-radius: 2px;
+    }
+    .close-trigger-bar.left { transform: rotate(-45deg); }
+    .close-trigger-bar.right { transform: rotate(45deg); }
+
+    .menu-container {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 230;
+      padding: 1.5rem;
+    }
+    .menu-content-card {
+      width: 100%;
+      max-width: 360px;
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 1.6rem 2rem;
+      box-shadow: 0 20px 60px rgba(99, 102, 241, 0.14);
+      border: 1px solid rgba(99, 102, 241, 0.12);
+      opacity: 0;
+      visibility: hidden;
+    }
+    .menu-item {
+      padding: 8px 10px;
+      margin: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      color: #1e1b4b;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-screen">
+    <div class="ambient-glow glow-cyan"></div>
+
+    <header class="chat-header">
+      <div style="font-weight:800; color:#1e1b4b;">Study Buddy AI</div>
+      <div class="menu-trigger" id="openMenuBtn">
+        <span class="menu-trigger-bar top"></span>
+        <span class="menu-trigger-bar middle"></span>
+        <span class="menu-trigger-bar bottom"></span>
+      </div>
+    </header>
+
+    <div style="flex:1; display:flex; align-items:center; justify-content:center; color:#6366f1; font-weight:700;">
+      Chat Window Area
+    </div>
+
+    <div class="academic-menu-overlay" id="academicMenuOverlay">
+      <!-- Slicing SVG with 6-unit OVERLAPPING polygons to prevent ANY subpixel gap -->
+      <svg class="academic-slicing-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <!-- Top Slice: reaches (88, -2) and (-2, 68) -->
+        <polygon id="academicSliceTop" class="academic-slice-polygon top" points="-2,-2 88,-2 -2,68" />
+        <!-- Middle Slice: reaches (82, -2) to (102, 37) and (12, 102) to (-2, 62) -->
+        <polygon id="academicSliceMid" class="academic-slice-polygon middle" points="82,-2 102,-2 102,37 12,102 -2,102 -2,62" />
+        <!-- Bottom Slice: reaches (102, 31) and (16, 102) -->
+        <polygon id="academicSliceBot" class="academic-slice-polygon bottom" points="102,31 102,102 16,102" />
+      </svg>
+
+      <span class="close-trigger" id="academicCloseTrigger" title="Close Menu">
+        <i class="close-trigger-bar left"></i>
+        <i class="close-trigger-bar right"></i>
+      </span>
+
+      <div class="menu-container">
+        <div class="menu-content-card" id="menuContentCard">
+          <div style="font-weight:800; font-size:1.2rem; margin-bottom:12px;">🎓 Academic Suite</div>
+          <div class="menu-item">📑 Test Paper</div>
+          <div class="menu-item">📋 Lesson Plan</div>
+          <div class="menu-item">🎙️ Oral Test</div>
+          <div class="menu-item">🗺️ Mind Map</div>
+          <div class="menu-item">📝 Worksheet</div>
+          <div class="menu-item">🎯 Quiz</div>
+          <div class="menu-item">📄 Notes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const openTrigger = document.getElementById('openMenuBtn');
+    const closeTrigger = document.getElementById('academicCloseTrigger');
+    const menuOverlay = document.getElementById('academicMenuOverlay');
+    const menuContentCard = document.getElementById('menuContentCard');
+    const openTriggerTop = openTrigger.querySelector('.menu-trigger-bar.top');
+    const openTriggerMiddle = openTrigger.querySelector('.menu-trigger-bar.middle');
+    const openTriggerBottom = openTrigger.querySelector('.menu-trigger-bar.bottom');
+    const closeTriggerBars = closeTrigger.querySelectorAll('.close-trigger-bar');
+    const sliceTop = document.getElementById('academicSliceTop');
+    const sliceMid = document.getElementById('academicSliceMid');
+    const sliceBot = document.getElementById('academicSliceBot');
+    const menuItems = menuContentCard.querySelectorAll('.menu-item');
+
+    const tlOpen = new TimelineMax({
+      paused: true,
+      onStart: function() {
+        menuOverlay.style.display = 'block';
+        menuOverlay.classList.add('is-active');
+        openTrigger.style.visibility = 'hidden';
+      }
+    });
+
+    const tlClose = new TimelineMax({
+      paused: true,
+      onComplete: function() {
+        menuOverlay.classList.remove('is-active');
+        menuOverlay.style.display = 'none';
+        openTrigger.style.visibility = 'visible';
+        TweenMax.set([openTriggerTop, openTriggerMiddle, openTriggerBottom], { x: 0, y: 0, clearProps: "transform" });
+        TweenMax.set(sliceTop, { x: 0, y: 0, clearProps: "transform" });
+        TweenMax.set(sliceBot, { x: 0, y: 0, clearProps: "transform" });
+        TweenMax.set(sliceMid, { x: 0, y: 0, scale: 1, clearProps: "transform" });
+        TweenMax.set(closeTriggerBars, { scale: 1, clearProps: "transform" });
+        TweenMax.set(menuContentCard, { clearProps: "transform,opacity,visibility" });
+        TweenMax.set(menuItems, { clearProps: "transform,opacity" });
+      }
+    });
+
+    // OPEN: Buttery smooth Cubic easing, coordinated translation, staggered items
+    tlOpen
+      .to(openTriggerTop, 0.28, { x: 45, y: -45, ease: Power2.easeIn }, 0)
+      .to(openTriggerMiddle, 0.28, { x: 45, y: -45, ease: Power2.easeIn }, 0.04)
+      .to(openTriggerBottom, 0.28, { x: 45, y: -45, ease: Power2.easeIn }, 0.08)
+      .fromTo(sliceTop, 0.6, { x: -110, y: -110 }, { x: 0, y: 0, ease: Cubic.easeOut }, 0.06)
+      .fromTo(sliceBot, 0.6, { x: 110, y: 110 }, { x: 0, y: 0, ease: Cubic.easeOut }, 0.06)
+      .fromTo(sliceMid, 0.65, { x: 100, y: -80, opacity: 0.8 }, { x: 0, y: 0, opacity: 1, ease: Cubic.easeOut }, 0.08)
+      .fromTo(menuContentCard, 0.45, { y: 20, opacity: 0, visibility: 'hidden', scale: 0.96 }, { y: 0, opacity: 1, visibility: 'visible', scale: 1, ease: Back.easeOut.config(1.2) }, 0.35)
+      .staggerFromTo(menuItems, 0.35, { y: 12, opacity: 0 }, { y: 0, opacity: 1, ease: Power2.easeOut }, 0.03, 0.4)
+      .fromTo(closeTriggerBars, 0.35, { scale: 0, rotation: 0 }, { scale: 1, rotation: (i) => i === 0 ? -45 : 45, ease: Back.easeOut.config(1.5) }, 0.4);
+
+    // CLOSE: Fast, crisp reverse
+    tlClose
+      .to(menuContentCard, 0.25, { y: 15, opacity: 0, scale: 0.97, ease: Power2.easeIn }, 0)
+      .to(closeTriggerBars, 0.2, { scale: 0, ease: Power2.easeIn }, 0)
+      .to(sliceMid, 0.45, { x: 100, y: -80, opacity: 0.8, ease: Cubic.easeIn }, 0.05)
+      .to(sliceTop, 0.45, { x: -110, y: -110, ease: Cubic.easeIn }, 0.05)
+      .to(sliceBot, 0.45, { x: 110, y: 110, ease: Cubic.easeIn }, 0.05)
+      .to(openTriggerTop, 0.3, { x: 0, y: 0, ease: Power2.easeOut }, 0.2)
+      .to(openTriggerMiddle, 0.3, { x: 0, y: 0, ease: Power2.easeOut }, 0.24)
+      .to(openTriggerBottom, 0.3, { x: 0, y: 0, ease: Power2.easeOut }, 0.28);
+
+    openTrigger.addEventListener('click', () => {
+      tlClose.pause();
+      tlOpen.restart();
+    });
+
+    closeTrigger.addEventListener('click', () => {
+      tlOpen.pause();
+      tlClose.restart();
+    });
+  </script>
+</body>
+</html>
+
